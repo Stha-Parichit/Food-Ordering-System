@@ -1,0 +1,53 @@
+.upload-container {
+    max-width: 600px;
+    margin: auto;
+    padding: 20px;
+    background-color: #181818;
+    color: white;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  }
+  
+  .upload-container h2 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .upload-container label {
+    display: block;
+    margin: 10px 0 5px;
+    font-size: 14px;
+  }
+  
+  .upload-container input,
+  .upload-container textarea,
+  .upload-container button {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: none;
+    border-radius: 5px;
+  }
+  
+  .upload-container input,
+  .upload-container textarea {
+    background-color: #282828;
+    color: white;
+  }
+  
+  .upload-container textarea {
+    resize: none;
+    height: 100px;
+  }
+  
+  .upload-container button {
+    background-color: #28a745;
+    color: white;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  
+  .upload-container button:hover {
+    background-color: #218838;
+  }
+  

@@ -1,0 +1,171 @@
+.checkout-container {
+    background-color: #1a1a1a;
+    min-height: 100vh;
+    padding: 20px;
+    color: white;
+}
+
+.back-arrow {
+    color: white;
+    font-size: 18px;
+    margin-bottom: 20px;
+    cursor: pointer;
+}
+
+.checkout-card {
+    background-color: #2a2a2a;
+    border-radius: 15px;
+    padding: 20px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.section {
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #3a3a3a;
+}
+
+.section h2 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.order-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    color: #e0e0e0;
+}
+
+.address-input {
+    width: 100%;
+    padding: 12px;
+    background-color: #3a3a3a;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    margin-bottom: 10px;
+}
+
+.loyalty-message {
+    color: #4CAF50;
+    font-size: 14px;
+}
+
+.discount-options, .charity-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.discount-btn, .charity-btn {
+    background-color: #3a3a3a;
+    border: none;
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.discount-btn small, .charity-btn small {
+    color: #999;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.discount-btn.selected, .charity-btn.selected {
+    background-color: #4CAF50;
+}
+
+.payment-options {
+    display: flex;
+    gap: 10px;
+}
+
+.payment-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background-color: #3a3a3a;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.payment-btn.selected {
+    background-color: #4CAF50;
+}
+
+.order-summary {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #3a3a3a;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    color: #e0e0e0;
+}
+
+.summary-row.total {
+    color: white;
+    font-weight: bold;
+    font-size: 18px;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #3a3a3a;
+}
+
+.complete-payment-btn {
+    width: 100%;
+    padding: 15px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: background-color 0.3s ease;
+}
+
+.complete-payment-btn:hover {
+    background-color: #45a049;
+}
+
+/* Hover effects */
+.discount-btn:hover, .charity-btn:hover, .payment-btn:hover {
+    background-color: #4a4a4a;
+}
+
+.discount-btn.selected:hover, .charity-btn.selected:hover, .payment-btn.selected:hover {
+    background-color: #45a049;
+}
+
+/* Focus styles */
+.address-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #4CAF50;
+}
+
+@media (max-width: 480px) {
+    .discount-options, .charity-options {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .checkout-card {
+        padding: 15px;
+    }
+}

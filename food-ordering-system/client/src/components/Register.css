@@ -1,0 +1,182 @@
+/* Base styles */
+.register-container {
+    display: flex;
+    height: 100vh;
+    background-color: #f2f2f2;
+    justify-content: center; /* Center the content horizontally */
+  }
+  
+  .register-left {
+    flex: 1;
+    background-color: #000;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    text-align: center;
+  }
+  
+  .register-left h1 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+  }
+  
+  .register-left p {
+    font-size: 1.2rem;
+    margin-top: 0;
+    color: #ccc;
+  }
+  
+  .register-right {
+    flex: 2;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background-color: #fff;
+    border-radius: 8px; /* Smooth rounded corners for the registration section */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Light shadow for depth */
+    max-width: 600px; /* Maximum width to maintain nice proportions */
+    margin: 20px;
+  }
+  
+  .register-right h2 {
+    margin-bottom: 20px;
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #000;
+  }
+  
+  .register-right form {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .register-right input {
+    margin-bottom: 15px;
+    padding: 12px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    transition: border-color 0.3s ease;
+  }
+  
+  .register-right input:focus {
+    border-color: #ff3333; /* Highlight input on focus */
+    outline: none; /* Remove default focus outline */
+  }
+  
+  .terms {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    color: #000;
+  }
+  
+  .terms input {
+    margin-right: 10px;
+    margin-top: 18px;
+    width: 15px;
+    height: 15px;
+  }
+  
+  p{
+    color: #000;
+  }
+  
+  .register-right button {
+    background-color: #ff3333;
+    color: #fff;
+    padding: 12px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+  }
+
+  .register-right p{
+    margin-top: 20px;
+  }
+
+  .register-right a{
+    color: #575ee2;
+  }
+  
+  .register-right a :hover{
+    text-decoration: underline;
+  }
+
+  .register-right button:hover {
+    background-color: #cc0000;
+  }
+  
+  .register-right button:active {
+    background-color: #990000; /* Darken button when clicked */
+  }
+  
+  .register-right .message {
+    margin-top: 15px;
+    color: green;
+  }
+  
+  /* Mobile responsiveness */
+  @media (max-width: 768px) {
+    .register-container {
+      flex-direction: column;
+      align-items: center;
+    }
+  
+    .register-left, .register-right {
+      flex: none;
+      width: 100%;
+    }
+  
+    .register-left h1 {
+      font-size: 2rem; /* Slightly smaller text on mobile */
+    }
+  
+    .register-left p {
+      font-size: 1rem;
+    }
+  
+    .register-right {
+      padding: 20px;
+      max-width: 90%;
+      box-shadow: none;
+    }
+  
+    .register-right h2 {
+      font-size: 1.6rem;
+    }
+  
+    .register-right input {
+      font-size: 0.95rem; /* Adjust font size for smaller screens */
+    }
+  
+    .register-right button {
+      padding: 10px; /* Slightly smaller button padding */
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .register-left h1 {
+      font-size: 1.8rem;
+    }
+  
+    .register-left p {
+      font-size: 1rem;
+    }
+  
+    .register-right h2 {
+      font-size: 1.4rem;
+    }
+  
+    .register-right button {
+      padding: 8px; /* Adjust button padding further */
+    }
+  }
+  
