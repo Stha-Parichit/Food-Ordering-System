@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { FaBell } from "react-icons/fa";
 import "./Checkout.css";
 
 const Checkout = () => {
@@ -9,6 +10,43 @@ const Checkout = () => {
   const [selectedCharity, setSelectedCharity] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('Standard');
   const navigate = useNavigate();
+  const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+    const userEmail = localStorage.getItem("userEmail");
+    const firstLetter = userEmail ? userEmail.charAt(0).toUpperCase() : "";
+  
+    useEffect(() => {
+              document.title = "Admin Dashboard";
+              const link = document.querySelector("link[rel*='icon']");
+              link.href = "./images/logo.png";
+          }, []);
+    // Profile Dropdown Handlers
+      const handleMouseEnter = () => setIsDropdownVisible(true);
+      const handleMouseLeave = () => setIsDropdownVisible(false);
+    
+      const handleLogout = () => {
+          localStorage.removeItem("token");
+          localStorage.removeItem("userEmail");
+          navigate("/login");  // Use navigate instead of window.location.href
+        };
+    
+      useEffect(() => {
+        const handleClickOutside = (e) => {
+          const profileDropdown = document.querySelector(".profile-dropdown");
+          const profileIcon = document.querySelector(".profile-icon-container");
+          if (
+            profileDropdown &&
+            !profileDropdown.contains(e.target) &&
+            !profileIcon.contains(e.target)
+          ) {
+            setIsDropdownVisible(false);
+          }
+        };
+    
+        document.addEventListener("click", handleClickOutside);
+        return () => {
+          document.removeEventListener("click", handleClickOutside);
+        };
+      }, []);
 
   // Get cart data from localStorage when the component mounts
   useEffect(() => {
@@ -32,6 +70,10 @@ const Checkout = () => {
     setSelectedCharity(charity);
     localStorage.setItem("selectedCharity", JSON.stringify(charity)); // Save to localStorage
   };
+
+  const handleBackClick = () => {
+    navigate('/cart');
+  }
 
   // Calculate the total price
   const getTotal = () => {
@@ -68,7 +110,40 @@ const Checkout = () => {
 
   return (
     <div className="checkout-container">
-      <div className="back-arrow">← BACK</div>
+      <header className="home-header">
+              <div className="home-logo">
+                <img src="/images/logo.png" alt="Logo" />
+                  <span>YOO!!!</span>
+              </div>
+              <nav className="home-nav-links">
+                <a href="/home">Home</a>
+                <a href="/categories">Categories</a>
+                <a href="/dashboard">Dashboard</a>
+                <div className="user-search-bar">
+                  <input type="text" placeholder="Search" />
+                  <button>🔍</button>
+                </div>
+              </nav>
+              <div className="header-right">
+                <FaBell className="notification-icon" />
+                <div
+                  className="profile-icon-container"
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                  onClick={() => setIsDropdownVisible(!isDropdownVisible)}
+                >
+                  <span className="profile-icon">{firstLetter}</span>
+                    {isDropdownVisible && (
+                    <div className="profile-dropdown">
+                      <p>{userEmail}</p>
+                      <a href="/profile">View Profile</a>
+                      <button onClick={handleLogout}>Logout</button>
+                    </div>
+                    )}
+                </div>
+              </div>
+            </header>
+      <div className="back-arrow" onClick={handleBackClick}>← BACK</div>
 
       <div className="checkout-card">
         <div className="section">
@@ -137,10 +212,10 @@ const Checkout = () => {
               Standard
             </button>
             <button 
-              className={`payment-btn ${paymentMethod === 'Fast' ? 'selected' : ''}`}
-              onClick={() => setPaymentMethod('Fast')}
+              className={`payment-btn ${paymentMethod === 'COD' ? 'selected' : ''}`}
+              onClick={() => setPaymentMethod('COD')}
             >
-              Fast
+              Cash On Delivery
             </button>
           </div>
         </div>
@@ -172,6 +247,14 @@ const Checkout = () => {
           Complete payment
         </button>
       </div>
+      {/* Footer Section */}
+      <footer className="home-footer">
+        <p>© RecipeShare All Rights Reserved</p>
+        <p>🍴 YOO!!!</p>
+        <p>
+          Disclaimer: This site is only for ordering and learning to cook food.
+        </p>
+      </footer>
     </div>
   );
 };

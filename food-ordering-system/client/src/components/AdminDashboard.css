@@ -15,6 +15,13 @@ body {
   flex-direction: column;
   overflow-x: hidden;
 }
+.dashboard {
+    background-color: rgb(255, 255, 255);
+    color: rgb(0, 0, 0);
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    text-align: center;
+  }
   /* Header */
   .home-header {
     display: flex;
@@ -157,78 +164,63 @@ body {
     gap: 10px;
     width: auto;
   }
+  
 
-.upload-food-container {
-    width: 100%;
-    margin: auto;
-    padding: 20px;
-    background-color: #ffffff;
-    color: rgb(0, 0, 0);
-    border-radius: 10px;
+  .small-pie-chart {
+    width: 35%; 
+    margin: 0 auto; 
   }
   
-  .upload-food-container h2 {
-    text-align: center;
-    margin-bottom: 20px;
-    margin-top: 60px;
-    text-shadow: 0 0 10px rgb(67, 153, 190);
+  .title {
+    font-size: 38px;
+    margin: 100px 0;
+    margin-bottom: 25px;
+    
   }
 
-  .upload-food-form {
+  .charity, .loyalty, .revenue {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: inset 0 0 10px rgb(255, 153, 153);
     width: 80%;
     display: flex;
-    justify-content: center;
+    justify-content: space-around;
+    align-items: center;
     flex-direction: column;
     margin-left: 10%;
-    margin-bottom: 20px;
+  }
+  .stats {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px;
+    margin-top: 40px;
+    color: #fff;
+    gap: 80px;
+  }
+
+  .stats p {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    color: #000000;
+    background-color: #fff;
     border-radius: 10px;
     box-shadow: inset 0 0 10px rgb(255, 153, 153);
+    width: 200px;
+    height: 80px;
   }
-  
-  .upload-food-container label {
-    display: block;
-    margin-left: 10%;
-    margin-top: 20px;
-    font-size: 14px;
-    font-weight: bold;
+  .loyalty-cards {
+    display: flex;
+    justify-content: space-around;
   }
-  
-  .upload-food-container input,
-  .upload-food-container textarea,
-  .upload-food-container button {
-    width: 80%;
-    padding: 10px;
-    margin-bottom: 15px;
-    margin-left: 10%;
-    border: none;
-    border-radius: 5px;
-    box-shadow: inset 0 0 10px rgb(255, 153, 153);
-  }
-  
-  .upload-food-container input,
-  .upload-food-container textarea {
-    background-color: #ffffff;
-    color: rgb(0, 0, 0);
-    box-shadow: inset 0 0 10px rgb(67, 153, 190);
-  }
-  
-  .upload-food-container textarea {
-    resize: none;
-    height: 100px;
-  }
-  
-  .upload-food-container button {
-    background-color: #ff6200;
-    box-shadow: inset 0 0 10px rgb(67, 153, 190);
-    color: #ffffff;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 16px;
-  }
-  
-  .upload-food-container button:hover {
-    background-color: #4a4a4a;
-    color: white;
+  .card {
+    background: #ffffff;
+    padding: 15px;
+    border-radius: 10px;
+    width: 45%;
   }
 
   .home-footer {
@@ -251,6 +243,16 @@ body {
     .home-nav-links {
       gap: 10px;
     }
+  
+    .charity, .loyalty, .revenue {
+      padding-left: 10px;
+    }
+  
+    .stats {
+      max-width: 100%;
+      width: 100%;
+    }
+  
     .home-footer {
       max-width: 109%;
       width: 109%;

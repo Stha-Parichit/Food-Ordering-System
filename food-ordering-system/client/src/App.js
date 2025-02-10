@@ -15,6 +15,11 @@ import Checkout from './components/Checkout';
 import OrderConfirmation from './components/OrderConfirmation';
 import OrderTracking from './components/OrderTracking';
 import UploadFood from './components/UploadFood';
+import AdminDashboard from './components/AdminDashboard';
+import UserManagement from './components/UserManagement';
+import PaymentSuccess from './components/PaymentSuccess';
+import PaymentFailed from './components/PaymentFailed';
+import UserHome from './components/UserHome';
 
 const App = () => (
   <Router>
@@ -26,6 +31,7 @@ const App = () => (
       <Route path="/home" element={<HomePage />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/user-home" element={<UserHome />} />
 
       <Route path="/filter" element={<FilterPage />} />
       <Route path="/sidebar" element={<Sidebar />} />
@@ -40,6 +46,14 @@ const App = () => (
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/upload-item" element={<UploadFood />} />
+
+      {/* Define the payment page routes */}
+      <Route path="/payment-success" element={<PaymentSuccess />} />
+      <Route path="/payment-failed" element={<PaymentFailed />} />
+
+      {/* Define the admin page routes */}
+      <Route path="/admin-dashboard" element={<AdminDashboard />} />
+      <Route path="/manage-user" element={<UserManagement />} />
     </Routes>
   </Router>
 );

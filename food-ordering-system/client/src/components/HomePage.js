@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import OrderingCard from "./OrderingCard"; // Component for individual food cards
 import { useNavigate } from "react-router-dom";
 import "./HomePage.css";
+import { FaBell } from "react-icons/fa";
 
 const HomePage = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -11,6 +12,12 @@ const HomePage = () => {
   const userEmail = localStorage.getItem("userEmail");
   const firstLetter = userEmail ? userEmail.charAt(0).toUpperCase() : "";
   const navigate = useNavigate();
+
+  useEffect(() => {
+          document.title = "User Home";
+          const link = document.querySelector("link[rel*='icon']");
+          link.href = "./images/logo.png";
+      }, []);
 
   // Add to Cart
   const handleAddToCart = (item) => {
@@ -109,12 +116,12 @@ const HomePage = () => {
   return (
     <div className="home-page">
       {/* Header Section */}
-      <header className="header">
-        <div className="logo">
+      <header className="home-header">
+        <div className="home-logo">
           <img src="/images/logo.png" alt="Logo" />
           <span>YOO!!!</span>
         </div>
-        <nav className="nav-links">
+        <nav className="home-nav-links">
           <a href="/home">Home</a>
           <a href="/categories">Categories</a>
           <a href="/dashboard">Dashboard</a>
@@ -124,6 +131,7 @@ const HomePage = () => {
           </div>
         </nav>
         <div className="header-right">
+          <FaBell className="notification-icon" />
           <div
             className="profile-icon-container"
             onMouseEnter={handleMouseEnter}
@@ -141,9 +149,6 @@ const HomePage = () => {
           </div>
         </div>
       </header>
-
-      {/* Carousel Section */}
-      <section className="food-carousel">
         <div className="carousel-container">
           <button className="carousel-button prev" onClick={handlePrev}>
             ❮
@@ -161,7 +166,7 @@ const HomePage = () => {
                   <div className="main-content">
                     <img
                       src={featuredItems[currentIndex].image_url}
-                      alt={featuredItems[currentIndex].title}
+                      alt={featuredItems[currentIndex].name}
                       className="main-image"
                     />
                     <div className="small-images">
@@ -179,7 +184,7 @@ const HomePage = () => {
                   </div>
                 </div>
                 <div className="food-text">
-                  <h2>{featuredItems[currentIndex].title}</h2>
+                  <h2>{featuredItems[currentIndex].name}</h2>
                   <p>{featuredItems[currentIndex].description}</p>
                   <button
                     className="order-now"
@@ -195,12 +200,11 @@ const HomePage = () => {
             ❯
           </button>
         </div>
-      </section>
 
       {/* Food Section */}
       <section className="food-section">
         <h2 className="section-title">Best Recipes</h2>
-        <div className="categories">
+        <div className="home-categories">
           <span>All</span>
           <span>Indian</span>
           <span>Punjabi</span>
@@ -226,7 +230,7 @@ const HomePage = () => {
       </section>
 
       {/* Footer Section */}
-      <footer className="footer">
+      <footer className="home-footer">
         <p>© RecipeShare All Rights Reserved</p>
         <p>🍴 YOO!!!</p>
         <p>
