@@ -34,12 +34,17 @@ const OrderConfirmation = () => {
     });
   }, []);
 
-  const handleClick = () => {
-    // Save the order details to localStorage
-    localStorage.setItem("orderDetails", JSON.stringify(orderDetails));
+  // const handleClick = () => {
+  //   // Save the order details to localStorage
+  //   localStorage.setItem("orderDetails", JSON.stringify(orderDetails));
 
-    // Navigate to OrderTracking page
-    navigate('/track');
+  //   // Navigate to OrderTracking page
+  //   navigate('/track');
+  // };
+
+  // Fake payment function (simulates Esewa redirection)
+  const handleEsewaPayment = () => {
+    navigate('/payment-success'); // Redirect to success page
   };
 
   return (
@@ -107,8 +112,8 @@ const OrderConfirmation = () => {
           </div>
         </section>
 
-        <button className="confirm-button" onClick={handleClick}>
-          Confirm Order
+        <button className="pay-button" onClick={handleEsewaPayment}>
+          Pay with Esewa
         </button>
       </div>
     </div>

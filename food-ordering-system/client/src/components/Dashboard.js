@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import {FaBell } from "react-icons/fa";
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -40,39 +41,39 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
-      {/* Header */}
-      <header className="header">
-        <div className="logo">
-          <img src="/images/logo.png" alt="Logo" />
-          <span>YOO!!!</span>
-        </div>
-        <nav className="nav-links">
-          <a href="/home">Home</a>
-          <a href="/categories">Categories</a>
-          <a href="/dashboard">Dashboard</a>
-          <div className="search-bar">
-            <input type="text" placeholder="Search" />
-            <button>🔍</button>
-          </div>
-        </nav>
-        <div className="header-right">
-          <div
-            className="profile-icon-container"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            onClick={() => setIsDropdownVisible(!isDropdownVisible)}
-          >
-            <span className="profile-icon">{firstLetter}</span>
-            {isDropdownVisible && (
-              <div className="profile-dropdown">
-                <p>{userEmail}</p>
-                <a href="/profile">View Profile</a>
-                <button onClick={handleLogout}>Logout</button>
+      <header className="home-header">
+              <div className="home-logo">
+                <img src="/images/logo.png" alt="Logo" />
+                  <span>YOO!!!</span>
               </div>
-            )}
-          </div>
-        </div>
-      </header>
+              <nav className="home-nav-links">
+                <a href="/home">Home</a>
+                <a href="/categories">Categories</a>
+                <a href="/dashboard">Dashboard</a>
+                <div className="user-search-bar">
+                  <input type="text" placeholder="Search" />
+                  <button>🔍</button>
+                </div>
+              </nav>
+              <div className="header-right">
+                <FaBell className="notification-icon" />
+                <div
+                  className="profile-icon-container"
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                  onClick={() => setIsDropdownVisible(!isDropdownVisible)}
+                >
+                <span className="profile-icon">{firstLetter}</span>
+                  {isDropdownVisible && (
+                  <div className="profile-dropdown">
+                    <p>{userEmail}</p>
+                    <a href="/profile">View Profile</a>
+                    <button onClick={handleLogout}>Logout</button>
+                  </div>
+                  )}
+              </div>
+            </div>
+            </header>
 
       <h1 className="dashboard-title">My Impact</h1>
 
@@ -98,13 +99,19 @@ const Dashboard = () => {
       {/* Order Summary */}
       <div className="summary-grid">
         <div className="summary-card">
-          <h3 className="summary-label">Total orders</h3>
-          <div className="summary-value">50</div>
+          <div className="total-orders-icon">📦</div>
+          <div className="summary-content">
+            <h3 className="summary-label">Total orders</h3>
+            <div className="summary-value">50</div>
+          </div>
         </div>
 
         <div className="summary-card">
-          <h3 className="summary-label">Total spent</h3>
-          <div className="summary-value">Rs. 60000</div>
+          <div className="total-spent-icon">💸</div>
+          <div className="summary-content">
+            <h3 className="summary-label">Total spent</h3>
+            <div className="summary-value">Rs. 60000</div>
+          </div>
         </div>
       </div>
 
@@ -132,17 +139,13 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="footer">
-        <div className="copyright">Copyright © BaseSystem All Rights Reserved</div>
-        <div className="footer-links">
-          <span>Contact</span>
-          <span>Blog</span>
-        </div>
-        <div className="footer-logo">YOO!!!</div>
-        <div className="disclaimer">
-          Disclaimer: This site is only for ordering and learning to cook food
-        </div>
+      {/* Footer Section */}
+      <footer className="home-footer">
+        <p>© RecipeShare All Rights Reserved</p>
+        <p>🍴 YOO!!!</p>
+        <p>
+          Disclaimer: This site is only for ordering and learning to cook food.
+        </p>
       </footer>
     </div>
   );

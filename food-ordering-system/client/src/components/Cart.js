@@ -1,10 +1,49 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Cart.css";
+import { FaBell } from "react-icons/fa";
 
 const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
   const navigate = useNavigate();
+  const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+  const userEmail = localStorage.getItem("userEmail");
+  const firstLetter = userEmail ? userEmail.charAt(0).toUpperCase() : "";
+
+    useEffect(() => {
+              document.title = "Admin Dashboard";
+              const link = document.querySelector("link[rel*='icon']");
+              link.href = "./images/logo.png";
+          }, []);
+  
+    // Profile Dropdown Handlers
+      const handleMouseEnter = () => setIsDropdownVisible(true);
+      const handleMouseLeave = () => setIsDropdownVisible(false);
+    
+      const handleLogout = () => {
+          localStorage.removeItem("token");
+          localStorage.removeItem("userEmail");
+          navigate("/login");  // Use navigate instead of window.location.href
+        };
+    
+      useEffect(() => {
+        const handleClickOutside = (e) => {
+          const profileDropdown = document.querySelector(".profile-dropdown");
+          const profileIcon = document.querySelector(".profile-icon-container");
+          if (
+            profileDropdown &&
+            !profileDropdown.contains(e.target) &&
+            !profileIcon.contains(e.target)
+          ) {
+            setIsDropdownVisible(false);
+          }
+        };
+    
+        document.addEventListener("click", handleClickOutside);
+        return () => {
+          document.removeEventListener("click", handleClickOutside);
+        };
+      }, []);
 
   // Get cart data from localStorage when the component mounts
   useEffect(() => {
@@ -43,6 +82,40 @@ const Cart = () => {
 
   return (
     <div className="cart-page">
+      <header className="home-header">
+        <div className="home-logo">
+          <img src="/images/logo.png" alt="Logo" />
+            <span>YOO!!!</span>
+        </div>
+        <nav className="home-nav-links">
+          <a href="/home">Home</a>
+          <a href="/categories">Categories</a>
+          <a href="/dashboard">Dashboard</a>
+          <div className="user-search-bar">
+            <input type="text" placeholder="Search" />
+            <button>🔍</button>
+          </div>
+        </nav>
+        <div className="header-right">
+          <FaBell className="notification-icon" />
+          <div
+            className="profile-icon-container"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            onClick={() => setIsDropdownVisible(!isDropdownVisible)}
+          >
+            <span className="profile-icon">{firstLetter}</span>
+              {isDropdownVisible && (
+              <div className="profile-dropdown">
+                <p>{userEmail}</p>
+                <a href="/profile">View Profile</a>
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+              )}
+          </div>
+        </div>
+      </header>
+      
       <h2>Your Cart</h2>
       <div className="cart-items">
         {cartItems.length === 0 ? (
@@ -75,6 +148,14 @@ const Cart = () => {
           </button>
         </div>
       )}
+      {/* Footer Section */}
+      <footer className="home-footer">
+        <p>© RecipeShare All Rights Reserved</p>
+        <p>🍴 YOO!!!</p>
+        <p>
+          Disclaimer: This site is only for ordering and learning to cook food.
+        </p>
+      </footer>
     </div>
   );
 };
