@@ -1,151 +1,216 @@
 import React, { useState, useEffect } from 'react';
-import {FaBell } from "react-icons/fa";
-import './Dashboard.css';
+import { FaBell, FaShoppingCart } from 'react-icons/fa';
+import { Button, TextField, Link, IconButton, AppBar, Toolbar, Typography, Grid, Box, Card, CardContent, Menu, MenuItem } from '@mui/material';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import SearchIcon from '@mui/icons-material/Search';
+import { useNavigate } from 'react-router-dom';
+
 
 const Dashboard = () => {
-    const monthlyData = [
-        { month: 'Jan', orders: 20, amount: 10000 },
-        { month: 'May', orders: 40, amount: 8000 },
-        { month: 'Aug', orders: 50, amount: 10000 },
-        { month: 'Dec', orders: 40, amount: 8000 }
-    ];
+  const monthlyData = [
+    { month: 'Jan', orders: 20, amount: 10000 },
+    { month: 'May', orders: 40, amount: 8000 },
+    { month: 'Aug', orders: 50, amount: 10000 },
+    { month: 'Dec', orders: 40, amount: 8000 }
+  ];
+
+  const userEmail = localStorage.getItem('userEmail');
+  const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+  const firstLetter = userEmail ? userEmail.charAt(0).toUpperCase() : '';
+
+  const handleMouseEnter = () => setIsDropdownVisible(true);
+  const handleMouseLeave = () => setIsDropdownVisible(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userEmail');
+    window.location.href = '/login';
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      const profileDropdown = document.querySelector('.profile-dropdown');
+      const profileIcon = document.querySelector('.profile-icon-container');
+      if (profileDropdown && !profileDropdown.contains(e.target) && !profileIcon.contains(e.target)) {
+        setIsDropdownVisible(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
   
-      
-      const userEmail = localStorage.getItem('userEmail');
-      const [isDropdownVisible, setIsDropdownVisible] = useState(false);
-      const firstLetter = userEmail ? userEmail.charAt(0).toUpperCase() : ''
-      
-        const handleMouseEnter = () => setIsDropdownVisible(true);
-        const handleMouseLeave = () => setIsDropdownVisible(false);
-      
-        const handleLogout = () => {
-          localStorage.removeItem('token');
-          localStorage.removeItem('userEmail');
-          window.location.href = '/login';
-        };
-      
-        useEffect(() => {
-          const handleClickOutside = (e) => {
-            const profileDropdown = document.querySelector('.profile-dropdown');
-            const profileIcon = document.querySelector('.profile-icon-container');
-            if (profileDropdown && !profileDropdown.contains(e.target) && !profileIcon.contains(e.target)) {
-              setIsDropdownVisible(false);
-            }
-          };
-      
-          document.addEventListener('click', handleClickOutside);
-          return () => {
-            document.removeEventListener('click', handleClickOutside);
-          };
-        }, []);
+  // Profile Dropdown Handlers
+  const handleClickProfile = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseProfileMenu = () => {
+    setAnchorEl(null);
+  };
+
+  const navigate = useNavigate();
+
+  const [anchorEl, setAnchorEl] = useState(null);
+
+  const handleCartClick = () => {
+    navigate("/cart");
+  };
+
+  const [notifications, setNotifications] = useState([]);
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
+
+  const handleNotificationClick = (event) => {
+    setNotificationAnchorEl(event.currentTarget);
+  };
+
+  const handleNotificationClose = () => {
+    setNotificationAnchorEl(null);
+  };
 
   return (
     <div className="dashboard">
-      <header className="home-header">
-              <div className="home-logo">
-                <img src="/images/logo.png" alt="Logo" />
-                  <span>YOO!!!</span>
-              </div>
-              <nav className="home-nav-links">
-                <a href="/home">Home</a>
-                <a href="/categories">Categories</a>
-                <a href="/dashboard">Dashboard</a>
-                <div className="user-search-bar">
-                  <input type="text" placeholder="Search" />
-                  <button>🔍</button>
-                </div>
-              </nav>
-              <div className="header-right">
-                <FaBell className="notification-icon" />
-                <div
-                  className="profile-icon-container"
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
-                  onClick={() => setIsDropdownVisible(!isDropdownVisible)}
-                >
-                <span className="profile-icon">{firstLetter}</span>
-                  {isDropdownVisible && (
-                  <div className="profile-dropdown">
-                    <p>{userEmail}</p>
-                    <a href="/profile">View Profile</a>
-                    <button onClick={handleLogout}>Logout</button>
-                  </div>
-                  )}
-              </div>
-            </div>
-            </header>
+      <AppBar position="sticky" sx={{ backgroundColor: "#fff", color: "#333" }}>
+        <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <img src="/images/logo.png" alt="Logo" style={{ width: 40, height: 40 }} />
+            <Typography variant="h6" sx={{ ml: 2, color: "#333" }}>
+              YOO!!!
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", mx: "auto" }}>
+            <Button sx={{ color: "#333" }} component="a" href="/home">
+              Home
+            </Button>
+            <Button sx={{ color: "#333" }} component="a" href="/categories">
+              Categories
+            </Button>
+            <Button sx={{ color: "#333" }} component="a" href="/dashboard">
+              Dashboard
+            </Button>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <IconButton onClick={handleNotificationClick}>
+              <FaBell style={{ fontSize: "1.5rem", color: "#333" }} />
+            </IconButton>
+            <IconButton onClick={handleCartClick}>
+              <FaShoppingCart style={{ fontSize: "1.5rem", color: "#333" }} />
+            </IconButton>
+            <IconButton onClick={handleClickProfile}>
+              <AccountCircleIcon sx={{ fontSize: "2rem", color: "#333" }} />
+            </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleCloseProfileMenu}
+              sx={{ mt: 2 }}
+            >
+              <MenuItem>{userEmail}</MenuItem>
+              <Link to="/profile" style={{ textDecoration: "none", color: "black" }}>
+                <MenuItem>Profile</MenuItem>
+              </Link>
+              <MenuItem onClick={() => { localStorage.removeItem("token"); localStorage.removeItem("userEmail"); navigate("/login"); }}>
+                Logout
+              </MenuItem>
+            </Menu>
+            <Menu
+              anchorEl={notificationAnchorEl}
+              open={Boolean(notificationAnchorEl)}
+              onClose={handleNotificationClose}
+              sx={{ mt: 2 }}
+            >
+              <MenuItem disabled>Notifications</MenuItem>
+              {notifications.length > 0 ? (
+                notifications.map((notification, index) => (
+                  <MenuItem key={index}>{notification.message}</MenuItem>
+                ))
+              ) : (
+                <MenuItem>No notifications</MenuItem>
+              )}
+            </Menu>
+          </Box>
+        </Toolbar>
+      </AppBar>
 
-      <h1 className="dashboard-title">My Impact</h1>
+      <Typography variant="h4" gutterBottom className="dashboard-title" align="center" sx={{ mt: 5, fontWeight: 'bold' }}>
+        My Impact
+      </Typography>
 
       {/* Impact Stats */}
-      <div className="impact-grid">
-        <div className="impact-card">
-          <div className="icon heart-icon">❤️</div>
-          <div className="impact-content">
-            <div className="impact-value">Rs. 15000</div>
-            <div className="impact-label">Donated to the community needs</div>
-          </div>
-        </div>
+      <Grid container spacing={3} justifyContent="center" sx={{ mt: 3 }}>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card sx={{ padding: 3, boxShadow: 3, borderRadius: 2, backgroundColor: '#f5f5f5' }}>
+            <CardContent>
+              <Typography variant="h6" align="center" sx={{ fontSize: '2rem' }}>❤️</Typography>
+              <Typography variant="h5" align="center" sx={{ fontWeight: 'bold' }}>Rs. 15000</Typography>
+              <Typography variant="body1" align="center" color="textSecondary">Donated to the community needs</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
 
-        <div className="impact-card">
-          <div className="icon gift-icon">🎁</div>
-          <div className="impact-content">
-            <div className="impact-value">8</div>
-            <div className="impact-label">Loyalty Stamps</div>
-          </div>
-        </div>
-      </div>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card sx={{ padding: 3, boxShadow: 3, borderRadius: 2, backgroundColor: '#f5f5f5' }}>
+            <CardContent>
+              <Typography variant="h6" align="center" sx={{ fontSize: '2rem' }}>🎁</Typography>
+              <Typography variant="h5" align="center" sx={{ fontWeight: 'bold' }}>8</Typography>
+              <Typography variant="body1" align="center" color="textSecondary">Loyalty Stamps</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       {/* Order Summary */}
-      <div className="summary-grid">
-        <div className="summary-card">
-          <div className="total-orders-icon">📦</div>
-          <div className="summary-content">
-            <h3 className="summary-label">Total orders</h3>
-            <div className="summary-value">50</div>
-          </div>
-        </div>
+      <Grid container spacing={3} justifyContent="center" sx={{ mt: 4 }}>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card sx={{ padding: 3, boxShadow: 3, borderRadius: 2 }}>
+            <CardContent>
+              <Typography variant="h6" align="center" sx={{ fontSize: '2rem' }}>📦</Typography>
+              <Typography variant="h5" align="center" sx={{ fontWeight: 'bold' }}>50</Typography>
+              <Typography variant="body1" align="center" color="textSecondary">Total orders</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
 
-        <div className="summary-card">
-          <div className="total-spent-icon">💸</div>
-          <div className="summary-content">
-            <h3 className="summary-label">Total spent</h3>
-            <div className="summary-value">Rs. 60000</div>
-          </div>
-        </div>
-      </div>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card sx={{ padding: 3, boxShadow: 3, borderRadius: 2 }}>
+            <CardContent>
+              <Typography variant="h6" align="center" sx={{ fontSize: '2rem' }}>💸</Typography>
+              <Typography variant="h5" align="center" sx={{ fontWeight: 'bold' }}>Rs. 60000</Typography>
+              <Typography variant="body1" align="center" color="textSecondary">Total spent</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       {/* Monthly Performance */}
-      <div className="performance-card">
-        <div className="performance-header">
-          <span className="star">⭐</span>
-          Monthly Performance
-        </div>
-        <div className="performance-content">
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="h5" gutterBottom align="center" sx={{ fontWeight: 'bold' }}>⭐ Monthly Performance</Typography>
+        <Grid container spacing={2} justifyContent="center">
           {monthlyData.map((data, index) => (
-            <div key={index} className="performance-item">
-              <div className="month-label">{data.month}</div>
-              <div className="progress-bar-container">
-                <div 
-                  className="progress-bar"
-                  style={{ width: `${(data.orders / 50) * 100}%` }}
-                ></div>
-              </div>
-              <div className="orders-label">
-                {data.orders} orders (Rs. {data.amount})
-              </div>
-            </div>
+            <Grid item xs={12} sm={6} md={3} key={index}>
+              <Card sx={{ padding: 3, boxShadow: 3, borderRadius: 2 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom align="center" sx={{ fontSize: '1.5rem' }}>{data.month}</Typography>
+                  <Box sx={{ width: '100%', height: 10, backgroundColor: '#f0f0f0' }}>
+                    <Box sx={{ width: `${(data.orders / 50) * 100}%`, height: '100%', bgcolor: '#3f51b5' }} />
+                  </Box>
+                  <Typography variant="body1" align="center" color="textSecondary">{data.orders} orders (Rs. {data.amount})</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
           ))}
-        </div>
-      </div>
+        </Grid>
+      </Box>
 
       {/* Footer Section */}
-      <footer className="home-footer">
-        <p>© RecipeShare All Rights Reserved</p>
-        <p>🍴 YOO!!!</p>
-        <p>
-          Disclaimer: This site is only for ordering and learning to cook food.
-        </p>
+      <footer className="home-footer" style={{ textAlign: 'center', padding: '40px', marginTop:'40px', backgroundColor: '#f0f0f0' }}>
+          <Typography variant="body2" color="textSecondary">© YOO!!! All Rights Reserved</Typography>
+          <Typography variant="body2" color="textSecondary">🍴 YOO!!!</Typography>
+          <Typography variant="body2" color="textSecondary">
+              Disclaimer: This site is only for ordering and learning to cook food.
+          </Typography>
       </footer>
     </div>
   );

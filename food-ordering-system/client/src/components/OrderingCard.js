@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardMedia, Box, Typography, Button, Rating } from '@mui/material';
 
 const OrderingCard = ({ image, title, initialRating, price, onRatingChange, onOrderNow }) => {
   const [rating, setRating] = useState(initialRating); // State to manage the rating
   const navigate = useNavigate();
 
   // Handle star click to update the rating
-  const handleStarClick = (newRating) => {
+  const handleRatingChange = (event, newRating) => {
     setRating(newRating); // Update the local rating state
     if (onRatingChange) {
       onRatingChange(newRating); // Optionally call a parent function to update the global rating
@@ -20,44 +21,53 @@ const OrderingCard = ({ image, title, initialRating, price, onRatingChange, onOr
     navigate('/cart'); // Navigate to the cart page
   };
 
-  // Generate an array of stars based on the rating (e.g., 4.5 stars)
-  const starArray = new Array(5).fill(false).map((_, index) => index < Math.floor(rating));
-  const hasHalfStar = rating % 1 !== 0; // Check if there is a half-star
-
   return (
-    <div className="ordering-card">
-      <img src={image} alt={title} className="food-image" />
-      <h3 className="food-title">{title}</h3>
+    <Card sx={{ width: 280, marginBottom: 2, boxShadow: 3, borderRadius: 2 }}>
+      <CardMedia
+        component="img"
+        height="200"
+        image={image}
+        alt={title}
+        sx={{ objectFit: 'cover', borderTopLeftRadius: 8, borderTopRightRadius: 8, }}
+      />
+      <CardContent>
+        <Typography variant="h6" component="div" gutterBottom>
+          {title}
+        </Typography>
 
-      <div className="rating-and-price">
-        <div className="rating">
-          {/* Render full stars */}
-          {starArray.map((filled, index) => (
-            <span
-              key={index}
-              className={`star ${filled ? 'filled' : ''}`}
-              onClick={() => handleStarClick(index + 1)} // Handle click to update rating
-            >
-              ★
-            </span>
-          ))}
-          
-          {/* Render half star if applicable */}
-          {hasHalfStar && (
-            <span
-              className="star half"
-              onClick={() => handleStarClick(Math.floor(rating) + 0.5)} // Handle half-star click
-            >
-              ★
-            </span>
-          )}
-        </div>
+        {/* Rating */}
+        <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: 1 }}>
+          <Rating
+            name="food-rating"
+            value={rating}
+            precision={0.5}
+            onChange={handleRatingChange}
+            sx={{ marginRight: 1 }}
+          />
+          <Typography variant="body2">{rating.toFixed(1)} / 5</Typography>
+        </Box>
 
-        <div className="price">Rs. {price}</div>
-      </div>
+        {/* Price */}
+        <Typography variant="h6" sx={{ fontWeight: 'bold', marginBottom: 2 }}>
+          Rs. {price}
+        </Typography>
 
-      <button className="order-now-button" onClick={handleClick}>Order Now</button>
-    </div>
+        {/* Order Now Button */}
+        <Button
+          variant="contained"
+          fullWidth
+          onClick={handleClick}
+          sx={{
+            backgroundColor: '#FF5722', // Custom color for the button
+            '&:hover': {
+              backgroundColor: '#FF3D00', // Darker hover effect
+            },
+          }}
+        >
+          Order Now
+        </Button>
+      </CardContent>
+    </Card>
   );
 };
 

@@ -10,9 +10,46 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const { body, validationResult } = require("express-validator"); // For input validation
 const db = require("./db"); // Database connection file
+const { updateLoyaltyPoints } = require("./db"); // Import the function
 
 const app = express();
+app.use(cors());
 const PORT = process.env.PORT || 5000;
+const { OAuth2Client } = require('google-auth-library');
+
+const client = new OAuth2Client('997514767176-rvk4v4cho4qvibhti41b08ser7afsm7t.apps.googleusercontent.com'); // Replace with your Google Client ID
+const router = express.Router();
+
+router.post('/google-login', async (req, res) => {
+  const { token } = req.body;
+
+  try {
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: '997514767176-rvk4v4cho4qvibhti41b08ser7afsm7t.apps.googleusercontent.com',
+    });
+
+    const payload = ticket.getPayload();
+    const email = payload.email;
+    const user = await db.query("SELECT * FROM users WHERE email = ?", [email]);
+
+    // If the user doesn't exist, create a new one
+    if (user.length === 0) {
+      const newUser = {
+        email: email,
+        name: payload.name,
+        // Add other fields as necessary
+      };
+      await db.query("INSERT INTO users SET ?", newUser);
+    }
+
+    // Create JWT and send it back
+    const userToken = jwt.sign({ userId: user[0].id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.json({ token: userToken, email: user[0].email });
+  } catch (error) {
+    res.status(400).json({ message: 'Google login failed' });
+  }
+});
 
 // Middleware
 app.use(cors());
@@ -195,29 +232,54 @@ app.post("/reset-password", (req, res) => {
 });
 
 // Add item to cart
-app.post("/cart", authenticateToken, (req, res) => {
-  const { food_id, quantity } = req.body;
-  const user_id = req.user.id;
+app.post("/cart", (req, res) => {
+  const { food_id, user_id } = req.body;
 
-  if (!food_id || !quantity) {
-    return res.status(400).json({ message: "Food ID and quantity are required." });
+  if (!food_id || !user_id) {
+    return res.status(400).json({ message: "Food ID and user ID are required." });
   }
 
-  const query = `
-    INSERT INTO cart (user_id, food_id, quantity)
-    VALUES (?, ?, ?)
-    ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)
-  `;
+  console.log("Received user_id:", user_id);
 
-  db.query(query, [user_id, food_id, quantity], (err) => {
-    if (err) return res.status(500).json({ message: "Failed to add item to cart", error: err });
-    res.status(200).json({ message: "Item added to cart successfully" });
+  // Check if the item already exists
+  const checkQuery = "SELECT * FROM cart WHERE user_id = ? AND food_id = ?";
+  db.query(checkQuery, [user_id, food_id], (err, results) => {
+    if (err) {
+      console.error("Error checking cart item:", err);
+      return res.status(500).json({ message: "Failed to check cart item", error: err });
+    }
+
+    if (results.length > 0) {
+      // If item exists, update quantity by +1
+      const updateQuery = "UPDATE cart SET quantity = quantity + 1 WHERE user_id = ? AND food_id = ?";
+      db.query(updateQuery, [user_id, food_id], (err) => {
+        if (err) {
+          console.error("Error updating cart item:", err);
+          return res.status(500).json({ message: "Failed to update cart item", error: err });
+        }
+        return res.status(200).json({ message: "Item quantity updated successfully" });
+      });
+    } else {
+      // If item does not exist, insert into cart
+      const insertQuery = "INSERT INTO cart (user_id, food_id, quantity) VALUES (?, ?, 1)";
+      db.query(insertQuery, [user_id, food_id], (err) => {
+        if (err) {
+          console.error("Error adding item to cart:", err);
+          return res.status(500).json({ message: "Failed to add item to cart", error: err });
+        }
+        res.status(200).json({ message: "Item added to cart successfully" });
+      });
+    }
   });
 });
 
 // Get cart items
-app.get("/cart", authenticateToken, (req, res) => {
-  const user_id = req.user.id;
+app.get("/cart", (req, res) => {
+  const user_id = req.query.user_id; // Use the user ID from query parameters
+
+  if (!user_id) {
+    return res.status(400).json({ message: "User ID is required." });
+  }
 
   const query = `
     SELECT 
@@ -238,13 +300,16 @@ app.get("/cart", authenticateToken, (req, res) => {
   `;
 
   db.query(query, [user_id], (err, results) => {
-    if (err) return res.status(500).json({ message: "Failed to retrieve cart items", error: err });
+    if (err) {
+      console.error("Error retrieving cart items:", err); // Log the error
+      return res.status(500).json({ message: "Failed to retrieve cart items", error: err });
+    }
     res.status(200).json(results);
   });
 });
 
 // Remove item from cart
-app.delete("/cart/:id", authenticateToken, (req, res) => {
+app.delete("/cart/:id", (req, res) => {
   const cart_id = req.params.id;
 
   const query = "DELETE FROM cart WHERE id = ?";
@@ -254,8 +319,25 @@ app.delete("/cart/:id", authenticateToken, (req, res) => {
   });
 });
 
+// Clear cart items for a user
+app.delete("/cart", (req, res) => {
+  const user_id = req.query.user_id;
 
-app.post("/upload-food", authenticateToken, upload.single("image"), (req, res) => {
+  if (!user_id) {
+    return res.status(400).json({ message: "User ID is required." });
+  }
+
+  const query = "DELETE FROM cart WHERE user_id = ?";
+  db.query(query, [user_id], (err) => {
+    if (err) {
+      console.error("Error clearing cart items:", err);
+      return res.status(500).json({ message: "Failed to clear cart items", error: err });
+    }
+    res.status(200).json({ message: "Cart items cleared successfully" });
+  });
+});
+
+app.post("/upload-food", upload.single("image"), (req, res) => {
     const { foodName, description, details, price } = req.body;
   
     console.log("Received data:", req.body); // Log incoming request data
@@ -297,6 +379,146 @@ app.get("/api/food-items", (req, res) => {
       return res.status(500).json({ message: "Internal server error" });
     }
     res.json(rows);
+  });
+});
+
+// Fetch recent users
+app.get("/api/recent-users", (req, res) => {
+  const query = "SELECT email, created_at FROM users ORDER BY created_at DESC LIMIT 5";
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Failed to fetch recent users", error: err });
+    }
+    res.status(200).json(results);
+  });
+});
+
+// Add order
+app.post("/orders", (req, res) => {
+  const { user_id, items, total } = req.body;
+
+  if (!user_id || !items || !total) {
+    return res.status(400).json({ message: "User ID, items, and total are required." });
+  }
+
+  const query = "INSERT INTO orders (user_id, total) VALUES (?, ?)";
+  db.query(query, [user_id, total], (err, result) => {
+    if (err) {
+      console.error("Error adding order:", err);
+      return res.status(500).json({ message: "Failed to add order", error: err });
+    }
+
+    const orderId = result.insertId;
+    const orderItems = items.map(item => [orderId, item.food_id, item.quantity, item.price]);
+
+    const orderItemsQuery = "INSERT INTO order_items (order_id, food_id, quantity, price) VALUES ?";
+    db.query(orderItemsQuery, [orderItems], (err) => {
+      if (err) {
+        console.error("Error adding order items:", err);
+        return res.status(500).json({ message: "Failed to add order items", error: err });
+      }
+
+      // Update loyalty points
+      updateLoyaltyPoints(user_id, total, (err) => {
+        if (err) {
+          console.error("Error updating loyalty points:", err);
+          return res.status(500).json({ message: "Failed to update loyalty points", error: err });
+        }
+
+        // Send notification to chef
+        const notificationQuery = "INSERT INTO notifications (message) VALUES (?)";
+        db.query(notificationQuery, [`New order #${orderId} has been placed`], (err) => {
+          if (err) {
+            console.error("Error sending notification:", err);
+            return res.status(500).json({ message: "Failed to send notification", error: err });
+          }
+
+          res.status(200).json({ message: "Order placed successfully" });
+        });
+      });
+    });
+  });
+});
+
+// Add loyalty points
+app.post("/loyalty-points", (req, res) => {
+  const { user_id, total_amount } = req.body;
+
+  if (!user_id || !total_amount) {
+    return res.status(400).json({ message: "User ID and total amount are required." });
+  }
+
+  const points = Math.floor(total_amount / 1000);
+  if (points > 0) {
+    const query = `
+      INSERT INTO loyalty_points (user_id, points)
+      VALUES (?, ?)
+      ON DUPLICATE KEY UPDATE points = points + VALUES(points)
+    `;
+    db.query(query, [user_id, points], (err, result) => {
+      if (err) {
+        console.error("Error updating loyalty points:", err);
+        return res.status(500).json({ message: "Failed to update loyalty points", error: err });
+      }
+      res.status(200).json({ message: "Loyalty points updated successfully" });
+    });
+  } else {
+    res.status(200).json({ message: "No loyalty points to update" });
+  }
+});
+
+// Get orders
+app.get("/orders", (req, res) => {
+  const query = "SELECT * FROM orders";
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error retrieving orders:", err);
+      return res.status(500).json({ message: "Failed to retrieve orders", error: err });
+    }
+    res.status(200).json(results);
+  });
+});
+
+// Get order details
+app.get("/orders/:id", (req, res) => {
+  const orderId = req.params.id;
+
+  const query = `
+    SELECT 
+      o.id AS order_id, 
+      o.total, 
+      oi.food_id, 
+      f.name AS food_name, 
+      oi.quantity, 
+      oi.price 
+    FROM 
+      orders o
+    JOIN 
+      order_items oi ON o.id = oi.order_id
+    JOIN 
+      food_items f ON oi.food_id = f.id
+    WHERE 
+      o.id = ?
+  `;
+
+  db.query(query, [orderId], (err, results) => {
+    if (err) {
+      console.error("Error retrieving order details:", err);
+      return res.status(500).json({ message: "Failed to retrieve order details", error: err });
+    }
+    res.status(200).json({ id: orderId, items: results });
+  });
+});
+
+// Get notifications
+app.get("/notifications", (req, res) => {
+  const query = "SELECT * FROM notifications";
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error retrieving notifications:", err);
+      return res.status(500).json({ message: "Failed to retrieve notifications", error: err });
+    }
+    res.status(200).json(results);
   });
 });
 
