@@ -17,7 +17,14 @@ db.connect((err) => {
     return;
   }
   console.log("Connected to MySQL server");
-
+  const createDatabaseQuery = `CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME}`;
+  db.query(createDatabaseQuery, (err) => {
+    if (err) {
+      console.error("Error creating database:", err);
+      return;
+    }
+    console.log(`Database ${process.env.DB_NAME} ensured`);
+  });
   // Use the selected database
   db.query(`USE ${process.env.DB_NAME}`, (err, result) => {
     if (err) {
@@ -79,6 +86,20 @@ db.connect((err) => {
       if (err) console.error("Error creating cart table:", err);
       else console.log("Cart table ensured");
     });
+
+    // Create `loyalty_points` table
+    const createLoyaltyPointsTableQuery = `
+      CREATE TABLE IF NOT EXISTS loyalty_points (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        points INT NOT NULL DEFAULT 0,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `;
+    db.query(createLoyaltyPointsTableQuery, (err) => {
+      if (err) console.error("Error creating loyalty_points table:", err);
+      else console.log("Loyalty points table ensured");
+    });
   });
 });
 
@@ -117,7 +138,7 @@ const loginUser = (email, password, callback) => {
       if (!isMatch) return callback({ message: "Invalid credentials" });
 
       const token = generateToken(user);
-      callback(null, { token, message: "Login successful" });
+      callback(null, { token, message: "Login successful", userId: user.id });
     });
   });
 };
@@ -140,7 +161,6 @@ const addFoodItem = (foodName, description, details, imagePath, price, callback)
     callback(null, { message: "Food item added successfully" });
   });
 };
-
 
 // Export functions
 module.exports = {

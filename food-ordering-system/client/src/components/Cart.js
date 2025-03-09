@@ -1,161 +1,202 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Cart.css";
+import { AppBar, Toolbar, Link, Typography, Button, Container, Grid, Card, CardContent, CardMedia, IconButton, Box, Menu, MenuItem, TextField } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import NotificationsIcon from "@mui/icons-material/Notifications";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import { FaBell } from "react-icons/fa";
+import axios from "axios";
 
 const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
+  const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
-  const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
   const userEmail = localStorage.getItem("userEmail");
+  const userId = localStorage.getItem("user_id"); // Retrieve user_id from local storage
   const firstLetter = userEmail ? userEmail.charAt(0).toUpperCase() : "";
 
-    useEffect(() => {
-              document.title = "Admin Dashboard";
-              const link = document.querySelector("link[rel*='icon']");
-              link.href = "./images/logo.png";
-          }, []);
-  
-    // Profile Dropdown Handlers
-      const handleMouseEnter = () => setIsDropdownVisible(true);
-      const handleMouseLeave = () => setIsDropdownVisible(false);
-    
-      const handleLogout = () => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("userEmail");
-          navigate("/login");  // Use navigate instead of window.location.href
-        };
-    
-      useEffect(() => {
-        const handleClickOutside = (e) => {
-          const profileDropdown = document.querySelector(".profile-dropdown");
-          const profileIcon = document.querySelector(".profile-icon-container");
-          if (
-            profileDropdown &&
-            !profileDropdown.contains(e.target) &&
-            !profileIcon.contains(e.target)
-          ) {
-            setIsDropdownVisible(false);
-          }
-        };
-    
-        document.addEventListener("click", handleClickOutside);
-        return () => {
-          document.removeEventListener("click", handleClickOutside);
-        };
-      }, []);
-
-  // Get cart data from localStorage when the component mounts
   useEffect(() => {
-    const savedCart = JSON.parse(localStorage.getItem("cart")) || [];
-    setCartItems(savedCart);
+    document.title = "Cart Page";
   }, []);
 
-  // Remove item from cart
-  const removeFromCart = (itemId) => {
-    const updatedCart = cartItems.filter(item => item.id !== itemId);
-    localStorage.setItem("cart", JSON.stringify(updatedCart)); // Update localStorage
-    setCartItems(updatedCart); // Update the cart state
+  useEffect(() => {
+    if (!userId) {
+      console.error("User ID is not available in local storage.");
+      setErrorMessage("User ID is not available in local storage.");
+      return;
+    }
+
+    console.log("User ID:", userId); // Debugging: Check if user_id is retrieved correctly
+
+    const fetchCartItems = async () => {
+      try {
+        const response = await axios.get("http://localhost:5000/cart", {
+          params: { user_id: userId }
+        });
+        console.log("API Response:", response.data); // Debugging: Check the API response
+        if (response.data.length === 0) {
+          setErrorMessage("Your cart is empty!");
+        } else {
+          setCartItems(response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching cart items:", error);
+        setErrorMessage("Error fetching cart items. Please try again later.");
+      }
+    };
+
+    fetchCartItems();
+  }, [userId]); // Add user_id as a dependency
+
+  const removeFromCart = async (cartId) => {
+    try {
+      await axios.delete(`http://localhost:5000/cart/${cartId}`);
+      setCartItems(cartItems.filter(item => item.cart_id !== cartId));
+    } catch (error) {
+      console.error("Error removing item from cart:", error);
+      setErrorMessage("Error removing item from cart. Please try again later.");
+    }
   };
 
-  // Update item quantity in cart
-  const updateQuantity = (itemId, amount) => {
-    const updatedCart = cartItems.map(item => {
-      if (item.id === itemId) {
-        item.quantity = Math.max(1, item.quantity + amount); // Ensure quantity is at least 1
+  const updateQuantity = async (cartId, amount) => {
+    const updatedCart = cartItems.map((item) => {
+      if (item.cart_id === cartId) {
+        item.quantity = Math.max(1, item.quantity + amount);
       }
       return item;
     });
-    localStorage.setItem("cart", JSON.stringify(updatedCart)); // Update localStorage
-    setCartItems(updatedCart); // Update the cart state
+    setCartItems(updatedCart);
+
+    try {
+      await axios.post("http://localhost:5000/cart", {
+        food_id: updatedCart.find(item => item.cart_id === cartId).food_id,
+        quantity: amount,
+        user_id: userId
+      });
+    } catch (error) {
+      console.error("Error updating cart item quantity:", error);
+      setErrorMessage("Error updating cart item quantity. Please try again later.");
+    }
   };
 
-  // Calculate the total price
   const getTotal = () => {
     return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
   };
 
-  // Proceed to checkout
   const handleCheckout = () => {
-    navigate('/checkout');
+    navigate("/checkout");
+  };
+
+  const handleClickProfile = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseProfileMenu = () => {
+    setAnchorEl(null);
   };
 
   return (
-    <div className="cart-page">
-      <header className="home-header">
-        <div className="home-logo">
-          <img src="/images/logo.png" alt="Logo" />
-            <span>YOO!!!</span>
-        </div>
-        <nav className="home-nav-links">
-          <a href="/home">Home</a>
-          <a href="/categories">Categories</a>
-          <a href="/dashboard">Dashboard</a>
-          <div className="user-search-bar">
-            <input type="text" placeholder="Search" />
-            <button>🔍</button>
-          </div>
-        </nav>
-        <div className="header-right">
-          <FaBell className="notification-icon" />
-          <div
-            className="profile-icon-container"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            onClick={() => setIsDropdownVisible(!isDropdownVisible)}
-          >
-            <span className="profile-icon">{firstLetter}</span>
-              {isDropdownVisible && (
-              <div className="profile-dropdown">
-                <p>{userEmail}</p>
-                <a href="/profile">View Profile</a>
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-              )}
-          </div>
-        </div>
-      </header>
-      
-      <h2>Your Cart</h2>
-      <div className="cart-items">
-        {cartItems.length === 0 ? (
-          <p>Your cart is empty!</p>
-        ) : (
-          cartItems.map(item => (
-            <div key={item.id} className="cart-item">
-              <img src={item.image_url} alt={item.name} className="cart-item-image" />
-              <div className="cart-item-details">
-                <h3>{item.name}</h3>
-                <p>Rs. {item.price}</p>
-                <div className="quantity-controls">
-                  <button onClick={() => updateQuantity(item.id, -1)}>-</button>
-                  <span>{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, 1)}>+</button>
-                </div>
-                <button onClick={() => removeFromCart(item.id)} className="remove-item-button">Remove</button>
-              </div>
-              <div className="item-total">Rs. {item.price * item.quantity}</div>
-            </div>
-          ))
-        )}
-      </div>
+    <div>
+      <AppBar position="sticky" sx={{ backgroundColor: "#fff", color: "#333" }}>
+        <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <img src="/images/logo.png" alt="Logo" style={{ width: 40, height: 40 }} />
+            <Typography variant="h6" sx={{ ml: 2, color: "#333" }}>
+              YOO!!!
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", mx: "auto" }}>
+            <Button sx={{ color: "#333" }} component="a" href="/home">
+              Home
+            </Button>
+            <Button sx={{ color: "#333" }} component="a" href="/categories">
+              Categories
+            </Button>
+            <Button sx={{ color: "#333" }} component="a" href="/dashboard">
+              Dashboard
+            </Button>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <TextField variant="outlined" size="small" placeholder="Search" InputProps={{ endAdornment: <SearchIcon /> }} sx={{ bgcolor: "white", borderRadius: 1, mr: 2 }} />
+            <FaBell style={{ fontSize: "1.5rem", color: "#333" }} />
+            <IconButton onClick={handleClickProfile}>
+              <AccountCircleIcon sx={{ fontSize: "2rem", color: "#333" }} />
+            </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleCloseProfileMenu}
+              sx={{ mt: 2 }}
+            >
+              <MenuItem>{userEmail}</MenuItem>
+              <Link to="/profile" style={{ textDecoration: "none", color: "black" }}>
+                <MenuItem>Profile</MenuItem>
+              </Link>
+              <MenuItem onClick={() => { localStorage.removeItem("token"); localStorage.removeItem("userEmail"); localStorage.removeItem("user_id"); navigate("/login"); }}>
+                Logout
+              </MenuItem>
+            </Menu>
+          </Box>
+        </Toolbar>
+      </AppBar>
 
-      {cartItems.length > 0 && (
-        <div className="order-summary">
-          <div className="total-price">Total: Rs. {getTotal()}</div>
-          <button onClick={handleCheckout} className="checkout-button">
-            Proceed to Checkout
-          </button>
-        </div>
-      )}
+      <Container sx={{ mt: 5 }}>
+        <Typography variant="h4" textAlign="center" mb={3}>
+          Your Cart
+        </Typography>
+        {errorMessage && (
+          <Typography variant="h6" color="error" textAlign="center" mb={3}>
+            {errorMessage}
+          </Typography>
+        )}
+        <Grid container spacing={3}>
+          {cartItems.length === 0 && !errorMessage ? (
+            <Typography variant="h6" textAlign="center" width="100%">
+              Your cart is empty!
+            </Typography>
+          ) : (
+            cartItems.map((item) => (
+              <Grid item xs={12} md={6} key={item.cart_id}>
+                <Card>
+                  <CardMedia component="img" height="140" image={item.image_url} alt={item.food_name} />
+                  <CardContent>
+                    <Typography variant="h5">{item.food_name}</Typography>
+                    <Typography variant="body1">Rs. {item.price}</Typography>
+                    <Box display="flex" alignItems="center" mt={2}>
+                      <Button variant="outlined" onClick={() => updateQuantity(item.cart_id, -1)}>-</Button>
+                      <Typography variant="body1" mx={2}>{item.quantity}</Typography>
+                      <Button variant="outlined" onClick={() => updateQuantity(item.cart_id, 1)}>+</Button>
+                    </Box>
+                    <Button variant="contained" color="secondary" onClick={() => removeFromCart(item.cart_id)} sx={{ mt: 2 }}>
+                      Remove
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))
+          )}
+        </Grid>
+
+        {cartItems.length > 0 && (
+          <Box textAlign="center" mt={5}>
+            <Typography variant="h5">Total: Rs. {getTotal()}</Typography>
+            <Button variant="contained" color="primary" onClick={handleCheckout} sx={{ mt: 2, backgroundColor: '#ff9800',
+                "&:hover": { backgroundColor: '#f57c00'} }}>
+              Proceed to Checkout
+            </Button>
+          </Box>
+        )}
+      </Container>
+
       {/* Footer Section */}
-      <footer className="home-footer">
-        <p>© RecipeShare All Rights Reserved</p>
-        <p>🍴 YOO!!!</p>
-        <p>
+      <Box sx={{ textAlign: "center", mt: 5, p: 3, backgroundColor: "#f0f0f0" }}>
+        <Typography variant="body2">© YOO!!! All Rights Reserved</Typography>
+        <Typography variant="body2">🍴 YOO!!!</Typography>
+        <Typography variant="body2">
           Disclaimer: This site is only for ordering and learning to cook food.
-        </p>
-      </footer>
+        </Typography>
+      </Box>
     </div>
   );
 };

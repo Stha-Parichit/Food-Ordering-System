@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import "./ForgotPassword.css";
+import { TextField, Button, Typography, Container, Paper, Box, CircularProgress } from "@mui/material";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -39,28 +39,72 @@ const ForgotPassword = () => {
   }, [cooldown]);
 
   return (
-    <div className="forgot-password">
-      <h2>Forgot Password</h2>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Email:</label>
-          <input
+    <Container maxWidth="xs" sx={{ mt: 8 }}>
+      <Paper elevation={3} sx={{ padding: 4, borderRadius: 2, boxShadow: 4 }}>
+        <Typography variant="h4" align="center" sx={{ mb: 4, color: "#1976d2" }}>
+          Forgot Password
+        </Typography>
+        <form onSubmit={handleSubmit}>
+          <TextField
+            label="Email"
+            variant="outlined"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            fullWidth
             required
+            sx={{ mb: 3 }}
+            InputLabelProps={{
+              style: { color: "#1976d2" },
+            }}
+            inputProps={{
+              style: { padding: "10px" },
+            }}
           />
-        </div>
-        <button type="submit" disabled={isSubmitting || cooldown > 0}>
-          {isSubmitting
-            ? "Sending..." 
-            : cooldown > 0
-            ? `Wait ${cooldown}s`
-            : "Send Reset Link"}
-        </button>
-      </form>
-      {message && <p>{message}</p>}
-    </div>
+          <Box sx={{ textAlign: "center" }}>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              fullWidth
+              disabled={isSubmitting || cooldown > 0}
+              sx={{
+                mb: 2,
+                padding: "12px",
+                fontSize: "16px",
+                textTransform: "none",
+                borderRadius: 2,
+                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                "&:hover": {
+                  backgroundColor: "#1565c0",
+                },
+              }}
+            >
+              {isSubmitting ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : cooldown > 0 ? (
+                `Wait ${cooldown}s`
+              ) : (
+                "Send Reset Link"
+              )}
+            </Button>
+          </Box>
+        </form>
+        {message && (
+          <Typography
+            variant="body2"
+            sx={{
+              mt: 2,
+              color: message.includes("success") ? "green" : "red",
+              textAlign: "center",
+              fontWeight: "bold",
+            }}
+          >
+            {message}
+          </Typography>
+        )}
+      </Paper>
+    </Container>
   );
 };
 

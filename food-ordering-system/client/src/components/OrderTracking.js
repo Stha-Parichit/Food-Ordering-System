@@ -1,92 +1,48 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "./OrderTracking.css";
+import { FaBell } from "react-icons/fa";
+import {
+  Button,
+  Box,
+  Typography,
+  Paper,
+  CircularProgress,
+  TextField,
+  AppBar,
+  Toolbar,
+  IconButton,
+  Menu,
+  MenuItem,
+  Link
+} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 
 const orderStages = [
-  {
-    id: "received",
-    label: "Order Received",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M20 6L9 17l-5-5" />
-      </svg>
-    ),
-    description: "Restaurant is confirming your order",
-  },
-  {
-    id: "preparing",
-    label: "Preparing",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M15 11v.01M11 11v.01M17 7l2 3h2l-2 4h-3M4 7l-2 3H0l2 4h3M3 3h18v4H3V3zm3 11h12l1 7H5l1-7z" />
-      </svg>
-    ),
-    description: "Chef is preparing your delicious meal",
-  },
-  {
-    id: "outForDelivery",
-    label: "Out for Delivery",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    ),
-    description: "Your order is on its way",
-  },
-  {
-    id: "delivered",
-    label: "Delivered",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1116 0z" />
-        <circle cx="12" cy="10" r="3" />
-      </svg>
-    ),
-    description: "Enjoy your meal!",
-  },
+  { id: "received", label: "Order Received", icon: "📦", description: "Restaurant is confirming your order" },
+  { id: "preparing", label: "Preparing", icon: "🍳", description: "Chef is preparing your delicious meal" },
+  { id: "outForDelivery", label: "Out for Delivery", icon: "🚗", description: "Your order is on its way" },
+  { id: "delivered", label: "Delivered", icon: "🎉", description: "Enjoy your meal!" },
 ];
 
 const Stages = ({ currentStatus }) => {
   const currentIndex = orderStages.findIndex((stage) => stage.id === currentStatus);
 
   return (
-    <div className="stages">
+    <Box display="flex" justifyContent="space-evenly" my={2}>
       {orderStages.map((stage, index) => (
-        <div
+        <Box
           key={stage.id}
-          className={`stage ${
-            stage.id === currentStatus
-              ? "active"
-              : index < currentIndex
-              ? "completed"
-              : ""
-          }`}
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          className={`stage ${stage.id === currentStatus ? "active" : index < currentIndex ? "completed" : ""}`}
         >
-          <div className="stage-icon">{stage.icon}</div>
-          <span className="stage-label">{stage.label}</span>
-        </div>
+          <Typography variant="h6">{stage.icon}</Typography>
+          <Typography variant="body2">{stage.label}</Typography>
+        </Box>
       ))}
-    </div>
+    </Box>
   );
 };
 
@@ -95,33 +51,19 @@ const ProgressBar = ({ currentStatus }) => {
   const progress = ((currentIndex + 1) / orderStages.length) * 100;
 
   return (
-    <div className="progress-bar">
-      <div
+    <Box width="100%" bgcolor="lightgray" borderRadius="10px">
+      <Box
         className="progress-value"
-        style={{ width: `${progress}%` }}
-      ></div>
-    </div>
-  );
-};
-
-const StatusDetails = ({ currentStatus }) => {
-  const currentStage = orderStages.find((stage) => stage.id === currentStatus);
-
-  return (
-    <div className="status-details">
-      <div className="status-content">
-        <div className="stage-icon">{currentStage.icon}</div>
-        <div>
-          <h3>{currentStage.label}</h3>
-          <p>{currentStage.description}</p>
-        </div>
-      </div>
-    </div>
+        height="8px"
+        bgcolor="#2563eb"
+        borderRadius="10px"
+        width={`${progress}%`}
+      />
+    </Box>
   );
 };
 
 const OrderItems = () => {
-  // Retrieve order items, charity donation, and loyalty discount from localStorage
   const savedCart = JSON.parse(localStorage.getItem("cart")) || [];
   const selectedCharity = JSON.parse(localStorage.getItem("selectedCharity"));
   const selectedDiscount = JSON.parse(localStorage.getItem("selectedDiscount"));
@@ -138,44 +80,42 @@ const OrderItems = () => {
   const finalTotal = total + charityDonation - loyaltyDiscount + deliveryFee;
 
   return (
-    <div className="order-items">
-      <h3>Order Details</h3>
+    <Box my={1}>
+      <Typography variant="h6" sx={{ marginBottom: 1 }}>
+        Order Details
+      </Typography>
       {savedCart.map((item, index) => (
-        <div key={index} className="order-item">
-          <div>
-            <span>{item.name}</span>
-            <span>x {item.quantity}</span>
-          </div>
-          <span>Rs. {(item.price * item.quantity).toFixed(2)}</span>
-        </div>
+        <Box key={index} display="flex" justifyContent="space-between" py={0.5}>
+          <Typography variant="body2">{item.name} x {item.quantity}</Typography>
+          <Typography variant="body2">Rs. {(item.price * item.quantity).toFixed(2)}</Typography>
+        </Box>
       ))}
-      <div className="order-item">
-        <span>Charity Donation</span>
-        <span>Rs. {charityDonation.toFixed(2)}</span>
-      </div>
-      <div className="order-item discount">
-        <span>Loyalty Reward discount</span>
-        <span>- Rs. {loyaltyDiscount.toFixed(2)}</span>
-      </div>
-      <div className="order-item">
-        <span>Delivery Fee</span>
-        <span>Rs. {deliveryFee.toFixed(2)}</span>
-      </div>
-      <div className="total-row">
-        <span>Total</span>
-        <span>Rs. {finalTotal.toFixed(2)}</span>
-      </div>
-    </div>
+      <Box display="flex" justifyContent="space-between" py={0.5}>
+        <Typography variant="body2">Charity Donation</Typography>
+        <Typography variant="body2">Rs. {charityDonation.toFixed(2)}</Typography>
+      </Box>
+      <Box display="flex" justifyContent="space-between" py={0.5}>
+        <Typography variant="body2">Loyalty Discount</Typography>
+        <Typography variant="body2">- Rs. {loyaltyDiscount.toFixed(2)}</Typography>
+      </Box>
+      <Box display="flex" justifyContent="space-between" py={0.5}>
+        <Typography variant="body2">Delivery Fee</Typography>
+        <Typography variant="body2">Rs. {deliveryFee.toFixed(2)}</Typography>
+      </Box>
+      <Box display="flex" justifyContent="space-between" py={0.5}>
+        <Typography variant="h6">Total</Typography>
+        <Typography variant="h6">Rs. {finalTotal.toFixed(2)}</Typography>
+      </Box>
+    </Box>
   );
 };
+
 
 const OrderTracking = () => {
   const [currentStatus, setCurrentStatus] = useState("received");
   const navigate = useNavigate();
-
-  const handleClick = () => {
-    navigate('/dashboard');
-  };
+  const [anchorEl, setAnchorEl] = useState(null);
+  const userEmail = localStorage.getItem("userEmail");
 
   useEffect(() => {
     let currentIndex = 0;
@@ -191,54 +131,105 @@ const OrderTracking = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const handleBackToDashboard = () => {
+    navigate('/dashboard');
+  };
+
+  const handleClickProfile = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseProfileMenu = () => {
+    setAnchorEl(null);
+  };
+
   return (
-    <div className="container">
-      <div className="card-header">
-        <h1 className="card-title">Order Tracking</h1>
-        <div className="order-id">Order #FO-12345</div>
-      </div>
-      <div className="card-content">
-        <div className="progress-container">
-          <Stages currentStatus={currentStatus} />
-          <ProgressBar currentStatus={currentStatus} />
-        </div>
-        <StatusDetails currentStatus={currentStatus} />
+    <Box>
+      <AppBar position="sticky" sx={{ backgroundColor: "#fff", color: "#333" }}>
+        <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <img src="/images/logo.png" alt="Logo" style={{ width: 40, height: 40 }} />
+            <Typography variant="h6" sx={{ ml: 2, color: "#333" }}>
+              YOO!!!
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", mx: "auto" }}>
+            <Button sx={{ color: "#333" }} component="a" href="/home">
+              Home
+            </Button>
+            <Button sx={{ color: "#333" }} component="a" href="/categories">
+              Categories
+            </Button>
+            <Button sx={{ color: "#333" }} component="a" href="/dashboard">
+              Dashboard
+            </Button>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <TextField variant="outlined" size="small" placeholder="Search" InputProps={{ endAdornment: <SearchIcon /> }} sx={{ bgcolor: "white", borderRadius: 1, mr: 2 }} />
+            <FaBell style={{ fontSize: "1.5rem", color: "#333" }} />
+            <IconButton onClick={handleClickProfile}>
+              <AccountCircleIcon sx={{ fontSize: "2rem", color: "#333" }} />
+            </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleCloseProfileMenu}
+              sx={{ mt: 2 }}
+            >
+              <MenuItem>{userEmail}</MenuItem>
+              <Link to="/profile" style={{ textDecoration: "none", color: "black" }}>
+                <MenuItem>Profile</MenuItem>
+              </Link>
+              <MenuItem onClick={() => { localStorage.removeItem("token"); localStorage.removeItem("userEmail"); navigate("/login"); }}>
+                Logout
+              </MenuItem>
+            </Menu>
+          </Box>
+        </Toolbar>
+      </AppBar>
+
+      <Box padding={3}>
+        <Paper elevation={3} sx={{ padding: 3, marginBottom: 3 }}>
+          <Typography variant="h4" align="center" gutterBottom>
+            Order Tracking
+          </Typography>
+          <Typography variant="body1" align="center" color="textSecondary">
+            Order #FO-12345
+          </Typography>
+        </Paper>
+
+        <Stages currentStatus={currentStatus} />
+        <ProgressBar currentStatus={currentStatus} />
+
         <OrderItems />
-        <div className="delivery-info">
-          <div className="delivery-row">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#2563eb"
-              strokeWidth="2"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 6v6l4 2" />
-            </svg>
-            <span>Estimated Delivery: 30-45 minutes</span>
-          </div>
-          <div className="delivery-row">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#2563eb"
-              strokeWidth="2"
-            >
-              <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            <span>Delivering from: Pizzeria Delizioso</span>
-          </div>
-        </div>
-        <div className="buttons">
-          <button className="button button-outline">Contact Support</button>
-          <button className="button button-primary" onClick={handleClick}>Back To Dashboard</button>
-        </div>
-      </div>
-    </div>
+
+        <Box my={3}>
+          <Typography variant="body1" color="textSecondary">
+            Estimated Delivery: 30-45 minutes
+          </Typography>
+          <Typography variant="body1" color="textSecondary">
+            Delivering from: Pizzeria Delizioso
+          </Typography>
+        </Box>
+
+        <Box display="flex" justifyContent="space-between" my={3}>
+          <Button variant="outlined" color="primary">
+            Contact Support
+          </Button>
+          <Button variant="contained" color="primary" onClick={handleBackToDashboard}>
+            Back To Dashboard
+          </Button>
+        </Box>
+      </Box>
+
+      <Box sx={{ textAlign: "center", p: 3, backgroundColor: "#f0f0f0", position: "relative", bottom: 0, left: 0, width: "100%" }}>
+        <Typography variant="body2">© YOO!!! All Rights Reserved</Typography>
+        <Typography variant="body2">🍴 YOO!!!</Typography>
+        <Typography variant="body2">
+          Disclaimer: This site is only for ordering and learning to cook food.
+        </Typography>
+      </Box>
+    </Box>
   );
 };
 

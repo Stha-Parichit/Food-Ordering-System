@@ -1,143 +1,231 @@
 import React, { useState, useEffect } from "react";
-import "./AdminDashboard.css";
+import { 
+  Button, Box, Typography, Grid, TextField, AppBar, Toolbar, IconButton, 
+  Menu, MenuItem, Card, CardContent, Table, TableHead, TableRow, TableCell, TableBody, Paper, Link, 
+  List, ListItem, ListItemText, Avatar 
+} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import { FaBell } from "react-icons/fa";
+import { Pie, Bar, Line } from "react-chartjs-2";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement } from "chart.js";
 import { useNavigate } from "react-router-dom";
-import { FaHeart, FaGift, FaChartBar, FaBolt, FaMedal, FaBell } from "react-icons/fa";
-import { Pie, Bar } from "react-chartjs-2";
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from "chart.js";
+import axios from "axios";
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement);
 
 const AdminDashboard = () => {
-  const [isDropdownVisible, setIsDropdownVisible] = useState(false);
-  const userEmail = localStorage.getItem("userEmail");
-  const firstLetter = userEmail ? userEmail.charAt(0).toUpperCase() : "";
+  const [anchorEl, setAnchorEl] = useState(null);
   const navigate = useNavigate();
+  const userEmail = localStorage.getItem("userEmail");
 
   useEffect(() => {
-            document.title = "Admin Dashboard";
-            const link = document.querySelector("link[rel*='icon']");
-            link.href = "./images/logo.png";
-        }, []);
+    document.title = "Admin Dashboard";
+  }, []);
 
+  const handleProfileClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseProfileMenu = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userEmail");
+    navigate("/login");
+  };
+  
   // Profile Dropdown Handlers
-    const handleMouseEnter = () => setIsDropdownVisible(true);
-    const handleMouseLeave = () => setIsDropdownVisible(false);
+  const handleClickProfile = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
   
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("userEmail");
-        navigate("/login");  // Use navigate instead of window.location.href
-      };
+    const [notifications, setNotifications] = useState([]);
+    const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
   
-    useEffect(() => {
-      const handleClickOutside = (e) => {
-        const profileDropdown = document.querySelector(".profile-dropdown");
-        const profileIcon = document.querySelector(".profile-icon-container");
-        if (
-          profileDropdown &&
-          !profileDropdown.contains(e.target) &&
-          !profileIcon.contains(e.target)
-        ) {
-          setIsDropdownVisible(false);
-        }
-      };
+    const handleNotificationClick = (event) => {
+      setNotificationAnchorEl(event.currentTarget);
+    };
   
-      document.addEventListener("click", handleClickOutside);
-      return () => {
-        document.removeEventListener("click", handleClickOutside);
-      };
-    }, []);
+    const handleNotificationClose = () => {
+      setNotificationAnchorEl(null);
+    };
 
+  useEffect(() => {
+    document.title = "Admin Dashboard";
+    fetchRecentUsers();
+  }, []);
+
+  const fetchRecentUsers = async () => {
+    try {
+      const response = await axios.get("http://localhost:5000/api/recent-users");
+      setRecentUsers(response.data);
+    } catch (error) {
+      console.error("Failed to fetch recent users:", error);
+    }
+  };
+
+  // Chart Data
   const pieData = {
-    labels: ["Local Food Bank", "Total Active Users", "Community Meals"],
-    datasets: [
-      {
-        data: [440500, 44500, 35500],
-        backgroundColor: ["#FFD700", "#DC143C", "#32CD32", "#6A0DAD"],
-      },
-    ],
+    labels: ["Donations", "Users", "Meals Served"],
+    datasets: [{ data: [400000, 50000, 60000], backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56"] }]
   };
 
   const barData = {
     labels: ["Jan", "Feb", "Mar", "Apr"],
-    datasets: [
-      {
-        label: "Monthly Revenue",
-        data: [400000, 450000, 380000, 500000],
-        backgroundColor: "#007BFF",
-      },
-    ],
+    datasets: [{ label: "Revenue", data: [450000, 480000, 500000, 530000], backgroundColor: "#007BFF" }]
   };
 
+  const lineData = {
+    labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+    datasets: [{ label: "User Growth", data: [1000, 1500, 3000, 5000], borderColor: "#4CAF50", fill: false }]
+  };
+
+  const chartOptions = { responsive: true, maintainAspectRatio: false };
+
+  const [recentUsers, setRecentUsers] = useState([]);
+
   return (
-    <div className="dashboard">
-      <header className="home-header">
-        <div className="home-logo">
-          <img src="/images/logo.png" alt="Logo" />
-            <span>YOO!!!</span>
-        </div>
-        <nav className="home-nav-links">
-          <a href="/home">Home</a>
-          <a href="/categories">Categories</a>
-          <a href="/dashboard">Dashboard</a>
-          <div className="user-search-bar">
-            <input type="text" placeholder="Search" />
-            <button>🔍</button>
-          </div>
-        </nav>
-        <div className="header-right">
-          <FaBell className="notification-icon" />
-          <div
-            className="profile-icon-container"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            onClick={() => setIsDropdownVisible(!isDropdownVisible)}
-          >
-            <span className="profile-icon">{firstLetter}</span>
-              {isDropdownVisible && (
-              <div className="profile-dropdown">
-                <p>{userEmail}</p>
-                <a href="/profile">View Profile</a>
-                <button onClick={handleLogout}>Logout</button>
-              </div>
+    <div>
+      <AppBar position="sticky" sx={{ backgroundColor: "#fff", color: "#333" }}>
+        <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <img src="/images/logo.png" alt="Logo" style={{ width: 40, height: 40 }} />
+            <Typography variant="h6" sx={{ ml: 2, color: "#333" }}>
+              YOO!!!
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", mx: "auto" }}>
+            <Button sx={{ color: "#333" }} component="a" href="/home">
+              Home
+            </Button>
+            <Button sx={{ color: "#333" }} component="a" href="/categories">
+              Categories
+            </Button>
+            <Button sx={{ color: "#333" }} component="a" href="/dashboard">
+              Dashboard
+            </Button>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <IconButton onClick={handleNotificationClick}>
+              <FaBell style={{ fontSize: "1.5rem", color: "#333" }} />
+            </IconButton>
+            <IconButton onClick={handleClickProfile}>
+              <AccountCircleIcon sx={{ fontSize: "2rem", color: "#333" }} />
+            </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleCloseProfileMenu}
+              sx={{ mt: 2 }}
+            >
+              <MenuItem>{userEmail}</MenuItem>
+              <Link to="/profile" style={{ textDecoration: "none", color: "black" }}>
+                <MenuItem>Profile</MenuItem>
+              </Link>
+              <MenuItem onClick={() => { localStorage.removeItem("token"); localStorage.removeItem("userEmail"); navigate("/login"); }}>
+                Logout
+              </MenuItem>
+            </Menu>
+            <Menu
+              anchorEl={notificationAnchorEl}
+              open={Boolean(notificationAnchorEl)}
+              onClose={handleNotificationClose}
+              sx={{ mt: 2 }}
+            >
+              <MenuItem disabled>Notifications</MenuItem>
+              {notifications.length > 0 ? (
+                notifications.map((notification, index) => (
+                  <MenuItem key={index}>{notification.message}</MenuItem>
+                ))
+              ) : (
+                <MenuItem>No notifications</MenuItem>
               )}
-          </div>
-        </div>
-      </header>
+            </Menu>
+          </Box>
+        </Toolbar>
+      </AppBar>
 
-      <h1 className="title">Impact Dashboard</h1>
+      {/* Main Content */}
+      <Box sx={{ p: 3 }}>
+        <Typography variant="h4" textAlign="center" mb={3}>Impact & Revenue Overview</Typography>
 
-      <section className="charity">
-        <h2><FaHeart /> Charity Contributions</h2>
-        <Pie data={pieData} className="small-pie-chart"/>
-        <div className="stats">
-          <p>Rs. 440500 <br /> Local Food Bank</p>
-          <p> 44500 <br /> Total Active Users</p>
-          <p>Rs. 35500 <br /> Community Meals</p>
-        </div>
-      </section>
+        {/* Charts */}
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6">Donations & Users</Typography>
+                <Box sx={{ height: 300 }}>
+                  <Pie data={pieData} options={chartOptions} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6">Revenue</Typography>
+                <Box sx={{ height: 300 }}>
+                  <Bar data={barData} options={chartOptions} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6">User Growth</Typography>
+                <Box sx={{ height: 300 }}>
+                  <Line data={lineData} options={chartOptions} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
 
-      <section className="loyalty">
-        <h2><FaGift /> Loyalty Program</h2>
-        <div className="loyalty-cards">
-          <div className="card"><FaBolt /> 4500 <br /> Total Active Users</div>
-          <div className="card"><FaMedal /> 30000 <br /> Stamps Redeemed</div>
-        </div>
-      </section>
+        {/* Recent Users */}
+        <Typography variant="h5" mt={4}>Recent Users</Typography>
+      <Paper sx={{ p: 2 }}>
+        <List>
+          {recentUsers.map((user, index) => (
+            <ListItem key={index}>
+              <Avatar sx={{ mr: 2 }}>
+                {user.email.charAt(0).toUpperCase()}
+              </Avatar>
+              <ListItemText primary={user.email} secondary={new Date(user.created_at).toLocaleDateString()} />
+            </ListItem>
+          ))}
+        </List>
+      </Paper>
 
-      <section className="revenue">
-        <h2><FaChartBar /> Monthly Revenue</h2>
-        <Bar data={barData} />
-      </section>
+        {/* Recent Transactions */}
+        <Typography variant="h5" mt={4}>Recent Transactions</Typography>
+        <Table component={Paper}>
+          <TableHead>
+            <TableRow>
+              <TableCell>Order ID</TableCell>
+              <TableCell>Customer</TableCell>
+              <TableCell>Amount</TableCell>
+              <TableCell>Status</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRow><TableCell>#101</TableCell><TableCell>John Doe</TableCell><TableCell>$50</TableCell><TableCell>Completed</TableCell></TableRow>
+            <TableRow><TableCell>#102</TableCell><TableCell>Jane Smith</TableCell><TableCell>$75</TableCell><TableCell>Pending</TableCell></TableRow>
+            <TableRow><TableCell>#103</TableCell><TableCell>Alice Brown</TableCell><TableCell>$100</TableCell><TableCell>Refunded</TableCell></TableRow>
+          </TableBody>
+        </Table>
+      </Box>
 
-      {/* Footer Section */}
-      <footer className="home-footer">
-        <p>© RecipeShare All Rights Reserved</p>
-        <p>🍴 YOO!!!</p>
-        <p>
-          Disclaimer: This site is only for ordering and learning to cook food.
-        </p>
-      </footer>
+      {/* Footer */}
+      <Box sx={{ textAlign: "center", mt: 5, p: 3, backgroundColor: "#f0f0f0" }}>
+        <Typography variant="body2">© YOO!!! All Rights Reserved</Typography>
+        <Typography variant="body2">🍴 YOO!!!</Typography>
+        <Typography variant="body2">Disclaimer: This site is only for ordering and learning to cook food.</Typography>
+      </Box>
     </div>
   );
 };
