@@ -5,6 +5,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import { FaBell, FaShoppingCart } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import CustomizeOrderPopup from "./CustomizeOrderPopup";
 
 const HomePage = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -21,6 +22,9 @@ const HomePage = () => {
   const firstLetter = userEmail ? userEmail.charAt(0).toUpperCase() : "";
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [openCustomizePopup, setOpenCustomizePopup] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [loading, setLoading] = useState('');
 
   useEffect(() => {
     document.title = "User Home";
@@ -28,40 +32,96 @@ const HomePage = () => {
     link.href = "./images/logo.png";
   }, []);
 
-  // Add to Cart with Popup message
-  const handleAddToCart = async (item) => {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    const existingItemIndex = cart.findIndex(cartItem => cartItem.id === item.id);
+  // Add to Cart with customization
+const handleAddToCart = (item) => {
+  setSelectedItem(item);
+  setOpenCustomizePopup(true);
+};
 
-    if (existingItemIndex !== -1) {
-      cart[existingItemIndex].quantity += 1;
+// Handle customization save
+const handleSaveCustomization = async (item, customization) => {
+  try {
+    const userId = localStorage.getItem("user_id");
+    if (!userId) {
+      // Handle case where user is not logged in
+      alert("Please log in to add items to your cart");
+      navigate("/login");
+      return;
+    }
+
+    // Show loading indicator
+    setLoading(true);
+
+    const response = await axios.post("http://localhost:5000/cart", {
+      food_id: item.id,
+      user_id: userId,
+      quantity: customization.quantity || 1,
+      extraCheese: customization.extraCheese || false,
+      extraMeat: customization.extraMeat || false,
+      extraVeggies: customization.extraVeggies || false,
+      noOnions: customization.noOnions || false,
+      noGarlic: customization.noGarlic || false,
+      spicyLevel: customization.spicyLevel || 'Medium',
+      specialInstructions: customization.specialInstructions || ""
+    });
+
+    if (response.data.success) {
+      // Update local cart for UI (optional, you could also re-fetch cart items)
+      const cart = JSON.parse(localStorage.getItem("cart")) || [];
+      const existingItemIndex = cart.findIndex(cartItem => 
+        cartItem.id === item.id && 
+        cartItem.customization && 
+        cartItem.customization.extraCheese === customization.extraCheese &&
+        cartItem.customization.extraMeat === customization.extraMeat &&
+        cartItem.customization.noOnions === customization.noOnions
+      );
+
+      if (existingItemIndex !== -1) {
+        cart[existingItemIndex].quantity += customization.quantity;
+      } else {
+        cart.push({ 
+          ...item, 
+          quantity: customization.quantity,
+          customization: { 
+            extraCheese: customization.extraCheese,
+            extraMeat: customization.extraMeat,
+            extraVeggies: customization.extraVeggies,
+            noOnions: customization.noOnions,
+            noGarlic: customization.noGarlic,
+            spicyLevel: customization.spicyLevel,
+            specialInstructions: customization.specialInstructions
+          }
+        });
+      }
+
+      localStorage.setItem("cart", JSON.stringify(cart));
+
+      // Show success message
+      let customizationDetails = [];
+      if (customization.extraCheese) customizationDetails.push("Extra Cheese");
+      if (customization.extraMeat) customizationDetails.push("Extra Meat");
+      if (customization.extraVeggies) customizationDetails.push("Extra Veggies");
+      if (customization.noOnions) customizationDetails.push("No Onions");
+      if (customization.noGarlic) customizationDetails.push("No Garlic");
+      if (customization.spicyLevel !== 'Medium') customizationDetails.push(`${customization.spicyLevel} Spice`);
+
+      let messageDetails = customizationDetails.length > 0 
+        ? ` with ${customizationDetails.join(", ")}`
+        : "";
+
+      setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messageDetails}!`);
+      setOpenPopup(true);
     } else {
-      cart.push({ ...item, quantity: 1 });
+      console.error("Failed to add item to cart:", response.data.message);
+      alert("Failed to add item to cart. Please try again.");
     }
-
-    localStorage.setItem("cart", JSON.stringify(cart));
-    setPopupMessage(`${item.name} added to cart!`);
-    setOpenPopup(true);  // Open the popup after adding item to cart
-
-    // Store the item in the cart table
-    try {
-      const token = localStorage.getItem("token");
-      console.log("Sending request to add item to cart:", { food_id: item.id, quantity: 1, user_id: userId });
-      await axios.post("http://localhost:5000/cart", {
-        food_id: item.id,
-        quantity: 1,
-        user_id: userId // Pass the user ID
-      }, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      console.log("Item successfully added to cart:", { food_id: item.id, quantity: 1, user_id: userId });
-    } catch (error) {
-      console.error("Error adding item to cart:", error);
-      console.error("Error details:", error.response ? error.response.data : "No response data");
-    }
-  };
+  } catch (error) {
+    console.error("Error adding customized order:", error);
+    alert("An error occurred. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Fetch Featured Items and Food Items
   useEffect(() => {
@@ -127,13 +187,24 @@ const HomePage = () => {
     );
   };
 
-  const handleSearchChange = (e) => {
+  const handleSearchChange = async (e) => {
     setSearchQuery(e.target.value);
+    if (e.target.value) {
+      try {
+        const response = await axios.get(`http://localhost:5000/search`, {
+          params: { query: e.target.value }
+        });
+        setFoodItems(response.data);
+      } catch (error) {
+        console.error("Error searching food items:", error);
+      }
+    } else {
+      // Fetch all food items if search query is empty
+      const response = await fetch("http://localhost:5000/api/food-items");
+      const data = await response.json();
+      setFoodItems(data);
+    }
   };
-
-  const filteredItems = foodItems.filter((item) => {
-    return item.name.toLowerCase().includes(searchQuery.toLowerCase());
-  });
 
   // Profile Dropdown Handlers
   const handleClickProfile = (event) => {
@@ -273,6 +344,14 @@ const HomePage = () => {
             >
               Order Now
             </Button>
+            {selectedItem && (
+              <CustomizeOrderPopup
+                open={openCustomizePopup}
+                onClose={() => setOpenCustomizePopup(false)}
+                onSave={handleSaveCustomization}
+                item={selectedItem}
+              />
+            )}
           </Box>
         )}
 
@@ -309,44 +388,48 @@ const HomePage = () => {
       </Box>
 
       {/* Food Items Section */}
-      <Box sx={{ textAlign: "center", mt: 5 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
+      <Box sx={{ textAlign: "center", mt: 4 }}>
+        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>
           Best Recipes
         </Typography>
-        <Grid container spacing={3} justifyContent="center">
-          {filteredItems.length > 0 ? (
-            filteredItems.map((item, index) => (
-              <Grid item xs={12} sm={6} md={4} key={index}>
-                <Card sx={{ width: "100%", maxWidth: "400px", boxShadow: 3, borderRadius: 2, position: 'relative', marginLeft: 'auto', marginRight: 'auto', marginBottom: '20px' }}>
+        <Grid container spacing={2} justifyContent="center">
+          {foodItems.length > 0 ? (
+            foodItems.map((item, index) => (
+              <Grid item xs={12} sm={6} md={3} key={index}>
+                <Card sx={{ 
+                  width: "100%", 
+                  maxWidth: "280px", 
+                  boxShadow: 2, 
+                  borderRadius: 2, 
+                  margin: "auto", 
+                  position: 'relative',
+                  height: "290px", // Fixed height for uniform size
+                  display: "flex",
+                  flexDirection: "column"
+                }}>
                   <CardMedia
                     component="img"
-                    height="200"
+                    height="120"
                     image={item.image_url || "/images/default-placeholder.png"}
                     alt={item.name}
-                    sx={{ objectFit: "cover", borderBottom: '2px solid #e0e0e0' }}
+                    sx={{ objectFit: "cover", borderRadius: "8px 8px 0 0" }}
                   />
-                  <CardContent sx={{ padding: '12px' }}>
-                    <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
+                  <CardContent sx={{ padding: '8px', flexGrow: 1 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1, fontSize: "0.9rem" }}>
                       {item.name}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: "0.75rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {item.description || "No description available."}
                     </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#000', mb: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#000', mb: 1 }}>
                       Rs. {item.price}
                     </Typography>
-                    
+
                     {/* Rating Component */}
-                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", mb: 2 }}>
-                      <Rating
-                        name="rating"
-                        value={item.rating || 0} // Default to 0 if no rating
-                        precision={0.5}
-                        readOnly
-                        size="small"
-                      />
-                      <Typography variant="body2" sx={{ ml: 1 }}>
-                        {item.rating || "No rating yet"}
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", mb: 1 }}>
+                      <Rating name="rating" value={item.rating || 0} precision={0.5} readOnly size="small" />
+                      <Typography variant="body2" sx={{ ml: 1, fontSize: "0.75rem" }}>
+                        {item.rating || "No rating"}
                       </Typography>
                     </Box>
 
@@ -355,28 +438,38 @@ const HomePage = () => {
                       color="primary"
                       fullWidth
                       sx={{
-                        padding: '12px 0',
+                        padding: '6px 0',
                         fontWeight: 'bold',
+                        fontSize: "0.75rem",
                         textTransform: 'none',
                         backgroundColor: '#ff9800',
                         "&:hover": { backgroundColor: '#f57c00' }
                       }}
                       onClick={() => handleAddToCart(item)}
                     >
-                      Order Now
+                      Order
                     </Button>
+                    {selectedItem && (
+                      <CustomizeOrderPopup
+                        open={openCustomizePopup}
+                        onClose={() => setOpenCustomizePopup(false)}
+                        onSave={handleSaveCustomization}
+                        item={selectedItem}
+                      />
+                    )}
                   </CardContent>
 
+                  {/* New Label */}
                   <Box
                     sx={{
                       position: "absolute",
-                      top: "8px",
-                      right: "8px",
+                      top: "6px",
+                      right: "6px",
                       backgroundColor: "#ff9800",
                       color: "white",
-                      padding: "4px 12px",
-                      borderRadius: "20px",
-                      fontSize: "0.875rem",
+                      padding: "2px 8px",
+                      borderRadius: "15px",
+                      fontSize: "0.7rem",
                       fontWeight: "bold",
                     }}
                   >

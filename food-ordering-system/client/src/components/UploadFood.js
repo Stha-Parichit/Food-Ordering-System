@@ -24,6 +24,7 @@ const UploadFood = () => {
   const [foodName, setFoodName] = useState("");
   const [description, setDescription] = useState("");
   const [details, setDetails] = useState("");
+  const [foodCategory, setFoodCategory] = useState("");
   const [price, setPrice] = useState("");
   const [image, setImage] = useState(null);
   const [message, setMessage] = useState("");
@@ -47,6 +48,7 @@ const UploadFood = () => {
     formData.append("foodName", foodName);
     formData.append("description", description);
     formData.append("details", details);
+    formData.append("category", foodCategory);
     formData.append("price", price);
     if (image) formData.append("image", image);
   
@@ -144,6 +146,15 @@ const UploadFood = () => {
             rows={4}
             value={details}
             onChange={(e) => setDetails(e.target.value)}
+            sx={{ marginBottom: 2 }}
+            required
+          />
+          <TextField
+            label="Category"
+            variant="outlined"
+            fullWidth
+            value={foodCategory}
+            onChange={(e) => setFoodCategory(e.target.value)}
             sx={{ marginBottom: 2 }}
             required
           />

@@ -59,6 +59,7 @@ db.connect((err) => {
         name VARCHAR(255) NOT NULL,
         description TEXT NOT NULL,
         details TEXT NOT NULL,
+        category VARCHAR(255) NOT NULL,
         image_url VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         price DECIMAL(10, 2) NOT NULL     )
@@ -72,16 +73,25 @@ db.connect((err) => {
     });
     // Create `cart` table
     const createCartTableQuery = `
-        CREATE TABLE IF NOT EXISTS cart (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        food_id INT NOT NULL,
-        quantity INT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (food_id) REFERENCES food_items(id) ON DELETE CASCADE
-      )
-    `;
+      CREATE TABLE IF NOT EXISTS cart (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      food_id INT NOT NULL,
+      quantity INT NOT NULL DEFAULT 1,
+      extra_cheese BOOLEAN DEFAULT FALSE,
+      extra_meat BOOLEAN DEFAULT FALSE,
+      extra_veggies BOOLEAN DEFAULT FALSE,
+      no_onions BOOLEAN DEFAULT FALSE,
+      no_garlic BOOLEAN DEFAULT FALSE,
+      spicy_level VARCHAR(20) DEFAULT 'Medium',
+      special_instructions TEXT DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (food_id) REFERENCES food_items(id) ON DELETE CASCADE
+    )
+`;
+
     db.query(createCartTableQuery, (err) => {
       if (err) console.error("Error creating cart table:", err);
       else console.log("Cart table ensured");
@@ -143,16 +153,16 @@ const loginUser = (email, password, callback) => {
   });
 };
 
-const addFoodItem = (foodName, description, details, imagePath, price, callback) => {
+const addFoodItem = (foodName, description, details, imagePath, price, category, callback) => {
   const query = `
-    INSERT INTO food_items (name, description, details, image_url, price)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO food_items (name, description, details, image_url, price, category)
+    VALUES (?, ?, ?, ?, ?, ?)
   `;
-
+  
   console.log("Executing query:", query); // Log the query
-  console.log("With values:", [foodName, description, details, imagePath, price]); // Log values
+  console.log("With values:", [foodName, description, details, imagePath, price, category]); // Log values
 
-  db.query(query, [foodName, description, details, imagePath, price], (err, result) => {
+  db.query(query, [foodName, description, details, imagePath, price, category], (err, result) => {
     if (err) {
       console.error("Database error:", err); // Log database error
       return callback(err);
