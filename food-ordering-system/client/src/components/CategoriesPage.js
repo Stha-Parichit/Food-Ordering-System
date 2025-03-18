@@ -21,27 +21,22 @@ const CategoriesPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await axios.get('http://localhost:5000/api/categories');
-        setCategories(response.data);
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-      }
-    };
-
     const fetchItems = async () => {
       try {
         const response = await axios.get('http://localhost:5000/api/food-items');
         setItems(response.data);
+  
+        // Extract unique categories from food items
+        const uniqueCategories = [...new Set(response.data.map(item => item.category))];
+        setCategories(uniqueCategories);
+        console.log("Categories extracted:", uniqueCategories); // Debugging log
       } catch (error) {
         console.error('Error fetching items:', error);
       }
     };
-
-    fetchCategories();
+  
     fetchItems();
-  }, []);
+  }, []);  
 
   const handleCategoryChange = (e) => {
     setSelectedCategory(e.target.value);
@@ -120,8 +115,8 @@ const CategoriesPage = () => {
       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, marginTop: 2 }}>
         <Select value={selectedCategory} onChange={handleCategoryChange} displayEmpty>
           <MenuItem value="">All Categories</MenuItem>
-          {categories.map((category) => (
-            <MenuItem key={category.id} value={category.name}>{category.name}</MenuItem>
+          {Array.from(new Set(items.map((item) => item.category))).map((category, index) => (
+            <MenuItem key={index} value={category}>{category}</MenuItem>
           ))}
         </Select>
         <TextField

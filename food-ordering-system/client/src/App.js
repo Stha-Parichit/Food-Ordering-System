@@ -25,6 +25,9 @@ import PaymentPage from './components/PaymentPage';
 import OrderConfirmation from './components/OrderConfirmation';
 import ChefOrders from './components/ChefOrders'; // Import the new component
 import OrderDetails from './components/OrderDetails'; // Import the new component
+import EsewaPayment from './components/EsewaPayment';
+import PaymentStatus from './components/PaymentStatus';
+import OrderEdit from './components/CustomizeOrderPopup';
 
 const App = () => (
   <GoogleOAuthProvider clientId="997514767176-rvk4v4cho4qvibhti41b08ser7afsm7t.apps.googleusercontent.com">
@@ -54,6 +57,7 @@ const App = () => (
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/upload-item" element={<UploadFood />} />
+        
 
         {/* Define the payment page routes */}
         <Route path="/payment-success" element={<PaymentSuccess />} />
@@ -62,7 +66,10 @@ const App = () => (
         {/* Define the admin page routes */}
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/registered-user" element={<RegisteredUser />} />
-        <Route path="/fruit" element={<FirstFruit />} />
+        
+        <Route path="/e-pay" element={<EsewaPayment />} />
+        <Route path="/success" element={<PaymentStatus />} />
+        <Route path="/failure" element={<PaymentStatus />} />
       </Routes>
     </Router>
   </GoogleOAuthProvider>

@@ -11,14 +11,20 @@ const bcrypt = require("bcrypt");
 const { body, validationResult } = require("express-validator"); // For input validation
 const db = require("./db"); // Database connection file
 const { updateLoyaltyPoints } = require("./db"); // Import the function
+const { Client } = require('@elastic/elasticsearch');
+const util = require('util');
+const queryAsync = util.promisify(db.query).bind(db);
+
 
 const app = express();
 app.use(cors());
 const PORT = process.env.PORT || 5000;
 const { OAuth2Client } = require('google-auth-library');
 
-const client = new OAuth2Client('997514767176-rvk4v4cho4qvibhti41b08ser7afsm7t.apps.googleusercontent.com'); // Replace with your Google Client ID
+const client = new OAuth2Client('997514767176-rvk4v4cho4qvibhti41b08ser7afsm7t.apps.googleusercontent.com');
 const router = express.Router();
+
+const esClient = new Client({ node: process.env.ELASTICSEARCH_URL || 'http://localhost:9200' });
 
 router.post('/google-login', async (req, res) => {
   const { token } = req.body;
@@ -231,81 +237,308 @@ app.post("/reset-password", (req, res) => {
   );
 });
 
-// Add item to cart
-app.post("/cart", (req, res) => {
-  const { food_id, user_id } = req.body;
+// In server.js, replace the current cart endpoint with these improved versions
 
+// Add item to cart with customization
+app.post("/cart", async (req, res) => {
+  const { 
+    food_id, 
+    user_id, 
+    quantity = 1, 
+    extraCheese = false, 
+    extraMeat = false, 
+    extraVeggies = false,
+    noOnions = false, 
+    noGarlic = false,
+    spicyLevel = 'Medium',
+    specialInstructions = "" 
+  } = req.body;
+
+  // Validate required fields
   if (!food_id || !user_id) {
-    return res.status(400).json({ message: "Food ID and user ID are required." });
+    return res.status(400).json({ 
+      success: false,
+      message: "Food ID and user ID are required." 
+    });
   }
 
-  console.log("Received user_id:", user_id);
+  try {
+    // Convert boolean values to 0/1 for MySQL
+    const extra_cheese = extraCheese ? 1 : 0;
+    const extra_meat = extraMeat ? 1 : 0;
+    const extra_veggies = extraVeggies ? 1 : 0;
+    const no_onions = noOnions ? 1 : 0;
+    const no_garlic = noGarlic ? 1 : 0;
+    
+    // Check if an identical item configuration already exists in cart
+    const checkQuery = `
+      SELECT id, quantity FROM cart 
+      WHERE user_id = ? AND food_id = ? 
+      AND extra_cheese = ? AND extra_meat = ? AND extra_veggies = ?
+      AND no_onions = ? AND no_garlic = ? AND spicy_level = ?
+      AND (
+        (special_instructions IS NULL AND ? = '') OR
+        (special_instructions = ?)
+      )
+    `;
+    
+    // Use the promisified query
+    const existingItems = await queryAsync(
+      checkQuery, 
+      [
+        user_id, 
+        food_id, 
+        extra_cheese, 
+        extra_meat, 
+        extra_veggies, 
+        no_onions, 
+        no_garlic, 
+        spicyLevel,
+        specialInstructions,
+        specialInstructions
+      ]
+    );
 
-  // Check if the item already exists
-  const checkQuery = "SELECT * FROM cart WHERE user_id = ? AND food_id = ?";
-  db.query(checkQuery, [user_id, food_id], (err, results) => {
-    if (err) {
-      console.error("Error checking cart item:", err);
-      return res.status(500).json({ message: "Failed to check cart item", error: err });
-    }
-
-    if (results.length > 0) {
-      // If item exists, update quantity by +1
-      const updateQuery = "UPDATE cart SET quantity = quantity + 1 WHERE user_id = ? AND food_id = ?";
-      db.query(updateQuery, [user_id, food_id], (err) => {
-        if (err) {
-          console.error("Error updating cart item:", err);
-          return res.status(500).json({ message: "Failed to update cart item", error: err });
-        }
-        return res.status(200).json({ message: "Item quantity updated successfully" });
+    if (existingItems.length > 0) {
+      // If identical configuration exists, update quantity
+      const updateQuery = "UPDATE cart SET quantity = quantity + ? WHERE id = ?";
+      await queryAsync(updateQuery, [quantity, existingItems[0].id]);
+      
+      return res.status(200).json({ 
+        success: true,
+        message: "Item quantity updated in cart",
+        cart_id: existingItems[0].id,
+        new_quantity: existingItems[0].quantity + quantity
       });
     } else {
-      // If item does not exist, insert into cart
-      const insertQuery = "INSERT INTO cart (user_id, food_id, quantity) VALUES (?, ?, 1)";
-      db.query(insertQuery, [user_id, food_id], (err) => {
-        if (err) {
-          console.error("Error adding item to cart:", err);
-          return res.status(500).json({ message: "Failed to add item to cart", error: err });
-        }
-        res.status(200).json({ message: "Item added to cart successfully" });
+      // Otherwise insert new cart item
+      const insertQuery = `
+        INSERT INTO cart (
+          user_id, food_id, quantity, 
+          extra_cheese, extra_meat, extra_veggies,
+          no_onions, no_garlic, spicy_level, 
+          special_instructions
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      
+      const result = await queryAsync(
+        insertQuery, 
+        [
+          user_id, 
+          food_id, 
+          quantity, 
+          extra_cheese, 
+          extra_meat, 
+          extra_veggies, 
+          no_onions, 
+          no_garlic, 
+          spicyLevel,
+          specialInstructions
+        ]
+      );
+      
+      return res.status(201).json({ 
+        success: true,
+        message: "Item added to cart successfully",
+        cart_id: result.insertId
       });
     }
-  });
+  } catch (error) {
+    console.error("Error managing cart item:", error);
+    return res.status(500).json({ 
+      success: false,
+      message: "Failed to manage cart item", 
+      error: error.message 
+    });
+  }
 });
 
-// Get cart items
-app.get("/cart", (req, res) => {
-  const user_id = req.query.user_id; // Use the user ID from query parameters
+// Get cart items with customization details
+app.get("/cart", async (req, res) => {
+  const user_id = req.query.user_id;
 
   if (!user_id) {
-    return res.status(400).json({ message: "User ID is required." });
+    return res.status(400).json({ 
+      success: false,
+      message: "User ID is required." 
+    });
   }
 
-  const query = `
-    SELECT 
-      c.id AS cart_id, 
-      f.id AS food_id, 
-      f.name AS food_name, 
-      f.description, 
-      f.image_url, 
-      f.price, 
-      c.quantity, 
-      (c.quantity * f.price) AS total_price
-    FROM 
-      cart c
-    JOIN 
-      food_items f ON c.food_id = f.id
-    WHERE 
-      c.user_id = ?
-  `;
+  try {
+    const query = `
+      SELECT 
+        c.id AS cart_id, 
+        f.id AS food_id, 
+        f.name AS food_name, 
+        f.description,
+        f.category, 
+        f.image_url, 
+        f.price AS base_price, 
+        c.quantity,
+        c.extra_cheese,
+        c.extra_meat,
+        c.extra_veggies,
+        c.no_onions,
+        c.no_garlic,
+        c.spicy_level,
+        c.special_instructions,
+        (
+          f.price + 
+          (c.extra_cheese * 35) + 
+          (c.extra_meat * 50) + 
+          (c.extra_veggies * 30)
+        ) AS item_price,
+        (
+          (f.price + 
+          (c.extra_cheese * 35) + 
+          (c.extra_meat * 50) + 
+          (c.extra_veggies * 30)) * c.quantity
+        ) AS total_price
+      FROM 
+        cart c
+      JOIN 
+        food_items f ON c.food_id = f.id
+      WHERE 
+        c.user_id = ?
+      ORDER BY
+        c.id DESC
+    `;
 
-  db.query(query, [user_id], (err, results) => {
-    if (err) {
-      console.error("Error retrieving cart items:", err); // Log the error
-      return res.status(500).json({ message: "Failed to retrieve cart items", error: err });
+    const cartItems = await queryAsync(query, [user_id]);
+    
+    // Format the results for the frontend
+    const formattedItems = cartItems.map(item => ({
+      cart_id: item.cart_id,
+      food_id: item.food_id,
+      name: item.food_name,
+      description: item.description,
+      category: item.category,
+      image_url: item.image_url,
+      base_price: item.base_price,
+      quantity: item.quantity,
+      customization: {
+        extraCheese: item.extra_cheese === 1,
+        extraMeat: item.extra_meat === 1,
+        extraVeggies: item.extra_veggies === 1,
+        noOnions: item.no_onions === 1,
+        noGarlic: item.no_garlic === 1,
+        spicyLevel: item.spicy_level,
+        specialInstructions: item.special_instructions || ""
+      },
+      item_price: item.item_price,
+      total_price: item.total_price
+    }));
+
+    // Calculate cart summary
+    const cartSummary = {
+      total_items: formattedItems.reduce((sum, item) => sum + item.quantity, 0),
+      subtotal: formattedItems.reduce((sum, item) => sum + item.total_price, 0),
+      delivery_fee: 50, // You can make this dynamic based on your business logic
+      tax: formattedItems.reduce((sum, item) => sum + (item.total_price * 0.13), 0), // 13% tax
+    };
+    
+    cartSummary.grand_total = cartSummary.subtotal + cartSummary.delivery_fee + cartSummary.tax;
+
+    return res.status(200).json({ 
+      success: true,
+      items: formattedItems,
+      summary: cartSummary
+    });
+  } catch (error) {
+    console.error("Error retrieving cart items:", error);
+    return res.status(500).json({ 
+      success: false,
+      message: "Failed to retrieve cart items", 
+      error: error.message 
+    });
+  }
+});
+
+// Update cart item quantity or customization
+app.put("/cart/:cart_id", async (req, res) => {
+  const cart_id = req.params.cart_id;
+  const { 
+    quantity,
+    extraCheese,
+    extraMeat,
+    extraVeggies,
+    noOnions,
+    noGarlic,
+    spicyLevel,
+    specialInstructions
+  } = req.body;
+
+  try {
+    // Build dynamic update query based on provided fields
+    let updateFields = [];
+    let queryParams = [];
+
+    if (quantity !== undefined) {
+      updateFields.push("quantity = ?");
+      queryParams.push(quantity);
     }
-    res.status(200).json(results);
-  });
+
+    if (extraCheese !== undefined) {
+      updateFields.push("extra_cheese = ?");
+      queryParams.push(extraCheese ? 1 : 0);
+    }
+
+    if (extraMeat !== undefined) {
+      updateFields.push("extra_meat = ?");
+      queryParams.push(extraMeat ? 1 : 0);
+    }
+
+    if (extraVeggies !== undefined) {
+      updateFields.push("extra_veggies = ?");
+      queryParams.push(extraVeggies ? 1 : 0);
+    }
+
+    if (noOnions !== undefined) {
+      updateFields.push("no_onions = ?");
+      queryParams.push(noOnions ? 1 : 0);
+    }
+
+    if (noGarlic !== undefined) {
+      updateFields.push("no_garlic = ?");
+      queryParams.push(noGarlic ? 1 : 0);
+    }
+
+    if (spicyLevel !== undefined) {
+      updateFields.push("spicy_level = ?");
+      queryParams.push(spicyLevel);
+    }
+
+    if (specialInstructions !== undefined) {
+      updateFields.push("special_instructions = ?");
+      queryParams.push(specialInstructions);
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No fields to update provided"
+      });
+    }
+
+    // Add cart_id to params
+    queryParams.push(cart_id);
+
+    const updateQuery = `UPDATE cart SET ${updateFields.join(", ")} WHERE id = ?`;
+    await queryAsync(updateQuery, queryParams);
+
+    return res.status(200).json({
+      success: true,
+      message: "Cart item updated successfully"
+    });
+  } catch (error) {
+    console.error("Error updating cart item:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update cart item",
+      error: error.message
+    });
+  }
 });
 
 // Remove item from cart
@@ -338,18 +571,18 @@ app.delete("/cart", (req, res) => {
 });
 
 app.post("/upload-food", upload.single("image"), (req, res) => {
-    const { foodName, description, details, price } = req.body;
+    const { foodName, description, details, price, category } = req.body;
   
     console.log("Received data:", req.body); // Log incoming request data
     console.log("File data:", req.file); // Log file information
   
-    if (!foodName || !description || !details || !price) {
+    if (!foodName || !description || !details || !price || !category) {
       return res.status(400).json({ message: "All fields are required." });
     }
   
     const imagePath = req.file ? `/images/${req.file.filename}` : null;
   
-    db.addFoodItem(foodName, description, details, imagePath, price, (err) => {
+    db.addFoodItem(foodName, description, details, imagePath, price, category, (err) => {
       if (err) {
         console.error("Error adding food item:", err); // Log database error
         return res.status(500).json({ message: "Failed to upload food item." });
@@ -440,32 +673,200 @@ app.post("/orders", (req, res) => {
   });
 });
 
+// // Add loyalty points
+// app.post("/loyalty-points", (req, res) => {
+//   const { user_id, total_amount } = req.body;
+
+//   if (!user_id || !total_amount) {
+//     return res.status(400).json({ message: "User ID and total amount are required." });
+//   }
+
+//   const points = Math.floor(total_amount / 1000);
+//   if (points > 0) {
+//     const query = `
+//       INSERT INTO loyalty_points (user_id, points)
+//       VALUES (?, ?)
+//       ON DUPLICATE KEY UPDATE points = points + VALUES(points)
+//     `;
+//     db.query(query, [user_id, points], (err, result) => {
+//       if (err) {
+//         console.error("Error updating loyalty points:", err);
+//         return res.status(500).json({ message: "Failed to update loyalty points", error: err });
+//       }
+//       res.status(200).json({ message: "Loyalty points updated successfully" });
+//     });
+//   } else {
+//     res.status(200).json({ message: "No loyalty points to update" });
+//   }
+// });
+// Add this GET endpoint for loyalty points
+// app.get("/loyalty-points", (req, res) => {
+//   const userId = req.query.user_id;
+  
+//   if (!userId) {
+//     return res.status(400).json({ message: "User ID is required" });
+//   }
+
+//   const query = "SELECT points FROM loyalty_points WHERE user_id = ?";
+//   db.query(query, [userId], (err, results) => {
+//     if (err) {
+//       return res.status(500).json({ message: "Error fetching loyalty points", error: err });
+//     }
+    
+//     // Return 0 points if no record exists
+//     const points = results.length > 0 ? results[0].points : 0;
+//     res.status(200).json({ points });
+//   });
+// });
+
+// app.put('/api/loyalty-points', async (req, res) => {
+//   try {
+//     const { user_id, earnedPoints = 0, usedPoints = 0 } = req.body;
+
+//     // Validate inputs
+//     if (!user_id || isNaN(user_id)) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: "Valid user ID is required" 
+//       });
+//     }
+
+//     // Convert to numbers
+//     const earned = parseInt(earnedPoints) || 0;
+//     const used = parseInt(usedPoints) || 0;
+
+//     // Start transaction
+//     await db.query("START TRANSACTION");
+
+//     // UPSERT operation
+//     const [result] = await db.query(`
+//       INSERT INTO loyalty_points (user_id, points)
+//       VALUES (?, GREATEST(?, 0))
+//       ON DUPLICATE KEY UPDATE 
+//       points = GREATEST(points + ? - ?, 0)
+//     `, [user_id, earned, earned, used]);
+
+//     // Get updated points
+//     const [rows] = await db.query(
+//       "SELECT points FROM loyalty_points WHERE user_id = ?",
+//       [user_id]
+//     );
+
+//     await db.query("COMMIT");
+
+//     res.json({
+//       success: true,
+//       newPoints: rows[0]?.points || 0
+//     });
+
+//   } catch (error) {
+//     await db.query("ROLLBACK");
+//     console.error("Database Error:", error.sqlMessage || error.message);
+//     res.status(500).json({
+//       success: false,
+//       error: "Internal server error",
+//       detail: error.sqlMessage || error.message
+//     });
+//   }
+// });
 // Add loyalty points
-app.post("/loyalty-points", (req, res) => {
-  const { user_id, total_amount } = req.body;
+// app.post("/loyalty-points", (req, res) => {
+//   const { user_id, total_amount } = req.body;
 
-  if (!user_id || !total_amount) {
-    return res.status(400).json({ message: "User ID and total amount are required." });
-  }
+//   if (!user_id || !total_amount) {
+//     return res.status(400).json({ message: "User ID and total amount are required." });
+//   }
 
-  const points = Math.floor(total_amount / 1000);
-  if (points > 0) {
-    const query = `
-      INSERT INTO loyalty_points (user_id, points)
-      VALUES (?, ?)
-      ON DUPLICATE KEY UPDATE points = points + VALUES(points)
-    `;
-    db.query(query, [user_id, points], (err, result) => {
-      if (err) {
-        console.error("Error updating loyalty points:", err);
-        return res.status(500).json({ message: "Failed to update loyalty points", error: err });
-      }
-      res.status(200).json({ message: "Loyalty points updated successfully" });
-    });
-  } else {
-    res.status(200).json({ message: "No loyalty points to update" });
+//   const points = Math.floor(total_amount / 1000);
+//   if (points > 0) {
+//     const query = `
+//       INSERT INTO loyalty_points (user_id, points)
+//       VALUES (?, ?)
+//       ON DUPLICATE KEY UPDATE points = points + VALUES(points)
+//     `;
+
+//     db.query(query, [user_id, points], (err, result) => {
+//       if (err) {
+//         console.error("Error updating loyalty points:", err);
+//         return res.status(500).json({ message: "Failed to update loyalty points", error: err });
+//       }
+
+//       res.status(200).json({ message: "Loyalty points updated successfully" });
+//     });
+//   } else {
+//     res.status(200).json({ message: "No loyalty points to update" });
+//   }
+// });
+
+
+app.get("/loyalty-points", (req, res) => {
+  const userId = req.query.user_id;
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required" });
   }
+  const query = "SELECT points FROM loyalty_points WHERE user_id = ?";
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Error fetching loyalty points", error: err });
+    }
+    const points = results.length > 0 ? results[0].points : 0;
+    res.status(200).json({ points });
+  });
 });
+
+app.post("/update-loyalty-points", (req, res) => {
+  const { user_id, total_amount, used_points } = req.body;
+
+  if (!user_id || total_amount === undefined || used_points === undefined) {
+    return res.status(400).json({ message: "User ID, total amount, and used points are required." });
+  }
+
+  const earned_points = Math.floor(total_amount / 1000); // Correctly calculate from total_amount
+
+  const checkUserQuery = "SELECT points FROM loyalty_points WHERE user_id = ?";
+
+  db.query(checkUserQuery, [user_id], async (err, result) => {
+    if (err) {
+      console.error("Error checking user loyalty points:", err);
+      return res.status(500).json({ message: "Failed to check loyalty points", error: err });
+    }
+
+    let current_points = result.length === 0 ? 0 : result[0].points;
+
+    // Deduct points if used_points are provided
+    if (used_points > 0) {
+      const new_points = Math.max(current_points - used_points, 0); // Prevent going below 0
+      const deductPointsQuery = "UPDATE loyalty_points SET points = ? WHERE user_id = ?";
+      db.query(deductPointsQuery, [new_points, user_id], (err, result) => {
+        if (err) {
+          console.error("Error deducting points:", err);
+          return res.status(500).json({ message: "Failed to deduct points", error: err });
+        }
+      });
+      current_points = new_points; // Update current points after deduction
+    }
+
+    // Add earned points if total amount is greater than 0
+    if (earned_points > 0) {
+      const new_points = current_points + earned_points;
+      const addPointsQuery = "UPDATE loyalty_points SET points = ? WHERE user_id = ?";
+      db.query(addPointsQuery, [new_points, user_id], (err, result) => {
+        if (err) {
+          console.error("Error adding points:", err);
+          return res.status(500).json({ message: "Failed to add points", error: err });
+        }
+
+        return res.status(200).json({ message: "Loyalty points updated successfully" });
+      });
+    } else {
+      // If no earned points to add, just send the response after deduction (if applicable)
+      if (used_points > 0) {
+        return res.status(200).json({ message: "Loyalty points updated successfully" });
+      }
+    }
+  });
+});
+
 
 // Get orders
 app.get("/orders", (req, res) => {
@@ -520,6 +921,53 @@ app.get("/notifications", (req, res) => {
     }
     res.status(200).json(results);
   });
+});
+
+// Endpoint to generate eSewa payment URL
+app.post("/api/esewa/pay", async (req, res) => {
+  const { amount, transactionId } = req.body;
+
+  const esewaPayload = {
+      amt: amount,
+      psc: 0,
+      pdc: 0,
+      txAmt: 0,
+      tAmt: amount,
+      pid: transactionId,
+      scd: "EPAYTEST",
+      su: "http://localhost:3000/success",
+      fu: "http://localhost:3000/failure"
+  };
+
+  const esewaURL = `http://rc-epay.esewa.com.np/api/epay/main?` + 
+    new URLSearchParams(esewaPayload).toString();
+
+  res.json({ esewaURL });
+});
+
+// Endpoint to verify eSewa payment
+app.post("/api/esewa/verify", async (req, res) => {
+  const { amount, transactionId, referenceId } = req.body;
+
+  try {
+      const response = await axios.post(
+          "https://rc-epay.esewa.com.np/api/epay/verify",
+          new URLSearchParams({
+              amt: amount,
+              rid: referenceId,
+              pid: transactionId,
+              scd: "epay_payment"
+          })
+      );
+
+      if (response.data.status === "success") {
+          res.json({ message: "Payment verified successfully!" });
+      } else {
+          res.status(400).json({ error: "Payment verification failed!" });
+      }
+  } catch (error) {
+      res.status(500).json({ error: "Error verifying payment" });
+  }
 });
 
 // Start server

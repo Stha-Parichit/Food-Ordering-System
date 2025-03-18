@@ -2,9 +2,15 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { FaBell } from "react-icons/fa";
-import { Button, TextField, Typography, Card, CardContent, Box, Grid, Link, FormControl, Select, MenuItem, InputLabel, AppBar, Toolbar, IconButton, Modal, Autocomplete, Menu } from "@mui/material";
+import { 
+  Button, TextField, Typography, Card, CardContent, Box, Grid, 
+  Link, FormControl, Select, MenuItem, InputLabel, AppBar, Toolbar, 
+  IconButton, Modal, Autocomplete, Menu, Divider, Badge, Avatar,
+  Paper, List, ListItem, ListItemText, Container, CircularProgress
+} from "@mui/material";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import SearchIcon from "@mui/icons-material/Search";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 
 const Checkout = () => {
   const [cartItems, setCartItems] = useState([]);
@@ -13,26 +19,53 @@ const Checkout = () => {
   const [selectedCharity, setSelectedCharity] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('Standard');
   const [userPoints, setUserPoints] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
   const [openModal, setOpenModal] = useState(false);
   const userEmail = localStorage.getItem("userEmail");
-  const firstLetter = userEmail ? userEmail.charAt(0).toUpperCase() : "";
+  const userId = localStorage.getItem("user_id");
   const [anchorEl, setAnchorEl] = useState(null);
+  const apiUrl = "http://localhost:5000";
 
   useEffect(() => {
-    const fetchCartItems = async () => {
-      try {
-        const userId = localStorage.getItem("user_id");
-        const response = await axios.get("http://localhost:5000/cart", {
-          params: { user_id: userId }
-        });
-        setCartItems(response.data);
-      } catch (error) {
-        console.error("Error fetching cart items:", error);
-      }
-    };
+    document.title = "Checkout - YOO!!!";
+    fetchCartItems();
+    fetchUserPoints();
+  }, []);
 
-    const fetchUserPoints = async () => {
+  const fetchCartItems = async () => {
+    setLoading(true);
+    try {
+      if (!userId) {
+        setError("Please log in to proceed with checkout");
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.get(`${apiUrl}/cart`, {
+        params: { user_id: userId }
+      });
+      
+      if (response.data.success) {
+        // Ensure items is always an array
+        const items = Array.isArray(response.data.items) ? response.data.items : [];
+        setCartItems(items);
+        setError("");
+      } else {
+        setError(response.data.message || "Failed to load cart items");
+        setCartItems([]);
+      }
+    } catch (error) {
+      console.error("Error fetching cart items:", error);
+      setError("Unable to load your cart. Please try again later.");
+      setCartItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserPoints = async () => {
       try {
         const userId = localStorage.getItem("user_id");
         const response = await axios.get("http://localhost:5000/loyalty-points", {
@@ -43,10 +76,6 @@ const Checkout = () => {
         console.error("Error fetching user points:", error);
       }
     };
-
-    fetchCartItems();
-    fetchUserPoints();
-  }, []);
 
   const handleClickProfile = (event) => {
     setAnchorEl(event.currentTarget);
@@ -67,19 +96,19 @@ const Checkout = () => {
   };
 
   const handleCharityChange = (charity) => {
-    setSelectedCharity(charity);
-    localStorage.setItem("selectedCharity", JSON.stringify(charity));
+    if (selectedCharity?.id === charity.id) {
+      setSelectedCharity(null);
+      localStorage.removeItem("selectedCharity");
+    } else {
+      setSelectedCharity(charity);
+      localStorage.setItem("selectedCharity", JSON.stringify(charity));
+    }
   };
-
-  useEffect(() => {
-    document.title = "Checkout - YOO!!!";
-    const link = document.querySelector("link[rel*='icon']");
-    link.href = "./images/logo.png";
-  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userEmail");
+    localStorage.removeItem("user_id");
     navigate("/login");
   };
 
@@ -87,8 +116,11 @@ const Checkout = () => {
     navigate('/cart');
   };
 
-  const getTotal = () => {
-    return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+  // Fixed getSubtotal function that ensures cartItems is an array
+  const getSubtotal = () => {
+    return Array.isArray(cartItems) 
+      ? cartItems.reduce((total, item) => total + (item.item_price * item.quantity), 0)
+      : 0;
   };
 
   const discounts = [
@@ -106,31 +138,34 @@ const Checkout = () => {
     { id: 4, title: 'Hunger relief', amount: 'Rs. 2000' }
   ];
 
-  const subtotal = getTotal();
+  const subtotal = getSubtotal();
   const deliveryFee = 60;
   const charityDonation = selectedCharity ? parseInt(selectedCharity.amount.replace('Rs. ', '')) : 0;
-  const discountAmount = selectedDiscount ? (subtotal * parseInt(selectedDiscount.title) / 100) : 0;
+  const discountPercentage = selectedDiscount ? parseInt(selectedDiscount.title) : 0;
+  const discountAmount = (subtotal * discountPercentage / 100);
   const total = subtotal + deliveryFee + charityDonation - discountAmount;
 
   const handleCheckout = () => {
+    if (!deliveryAddress) {
+      alert("Please enter a delivery address");
+      return;
+    }
+    
     localStorage.setItem("deliveryAddress", deliveryAddress);
-    localStorage.setItem("paymentMethod", paymentMethod); // Store payment method in local storage
+    localStorage.setItem("paymentMethod", paymentMethod);
+    
     if (paymentMethod === 'COD') {
-      navigate('/order-confirmation'); // Navigate to order confirmation page for COD
+      navigate('/order-confirmation');
     } else {
-      setOpenModal(true); // Show confirmation modal for other payment methods
+      setOpenModal(true);
     }
   };
 
   const handleConfirmPayment = () => {
-    navigate('/payment');
+    navigate('/e-pay');
   };
 
-  const handleLogoClick = () => {
-    navigate("/home");
-  };
-
-  // Static list of address options (you can replace this with your own list or API)
+  // Static list of address options
   const addressOptions = [
     "123 Main St, Cityville, 12345",
     "456 Oak Rd, Townsville, 67890",
@@ -139,31 +174,57 @@ const Checkout = () => {
   ];
 
   return (
-    <div className="checkout-container" style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <AppBar position="fixed" sx={{ backgroundColor: "#fff", color: "#333" }}>
+    <div style={{ 
+      minHeight: "100vh", 
+      display: "flex", 
+      flexDirection: "column", 
+      backgroundColor: "#f9f9f9" 
+    }}>
+      <AppBar position="sticky" sx={{ backgroundColor: "#fff", color: "#333", boxShadow: 2 }}>
         <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
           <Box sx={{ display: "flex", alignItems: "center" }}>
-            <img src="/images/logo.png" alt="Logo" style={{ width: 40, height: 40 }} />
-            <Typography variant="h6" sx={{ ml: 2, color: "#333" }}>
+            <img 
+              src="/images/logo.png" 
+              alt="Logo" 
+              style={{ width: 40, height: 40, cursor: 'pointer' }} 
+              onClick={() => navigate("/home")}
+            />
+            <Typography 
+              variant="h6" 
+              sx={{ ml: 2, color: "#333", fontWeight: "bold", cursor: 'pointer' }}
+              onClick={() => navigate("/home")}
+            >
               YOO!!!
             </Typography>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", mx: "auto" }}>
-            <Button sx={{ color: "#333" }} component="a" href="/home">
+            <Button sx={{ color: "#333", mx: 1 }} component="a" href="/home">
               Home
             </Button>
-            <Button sx={{ color: "#333" }} component="a" href="/categories">
+            <Button sx={{ color: "#333", mx: 1 }} component="a" href="/categories">
               Categories
             </Button>
-            <Button sx={{ color: "#333" }} component="a" href="/dashboard">
+            <Button sx={{ color: "#333", mx: 1 }} component="a" href="/dashboard">
               Dashboard
             </Button>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center" }}>
-            <TextField variant="outlined" size="small" placeholder="Search" InputProps={{ endAdornment: <SearchIcon /> }} sx={{ bgcolor: "white", borderRadius: 1, mr: 2 }} />
-            <FaBell style={{ fontSize: "1.5rem", color: "#333" }} />
+            <TextField 
+              variant="outlined" 
+              size="small" 
+              placeholder="Search" 
+              InputProps={{ endAdornment: <SearchIcon /> }} 
+              sx={{ bgcolor: "white", borderRadius: 1, mr: 2 }} 
+            />
+            <IconButton sx={{ mr: 1 }}>
+              <Badge badgeContent={2} color="error">
+                <FaBell style={{ fontSize: "1.5rem", color: "#333" }} />
+              </Badge>
+            </IconButton>
             <IconButton onClick={handleClickProfile}>
-              <AccountCircleIcon sx={{ fontSize: "2rem", color: "#333" }} />
+              <Avatar sx={{ bgcolor: "#ff9800" }}>
+                {userEmail ? userEmail.charAt(0).toUpperCase() : <AccountCircleIcon />}
+              </Avatar>
             </IconButton>
             <Menu
               anchorEl={anchorEl}
@@ -171,10 +232,10 @@ const Checkout = () => {
               onClose={handleCloseProfileMenu}
               sx={{ mt: 2 }}
             >
-              <MenuItem>{userEmail}</MenuItem>
-              <Link to="/profile" style={{ textDecoration: "none", color: "black" }}>
-                <MenuItem>Profile</MenuItem>
-              </Link>
+              <MenuItem sx={{ typography: 'subtitle2' }}>{userEmail}</MenuItem>
+              <Divider />
+              <MenuItem component="a" href="/profile">Profile</MenuItem>
+              <MenuItem component="a" href="/orders">My Orders</MenuItem>
               <MenuItem onClick={handleLogout}>
                 Logout
               </MenuItem>
@@ -183,146 +244,352 @@ const Checkout = () => {
         </Toolbar>
       </AppBar>
 
-      <Button variant="outlined" onClick={handleBackClick} sx={{ margin: 2, marginTop:10, width:100, borderColor: "#333", color: "#333", fontWeight: "bold" }}>
-        ◀ BACK
-      </Button>
-
-      <Card sx={{ margin: 2, padding: 3, borderRadius: 2, boxShadow: 3 }}>
-        <CardContent>
-          <Typography variant="h5" gutterBottom sx={{ fontWeight: "bold", color: "#333" }}>🛒 Your Order</Typography>
-          {cartItems.length === 0 ? (
-            <Typography>No items in your cart!</Typography>
-          ) : (
-            cartItems.map(item => (
-              <Grid container key={item.cart_id} spacing={2} alignItems="center">
-                <Grid item xs={6}>
-                  <Typography>{item.food_name} x{item.quantity}</Typography>
-                </Grid>
-                <Grid item xs={6} style={{ textAlign: 'right' }}>
-                  <Typography>₹{item.price * item.quantity}</Typography>
-                </Grid>
-              </Grid>
-            ))
-          )}
-
-          <Typography variant="h5" gutterBottom sx={{ fontWeight: "bold", color: "#333" }}>📍 Delivery</Typography>
-          <Autocomplete
-            value={deliveryAddress}
-            onChange={(event, newValue) => setDeliveryAddress(newValue)}
-            options={addressOptions}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Delivery Address"
-                variant="outlined"
-                fullWidth
-                margin="normal"
-                sx={{ marginBottom: 2 }}
-              />
-            )}
-          />
-
-          <Typography variant="h5" gutterBottom sx={{ fontWeight: "bold", color: "#333" }}>💸 Discount</Typography>
-          <Typography variant="body2" sx={{ color: "#333", mb: 2 }}>You have {userPoints} points</Typography>
-          <Grid container spacing={2}>
-            {discounts.map(discount => (
-              <Grid item key={discount.id}>
-                <Button
-                  variant="outlined"
-                  color={selectedDiscount?.id === discount.id ? "primary" : "default"}
-                  onClick={() => handleDiscountChange(discount)}
-                  disabled={userPoints < discount.requiredPoints}
-                  sx={{ padding: "10px 20px", fontWeight: "bold", borderRadius: 2 }}
-                >
-                  {discount.title}
-                  <Typography variant="body2">{discount.amount}</Typography>
-                </Button>
-              </Grid>
-            ))}
-          </Grid>
-
-          <Typography variant="h5" gutterBottom sx={{ fontWeight: "bold", color: "#333" }}>💝 Charity Donation</Typography>
-          <Grid container spacing={2}>
-            {charityOptions.map(charity => (
-              <Grid item key={charity.id}>
-                <Button
-                  variant="outlined"
-                  color={selectedCharity?.id === charity.id ? "primary" : "default"}
-                  onClick={() => handleCharityChange(charity)}
-                  sx={{ padding: "10px 20px", fontWeight: "bold", borderRadius: 2 }}
-                >
-                  {charity.title}
-                  <Typography variant="body2">{charity.amount}</Typography>
-                </Button>
-              </Grid>
-            ))}
-          </Grid>
-
-          <Typography variant="h5" gutterBottom sx={{ fontWeight: "bold", color: "#333" }}>💳 Payment Method</Typography>
-          <FormControl fullWidth variant="outlined" margin="normal" sx={{ marginBottom: 2 }}>
-            <InputLabel>Payment Method</InputLabel>
-            <Select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              label="Payment Method"
-            >
-              <MenuItem value="Standard">Esewa</MenuItem>
-              <MenuItem value="COD">Cash On Delivery</MenuItem>
-            </Select>
-          </FormControl>
-
-          <Typography variant="h6" gutterBottom sx={{ fontWeight: "bold", color: "#333" }}>Order Summary</Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={6}><Typography>Subtotal:</Typography></Grid>
-            <Grid item xs={6} style={{ textAlign: 'right' }}><Typography>Rs. {subtotal}</Typography></Grid>
-            <Grid item xs={6}><Typography>Delivery Fee:</Typography></Grid>
-            <Grid item xs={6} style={{ textAlign: 'right' }}><Typography>Rs. {deliveryFee}</Typography></Grid>
-            <Grid item xs={6}><Typography>Charity Donation:</Typography></Grid>
-            <Grid item xs={6} style={{ textAlign: 'right' }}><Typography>Rs. {charityDonation}</Typography></Grid>
-            <Grid item xs={6}><Typography>Loyalty Discount:</Typography></Grid>
-            <Grid item xs={6} style={{ textAlign: 'right' }}><Typography>-Rs. {discountAmount}</Typography></Grid>
-            <Grid item xs={6}><Typography variant="h6">Total:</Typography></Grid>
-            <Grid item xs={6} style={{ textAlign: 'right' }}><Typography variant="h6">Rs. {total}</Typography></Grid>
-          </Grid>
-
-          <Button
-            variant="contained"
-            color="primary"
-            fullWidth
-            onClick={handleCheckout}
-            sx={{ marginTop: 2, backgroundColor: '#ff9800', "&:hover": { backgroundColor: '#f57c00'} }}
+      <Container maxWidth="lg" sx={{ mt: 5, mb: 8, flex: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+          <Button 
+            variant="outlined" 
+            onClick={handleBackClick} 
+            sx={{ 
+              mr: 2, 
+              borderColor: "#ff9800", 
+              color: "#ff9800", 
+              fontWeight: "medium",
+              "&:hover": { borderColor: "#f57c00", color: "#f57c00" }
+            }}
           >
-            {paymentMethod === 'COD' ? 'Confirm Order' : 'Complete Payment'}
+            ◀ Back to Cart
           </Button>
-        </CardContent>
-      </Card>
+          <Typography variant="h4" fontWeight="bold">
+            Checkout
+          </Typography>
+        </Box>
 
-      {/* Confirmation Modal */}
+        {loading ? (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
+            <CircularProgress color="primary" sx={{ color: "#ff9800" }} />
+          </Box>
+        ) : error ? (
+          <Paper elevation={2} sx={{ p: 4, textAlign: "center" }}>
+            <Typography variant="h6" color="error" mb={2}>
+              {error}
+            </Typography>
+            <Button 
+              variant="contained" 
+              color="primary"
+              onClick={() => navigate("/cart")}
+              sx={{ 
+                mt: 2, 
+                backgroundColor: '#ff9800',
+                "&:hover": { backgroundColor: '#f57c00'} 
+              }}
+            >
+              Return to Cart
+            </Button>
+          </Paper>
+        ) : (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={8}>
+              {/* Order Summary */}
+              <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+                <Typography variant="h5" fontWeight="bold" mb={2}>
+                  <ShoppingCartIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                  Order Items ({cartItems.length})
+                </Typography>
+                
+                {cartItems.length === 0 ? (
+                  <Typography>Your cart is empty!</Typography>
+                ) : (
+                  <>
+                    {cartItems.map(item => (
+                      <Box 
+                        key={item.cart_id} 
+                        sx={{ 
+                          p: 2, 
+                          mb: 2, 
+                          display: 'flex',
+                          alignItems: 'center',
+                          borderBottom: '1px solid #eee'
+                        }}
+                      >
+                        <Box sx={{ width: 60, height: 60, mr: 2, borderRadius: 1, overflow: 'hidden' }}>
+                          <img 
+                            src={item.image_url || '/images/placeholder-food.png'} 
+                            alt={item.name} 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        </Box>
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Typography variant="subtitle1" fontWeight="medium">
+                            {item.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Quantity: {item.quantity}
+                          </Typography>
+                        </Box>
+                        <Typography variant="subtitle1" fontWeight="bold">
+                          ₹{(item.item_price * item.quantity).toFixed(2)}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </>
+                )}
+              </Paper>
+              
+              {/* Delivery Address */}
+              <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+                <Typography variant="h5" fontWeight="bold" mb={2}>
+                  📍 Delivery Address
+                </Typography>
+                <Autocomplete
+                  value={deliveryAddress}
+                  onChange={(event, newValue) => setDeliveryAddress(newValue)}
+                  options={addressOptions}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Delivery Address"
+                      variant="outlined"
+                      fullWidth
+                      required
+                      placeholder="Enter or select your delivery address"
+                    />
+                  )}
+                  freeSolo
+                />
+              </Paper>
+              
+              {/* Loyalty Discount */}
+              <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+                <Typography variant="h5" fontWeight="bold" mb={1}>
+                  💸 Loyalty Discount
+                </Typography>
+                <Typography variant="body1">
+                  You have{' '}
+                  {userPoints === null ? (
+                    <span style={{ color: 'red' }}>Error loading points</span>
+                  ) : (
+                    <span style={{ fontWeight: 'bold', color: '#ff9800' }}>
+                      {userPoints} points
+                    </span>
+                  )}
+                </Typography>
+                <Grid container spacing={2}>
+                  {discounts.map(discount => (
+                    <Grid item key={discount.id}>
+                      <Button
+                        variant={selectedDiscount?.id === discount.id ? "contained" : "outlined"}
+                        onClick={() => handleDiscountChange(discount)}
+                        disabled={userPoints < discount.requiredPoints}
+                        sx={{ 
+                          p: "10px 15px", 
+                          borderRadius: 2,
+                          backgroundColor: selectedDiscount?.id === discount.id ? '#ff9800' : 'transparent',
+                          borderColor: '#ff9800',
+                          color: selectedDiscount?.id === discount.id ? 'white' : '#ff9800',
+                          "&:hover": { 
+                            backgroundColor: selectedDiscount?.id === discount.id ? '#f57c00' : 'rgba(255, 152, 0, 0.1)',
+                            borderColor: '#f57c00'
+                          }
+                        }}
+                      >
+                        <Box sx={{ textAlign: 'center' }}>
+                          <Typography variant="body1" fontWeight="bold">
+                            {discount.title}
+                          </Typography>
+                          <Typography variant="caption" display="block">
+                            {discount.amount}
+                          </Typography>
+                        </Box>
+                      </Button>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Paper>
+              
+              {/* Charity Donation */}
+              <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+                <Typography variant="h5" fontWeight="bold" mb={2}>
+                  💝 Charity Donation
+                </Typography>
+                <Grid container spacing={2}>
+                  {charityOptions.map(charity => (
+                    <Grid item key={charity.id}>
+                      <Button
+                        variant={selectedCharity?.id === charity.id ? "contained" : "outlined"}
+                        onClick={() => handleCharityChange(charity)}
+                        sx={{ 
+                          p: "10px 15px", 
+                          borderRadius: 2,
+                          backgroundColor: selectedCharity?.id === charity.id ? '#ff9800' : 'transparent',
+                          borderColor: '#ff9800',
+                          color: selectedCharity?.id === charity.id ? 'white' : '#ff9800',
+                          "&:hover": { 
+                            backgroundColor: selectedCharity?.id === charity.id ? '#f57c00' : 'rgba(255, 152, 0, 0.1)',
+                            borderColor: '#f57c00'
+                          }
+                        }}
+                      >
+                        <Box sx={{ textAlign: 'center' }}>
+                          <Typography variant="body1" fontWeight="bold">
+                            {charity.title}
+                          </Typography>
+                          <Typography variant="caption" display="block">
+                            {charity.amount}
+                          </Typography>
+                        </Box>
+                      </Button>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Paper>
+              
+              {/* Payment Method */}
+              <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+                <Typography variant="h5" fontWeight="bold" mb={2}>
+                  💳 Payment Method
+                </Typography>
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel>Select Payment Method</InputLabel>
+                  <Select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    label="Select Payment Method"
+                  >
+                    <MenuItem value="Standard">Esewa</MenuItem>
+                    <MenuItem value="COD">Cash On Delivery</MenuItem>
+                  </Select>
+                </FormControl>
+              </Paper>
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <Paper elevation={3} sx={{ p: 3, borderRadius: 2, position: "sticky", top: 80 }}>
+                <Typography variant="h5" fontWeight="bold" gutterBottom>
+                  Order Summary
+                </Typography>
+                
+                <List disablePadding>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText primary="Subtotal" />
+                    <Typography variant="body1">₹{subtotal.toFixed(2)}</Typography>
+                  </ListItem>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText primary="Delivery Fee" />
+                    <Typography variant="body1">₹{deliveryFee.toFixed(2)}</Typography>
+                  </ListItem>
+                  {selectedCharity && (
+                    <ListItem sx={{ py: 1, px: 0 }}>
+                      <ListItemText primary="Charity Donation" secondary={selectedCharity.title} />
+                      <Typography variant="body1">₹{charityDonation.toFixed(2)}</Typography>
+                    </ListItem>
+                  )}
+                  {selectedDiscount && (
+                    <ListItem sx={{ py: 1, px: 0 }}>
+                      <ListItemText 
+                        primary="Loyalty Discount" 
+                        secondary={`${selectedDiscount.title} (${selectedDiscount.amount})`} 
+                      />
+                      <Typography variant="body1" color="error">-₹{discountAmount.toFixed(2)}</Typography>
+                    </ListItem>
+                  )}
+                  <Divider sx={{ my: 2 }} />
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText primary={<Typography variant="h6" fontWeight="bold">Total</Typography>} />
+                    <Typography variant="h6" fontWeight="bold" color="#ff9800">
+                      ₹{total.toFixed(2)}
+                    </Typography>
+                  </ListItem>
+                </List>
+                
+                <Button 
+                  variant="contained" 
+                  fullWidth 
+                  size="large"
+                  disabled={cartItems.length === 0}
+                  onClick={handleCheckout}
+                  sx={{ 
+                    mt: 3, 
+                    backgroundColor: '#ff9800',
+                    "&:hover": { backgroundColor: '#f57c00'},
+                    height: 48,
+                    fontWeight: "bold"
+                  }}
+                >
+                  {paymentMethod === 'COD' ? 'Confirm Order' : 'Complete Payment'}
+                </Button>
+                
+                <Button 
+                  variant="outlined" 
+                  fullWidth 
+                  sx={{ 
+                    mt: 2,
+                    borderColor: '#ff9800',
+                    color: '#ff9800',
+                    "&:hover": { 
+                      borderColor: '#f57c00',
+                      color: '#f57c00',
+                      backgroundColor: 'rgba(255, 152, 0, 0.1)'
+                    }
+                  }}
+                  onClick={() => navigate("/home")}
+                >
+                  Continue Shopping
+                </Button>
+              </Paper>
+            </Grid>
+          </Grid>
+        )}
+      </Container>
+
+      {/* Payment Confirmation Modal */}
       <Modal
         open={openModal}
         onClose={() => setOpenModal(false)}
         aria-labelledby="confirmation-modal"
-        aria-describedby="confirmation-to-proceed-payment"
       >
-        <Box sx={{ bgcolor: "white", p: 4, borderRadius: 2, boxShadow: 3, maxWidth: 400, margin: "auto", marginTop: "20%" }}>
-          <Typography variant="h6">Are you sure you want to proceed with the payment?</Typography>
-          <Box sx={{ marginTop: 2,  }}>
+        <Box sx={{ 
+          bgcolor: "white", 
+          p: 4, 
+          borderRadius: 2, 
+          boxShadow: 3, 
+          maxWidth: 400, 
+          margin: "auto", 
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)' 
+        }}>
+          <Typography variant="h6" fontWeight="bold" mb={2}>Confirm Payment</Typography>
+          <Typography variant="body1" mb={3}>
+            Are you sure you want to proceed with the payment of ₹{total.toFixed(2)}?
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
             <Button
               variant="contained"
-              color="primary"
               fullWidth
               onClick={handleConfirmPayment}
-              sx={{ backgroundColor: '#ff9800',
-                "&:hover": { backgroundColor: '#f57c00'} }}
+              sx={{ 
+                backgroundColor: '#ff9800',
+                "&:hover": { backgroundColor: '#f57c00'},
+                mb: 2,
+                height: 48
+              }}
             >
-              Yes, Proceed
+              Yes, Proceed to Payment
             </Button>
             <Button
               variant="outlined"
-              color="secondary"
               fullWidth
               onClick={() => setOpenModal(false)}
-              sx={{ marginTop: 2 }}
+              sx={{ 
+                borderColor: '#ff9800',
+                color: '#ff9800',
+                "&:hover": { 
+                  borderColor: '#f57c00',
+                  color: '#f57c00',
+                  backgroundColor: 'rgba(255, 152, 0, 0.1)'
+                }
+              }}
             >
               Cancel
             </Button>
@@ -331,13 +598,21 @@ const Checkout = () => {
       </Modal>
 
       {/* Footer Section */}
-            <footer className="home-footer" style={{ textAlign: 'center', padding: '40px', marginTop:'40px', backgroundColor: '#f0f0f0' }}>
-                <Typography variant="body2" color="textSecondary">© YOO!!! All Rights Reserved</Typography>
-                <Typography variant="body2" color="textSecondary">🍴 YOO!!!</Typography>
-                <Typography variant="body2" color="textSecondary">
-                    Disclaimer: This site is only for ordering and learning to cook food.
-                </Typography>
-            </footer>
+      <Box sx={{ 
+        textAlign: "center", 
+        p: 4, 
+        backgroundColor: "#f8f8f8", 
+        borderTop: "1px solid #e0e0e0",
+        mt: 'auto'
+      }}>
+        <Typography variant="body1" fontWeight="medium" mb={1}>© YOO!!! All Rights Reserved</Typography>
+        <Typography variant="body2" color="text.secondary">
+          🍴 Delicious food, delivered to your doorstep
+        </Typography>
+        <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+          Disclaimer: This site is only for ordering and learning to cook food.
+        </Typography>
+      </Box>
     </div>
   );
 };

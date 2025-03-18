@@ -22,7 +22,7 @@ const OrderingCard = ({ image, title, initialRating, price, onRatingChange, onOr
   };
 
   return (
-    <Card sx={{ width: 280, marginBottom: 2, boxShadow: 3, borderRadius: 2 }}>
+    <Card sx={{ width: 150, marginBottom: 2, boxShadow: 3, borderRadius: 2 }}>
       <CardMedia
         component="img"
         height="200"
