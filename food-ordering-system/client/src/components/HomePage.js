@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Button, Box, Typography, Grid, TextField, AppBar, Toolbar, Rating, IconButton, Menu, MenuItem, Card, CardContent, CardMedia, Dialog, DialogActions, DialogContent, DialogTitle } from "@mui/material";
+import { Button, Box, Typography, Grid, TextField, AppBar, Toolbar, Rating, IconButton, Menu, MenuItem, Card, CardContent, CardMedia, Snackbar, Container, InputAdornment } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { FaBell, FaShoppingCart } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
@@ -249,7 +249,6 @@ const handleSaveCustomization = async (item, customization) => {
             </Button>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center" }}>
-            <TextField variant="outlined" size="small" placeholder="Search" InputProps={{ endAdornment: <SearchIcon /> }} sx={{ bgcolor: "white", borderRadius: 1, mr: 2 }} onChange={handleSearchChange} />
             <IconButton onClick={handleNotificationClick}>
               <FaBell style={{ fontSize: "1.5rem", color: "#333" }} />
             </IconButton>
@@ -387,6 +386,35 @@ const handleSaveCustomization = async (item, customization) => {
         </Button>
       </Box>
 
+      {/* Search Component - New Section Between Carousel and Food Items */}
+      <Container maxWidth="md" sx={{ mt: -4, mb: 4, position: "relative", zIndex: 2 }}>
+        <Box
+          sx={{
+            backgroundColor: "#fff",
+            borderRadius: "8px",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+            padding: "15px 25px",
+          }}
+        >
+          <TextField
+            fullWidth
+            variant="standard"
+            placeholder="Search for your favorite food..."
+            value={searchQuery}
+            onChange={handleSearchChange}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: "#ff9800" }} />
+                </InputAdornment>
+              ),
+              disableUnderline: true,
+              sx: { fontSize: "1.1rem" }
+            }}
+          />
+        </Box>
+      </Container>
+
       {/* Food Items Section */}
       <Box sx={{ textAlign: "center", mt: 4 }}>
         <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>
@@ -486,18 +514,19 @@ const handleSaveCustomization = async (item, customization) => {
         </Grid>
       </Box>
 
-      {/* Popup Dialog */}
-      <Dialog open={openPopup} onClose={() => setOpenPopup(false)}>
-        <DialogTitle>Item Added to Cart</DialogTitle>
-        <DialogContent>
-          <Typography variant="body1">{popupMessage}</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenPopup(false)} color="primary">
-            Ok
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Snackbar Notification */}
+      <Snackbar
+        open={openPopup}
+        autoHideDuration={3000}
+        onClose={() => setOpenPopup(false)}
+        message={popupMessage}
+        sx={{
+          "& .MuiSnackbarContent-root": {
+            backgroundColor: "#43a047", // Green background for success
+            color: "#fff"
+          }
+        }}
+      />
 
       {/* Footer Section */}
       <footer className="home-footer" style={{ textAlign: 'center', padding: '40px', marginTop:'40px', backgroundColor: '#f0f0f0' }}>
