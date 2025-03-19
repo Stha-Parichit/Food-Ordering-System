@@ -327,7 +327,7 @@ const Checkout = () => {
                           </Typography>
                         </Box>
                         <Typography variant="subtitle1" fontWeight="bold">
-                          ₹{(item.item_price * item.quantity).toFixed(2)}
+                          Rs.{(item.item_price * item.quantity).toFixed(2)}
                         </Typography>
                       </Box>
                     ))}
@@ -471,16 +471,16 @@ const Checkout = () => {
                 <List disablePadding>
                   <ListItem sx={{ py: 1, px: 0 }}>
                     <ListItemText primary="Subtotal" />
-                    <Typography variant="body1">₹{subtotal.toFixed(2)}</Typography>
+                    <Typography variant="body1">Rs.{subtotal.toFixed(2)}</Typography>
                   </ListItem>
                   <ListItem sx={{ py: 1, px: 0 }}>
                     <ListItemText primary="Delivery Fee" />
-                    <Typography variant="body1">₹{deliveryFee.toFixed(2)}</Typography>
+                    <Typography variant="body1">Rs.{deliveryFee.toFixed(2)}</Typography>
                   </ListItem>
                   {selectedCharity && (
                     <ListItem sx={{ py: 1, px: 0 }}>
                       <ListItemText primary="Charity Donation" secondary={selectedCharity.title} />
-                      <Typography variant="body1">₹{charityDonation.toFixed(2)}</Typography>
+                      <Typography variant="body1">Rs.{charityDonation.toFixed(2)}</Typography>
                     </ListItem>
                   )}
                   {selectedDiscount && (
@@ -489,14 +489,14 @@ const Checkout = () => {
                         primary="Loyalty Discount" 
                         secondary={`${selectedDiscount.title} (${selectedDiscount.amount})`} 
                       />
-                      <Typography variant="body1" color="error">-₹{discountAmount.toFixed(2)}</Typography>
+                      <Typography variant="body1" color="error">-Rs.{discountAmount.toFixed(2)}</Typography>
                     </ListItem>
                   )}
                   <Divider sx={{ my: 2 }} />
                   <ListItem sx={{ py: 1, px: 0 }}>
                     <ListItemText primary={<Typography variant="h6" fontWeight="bold">Total</Typography>} />
                     <Typography variant="h6" fontWeight="bold" color="#ff9800">
-                      ₹{total.toFixed(2)}
+                      Rs.{total.toFixed(2)}
                     </Typography>
                   </ListItem>
                 </List>
@@ -561,7 +561,7 @@ const Checkout = () => {
         }}>
           <Typography variant="h6" fontWeight="bold" mb={2}>Confirm Payment</Typography>
           <Typography variant="body1" mb={3}>
-            Are you sure you want to proceed with the payment of ₹{total.toFixed(2)}?
+            Are you sure you want to proceed with the payment of Rs.{total.toFixed(2)}?
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
             <Button

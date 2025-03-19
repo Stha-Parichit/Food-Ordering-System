@@ -319,7 +319,7 @@ const Cart = () => {
                           {item.name}
                         </Typography>
                         <Typography variant="h6" color="text.secondary">
-                          ₹{item.item_price}
+                          Rs.{item.item_price}
                         </Typography>
                       </Box>
                       
@@ -350,7 +350,7 @@ const Cart = () => {
                         </Box>
                         
                         <Typography variant="subtitle1" fontWeight="bold">
-                          ₹{(item.item_price * item.quantity).toFixed(2)}
+                          Rs.{(item.item_price * item.quantity).toFixed(2)}
                         </Typography>
                       </Box>
                     </CardContent>
@@ -379,21 +379,21 @@ const Cart = () => {
                 <List disablePadding>
                   <ListItem sx={{ py: 1, px: 0 }}>
                     <ListItemText primary="Subtotal" />
-                    <Typography variant="body1">₹{getSubtotal().toFixed(2)}</Typography>
+                    <Typography variant="body1">Rs.{getSubtotal().toFixed(2)}</Typography>
                   </ListItem>
                   <ListItem sx={{ py: 1, px: 0 }}>
                     <ListItemText primary="Delivery Fee" />
-                    <Typography variant="body1">₹{getDeliveryFee().toFixed(2)}</Typography>
+                    <Typography variant="body1">Rs.{getDeliveryFee().toFixed(2)}</Typography>
                   </ListItem>
                   <ListItem sx={{ py: 1, px: 0 }}>
                     <ListItemText primary="Tax (13%)" />
-                    <Typography variant="body1">₹{getTax().toFixed(2)}</Typography>
+                    <Typography variant="body1">Rs.{getTax().toFixed(2)}</Typography>
                   </ListItem>
                   <Divider sx={{ my: 2 }} />
                   <ListItem sx={{ py: 1, px: 0 }}>
                     <ListItemText primary={<Typography variant="subtitle1" fontWeight="bold">Total</Typography>} />
                     <Typography variant="subtitle1" fontWeight="bold">
-                      ₹{getTotal().toFixed(2)}
+                      Rs.{getTotal().toFixed(2)}
                     </Typography>
                   </ListItem>
                 </List>
