@@ -27,7 +27,9 @@ import {
   useScrollTrigger,
   Slide,
   Fade,
-  Skeleton
+  Skeleton,
+  Snackbar,
+  InputAdornment
 } from "@mui/material";
 import { styled, alpha } from "@mui/material/styles";
 import { useNavigate } from 'react-router-dom';
@@ -42,6 +44,8 @@ import FastfoodIcon from '@mui/icons-material/Fastfood';
 import DeliveryDiningIcon from '@mui/icons-material/DeliveryDining';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { motion } from "framer-motion";
+import axios from "axios";
+import CustomizeOrderPopup from "./CustomizeOrderPopup";
 
 // Styled components
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -188,6 +192,7 @@ const CircleIcon = styled(Box)(({ theme }) => ({
   color: theme.palette.primary.main,
 }));
 
+
 // Hidden AppBar on scroll
 function HideOnScroll(props) {
   const { children } = props;
@@ -200,18 +205,116 @@ function HideOnScroll(props) {
   );
 }
 
-const LandingPage = () => {
+const Home = () => {
   const [foodItems, setFoodItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme => theme.breakpoints.down('md'));
 
   // Sample categories and prices for demo
   const categories = ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack'];
   const prices = ['$8.99', '$12.99', '$15.99', '$7.50', '$9.99', '$14.50'];
+
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [openCustomizePopup, setOpenCustomizePopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+  const [openPopup, setOpenPopup] = useState(false);
+
+  /// Add to Cart with customization
+const handleAddToCart = (item) => {
+  setSelectedItem(item);
+  setOpenCustomizePopup(true);
+};
+
+// Handle customization save
+const handleSaveCustomization = async (item, customization) => {
+  try {
+    const userId = localStorage.getItem("user_id");
+    if (!userId) {
+      // Handle case where user is not logged in
+      alert("Please log in to add items to your cart");
+      navigate("/login");
+      return;
+    }
+
+    // Show loading indicator
+    setLoading(true);
+
+    const response = await axios.post("http://localhost:5000/cart", {
+      food_id: item.id,
+      user_id: userId,
+      quantity: customization.quantity || 1,
+      extraCheese: customization.extraCheese || false,
+      extraMeat: customization.extraMeat || false,
+      extraVeggies: customization.extraVeggies || false,
+      noOnions: customization.noOnions || false,
+      noGarlic: customization.noGarlic || false,
+      spicyLevel: customization.spicyLevel || 'Medium',
+      specialInstructions: customization.specialInstructions || ""
+    });
+
+    if (response.data.success) {
+      // Update local cart for UI (optional, you could also re-fetch cart items)
+      const cart = JSON.parse(localStorage.getItem("cart")) || [];
+      const existingItemIndex = cart.findIndex(cartItem => 
+        cartItem.id === item.id && 
+        cartItem.customization && 
+        cartItem.customization.extraCheese === customization.extraCheese &&
+        cartItem.customization.extraMeat === customization.extraMeat &&
+        cartItem.customization.noOnions === customization.noOnions
+      );
+
+      if (existingItemIndex !== -1) {
+        cart[existingItemIndex].quantity += customization.quantity;
+      } else {
+        cart.push({ 
+          ...item, 
+          quantity: customization.quantity,
+          customization: { 
+            extraCheese: customization.extraCheese,
+            extraMeat: customization.extraMeat,
+            extraVeggies: customization.extraVeggies,
+            noOnions: customization.noOnions,
+            noGarlic: customization.noGarlic,
+            spicyLevel: customization.spicyLevel,
+            specialInstructions: customization.specialInstructions
+          }
+        });
+      }
+
+      localStorage.setItem("cart", JSON.stringify(cart));
+
+      // Show success message
+      let customizationDetails = [];
+      if (customization.extraCheese) customizationDetails.push("Extra Cheese");
+      if (customization.extraMeat) customizationDetails.push("Extra Meat");
+      if (customization.extraVeggies) customizationDetails.push("Extra Veggies");
+      if (customization.noOnions) customizationDetails.push("No Onions");
+      if (customization.noGarlic) customizationDetails.push("No Garlic");
+      if (customization.spicyLevel !== 'Medium') customizationDetails.push(`${customization.spicyLevel} Spice`);
+
+      let messageDetails = customizationDetails.length > 0 
+        ? ` with ${customizationDetails.join(", ")}`
+        : "";
+
+      setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messageDetails}!`);
+      setOpenPopup(true);
+    } else {
+      console.error("Failed to add item to cart:", response.data.message);
+      alert("Failed to add item to cart. Please try again.");
+    }
+  } catch (error) {
+    console.error("Error adding customized order:", error);
+    alert("An error occurred. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     const fetchFoodItems = async () => {
@@ -252,9 +355,9 @@ const LandingPage = () => {
     fetchFoodItems();
   }, []);
 
-  const handleAddToCart = () => {
-    setOpenDialog(true);
-  };
+  // const handleAddToCart = () => {
+  //   setOpenDialog(true);
+  // };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
@@ -281,7 +384,7 @@ const LandingPage = () => {
       </Box>
       <Divider sx={{ mb: 2 }} />
       <List>
-        {['Home', 'Dashboard', 'Recipes', 'About Us', 'Contact'].map((text) => (
+        {['Home', 'Dashboard', 'About Us', 'Contact'].map((text) => (
           <ListItem button key={text} sx={{ borderRadius: 2, mb: 1 }}>
             <ListItemText primary={text} />
           </ListItem>
@@ -321,6 +424,7 @@ const LandingPage = () => {
       }
     }
   };
+  
 
   return (
     <div>
@@ -404,22 +508,7 @@ const LandingPage = () => {
                   >
                     Dashboard
                   </Button>
-                  <Button 
-                    sx={{ 
-                      color: "#333", 
-                      fontWeight: 500,
-                      textTransform: 'none',
-                      '&:hover': {
-                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                        transform: 'translateY(-2px)'
-                      },
-                      transition: 'transform 0.2s'
-                    }} 
-                    component="a" 
-                    href="/recipes"
-                  >
-                    Recipes
-                  </Button>
+                  
                 </Box>
                 
                 <SearchBar>
@@ -436,54 +525,54 @@ const LandingPage = () => {
             )}
             
             <Box sx={{ display: "flex", alignItems: "center" }}>
-              {!isMobile && (
-                <>
-                  <Button 
-                    variant="text"
-                    startIcon={<ShoppingCartIcon />}
-                    sx={{ 
-                      mr: 1,
-                      color: "#333",
-                      fontWeight: 500,
-                      '&:hover': {
-                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                      },
-                    }}
-                  >
-                    Cart
-                  </Button>
-                  <Button 
-                    variant="outlined" 
-                    sx={{ 
-                      mr: 1,
-                      borderRadius: '8px',
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      borderColor: '#FF6B6B',
-                      color: '#FF6B6B',
-                      '&:hover': {
-                        borderColor: '#FF8E53',
-                        backgroundColor: 'rgba(255, 107, 107, 0.04)',
-                      },
-                    }}
-                    component="a" 
-                    href="/login"
-                  >
-                    Login
-                  </Button>
-                  <StyledButton 
-                    variant="contained" 
-                    sx={{ 
-                      background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
-                      color: 'white',
-                    }}
-                    component="a" 
-                    href="/register"
-                  >
-                    Sign Up
-                  </StyledButton>
-                </>
-              )}
+            {!isMobile && (
+  <>
+    <Button 
+      variant="text"
+      startIcon={<ShoppingCartIcon />}
+      sx={{ 
+        mr: 1,
+        color: "#333",
+        fontWeight: 500,
+        '&:hover': {
+          backgroundColor: 'rgba(0, 0, 0, 0.04)',
+        },
+      }}
+      href="/cart"
+    >
+      Cart
+    </Button>
+    <Button 
+      variant="outlined" 
+      sx={{ 
+        mr: 1,
+        borderRadius: '8px',
+        textTransform: 'none',
+        fontWeight: 600,
+        borderColor: '#FF6B6B',
+        color: '#FF6B6B',
+        '&:hover': {
+          borderColor: '#FF8E53',
+          backgroundColor: 'rgba(255, 107, 107, 0.04)',
+        },
+      }}
+      component="a" 
+      href="/profile"
+    >
+      My Profile
+    </Button>
+    <StyledButton 
+      variant="contained" 
+      sx={{ 
+        background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
+        color: 'white',
+      }}
+      onClick={() => navigate("/")}
+    >
+      Logout
+    </StyledButton>
+  </>
+)}
               {isMobile && (
                 <IconButton color="inherit">
                   <ShoppingCartIcon />
@@ -495,20 +584,15 @@ const LandingPage = () => {
       </HideOnScroll>
       
       {/* Mobile Drawer */}
-      <Drawer
-        variant="temporary"
-        open={mobileOpen}
-        onClose={handleDrawerToggle}
-        ModalProps={{
-          keepMounted: true, // Better mobile performance
-        }}
-        sx={{
-          display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 280 },
-        }}
-      >
-        {drawer}
-      </Drawer>
+      // Update the drawer buttons for logged-in state
+<Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
+  <Button variant="outlined" color="primary" fullWidth component="a" href="/profile">
+    My Profile
+  </Button>
+  <Button variant="contained" color="primary" fullWidth onClick={() => navigate("/logout")}>
+    Logout
+  </Button>
+</Box>
       
       {/* Toolbar spacer */}
       <Toolbar />
@@ -570,7 +654,7 @@ const LandingPage = () => {
                       }}
                       endIcon={<ArrowForwardIcon />}
                       component="a"
-                      href="/register"
+                      href="/categories"
                     >
                       Start Ordering
                     </StyledButton>
@@ -770,7 +854,7 @@ const LandingPage = () => {
                   </Grid>
                 ))
               ) : (
-                foodItems.slice(0, 6).map((item, index) => (
+                foodItems.map((item, index) => (
                   <Grid item key={index} xs={12} sm={6} md={4}>
                     <motion.div variants={itemVariants}>
                       <StyledCard>
@@ -805,6 +889,8 @@ const LandingPage = () => {
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 2, height: 40, overflow: 'hidden' }}>
                             {item.description || "A delicious recipe with fresh ingredients, perfect for any occasion."}
                           </Typography>
+
+                          
                           
                           <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                             <AccessTimeIcon sx={{ fontSize: 16, color: 'text.secondary', mr: 0.5 }} />
@@ -823,6 +909,7 @@ const LandingPage = () => {
                                 textTransform: 'none',
                                 fontWeight: 600
                               }}
+                              href={`/food/${item.id}`}
                             >
                               Details
                             </Button>
@@ -835,10 +922,18 @@ const LandingPage = () => {
                                 textTransform: 'none',
                                 fontWeight: 600
                               }}
-                              onClick={handleAddToCart}
+                              onClick={() => handleAddToCart(item)}
                             >
                               Add to Cart
                             </Button>
+                            {selectedItem && (
+                      <CustomizeOrderPopup
+                        open={openCustomizePopup}
+                        onClose={() => setOpenCustomizePopup(false)}
+                        onSave={handleSaveCustomization}
+                        item={selectedItem}
+                      />
+                    )}
                           </Box>
                         </CardContent>
                       </StyledCard>
@@ -1031,7 +1126,19 @@ const LandingPage = () => {
           </Grid>
         </Container>
       </Box>
-      
+      {/* Snackbar Notification */}
+      <Snackbar
+        open={openPopup}
+        autoHideDuration={3000}
+        onClose={() => setOpenPopup(false)}
+        message={popupMessage}
+        sx={{
+          "& .MuiSnackbarContent-root": {
+            backgroundColor: "#43a047", // Green background for success
+            color: "#fff"
+          }
+        }}
+      />
       {/* Footer */}
       <Box 
         component="footer" 
@@ -1238,36 +1345,36 @@ const LandingPage = () => {
         }}
       >
         <DialogTitle sx={{ pb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="h6" fontWeight="bold">Sign in to continue</Typography>
-            <IconButton onClick={handleCloseDialog} size="small">
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Please sign in to add items to your cart and place orders.
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ p: 2, pt: 0 }}>
-          <Button onClick={handleCloseDialog} sx={{ borderRadius: 2 }}>
-            Cancel
-          </Button>
-          <Button 
-            variant="contained" 
-            onClick={handleLoginRedirect}
-            sx={{ 
-              borderRadius: 2,
-              background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
-            }}
-          >
-            Sign In
-          </Button>
-        </DialogActions>
+  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Typography variant="h6" fontWeight="bold">Item added to cart</Typography>
+    <IconButton onClick={handleCloseDialog} size="small">
+      <CloseIcon />
+    </IconButton>
+  </Box>
+</DialogTitle>
+<DialogContent>
+  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+    Your item has been added to the cart successfully.
+  </Typography>
+</DialogContent>
+<DialogActions sx={{ p: 2, pt: 0 }}>
+  <Button onClick={handleCloseDialog} sx={{ borderRadius: 2 }}>
+    Continue Shopping
+  </Button>
+  <Button 
+    variant="contained" 
+    onClick={() => navigate("/cart")}
+    sx={{ 
+      borderRadius: 2,
+      background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
+    }}
+  >
+    View Cart
+  </Button>
+</DialogActions>
       </Dialog>
     </div>
   );
 };
 
-export default LandingPage;
+export default Home;
