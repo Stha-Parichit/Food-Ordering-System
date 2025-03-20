@@ -123,8 +123,8 @@ app.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, password } = req.body;
-    db.registerUser(email, password, (err, result) => {
+    const { fullName, email, password, phone, address } = req.body;
+    db.registerUser(fullName, email, password, phone, address, (err, result) => {
       if (err) {
         return res.status(500).json({ message: "Registration failed", error: err });
       }
@@ -672,132 +672,6 @@ app.post("/orders", (req, res) => {
     });
   });
 });
-
-// // Add loyalty points
-// app.post("/loyalty-points", (req, res) => {
-//   const { user_id, total_amount } = req.body;
-
-//   if (!user_id || !total_amount) {
-//     return res.status(400).json({ message: "User ID and total amount are required." });
-//   }
-
-//   const points = Math.floor(total_amount / 1000);
-//   if (points > 0) {
-//     const query = `
-//       INSERT INTO loyalty_points (user_id, points)
-//       VALUES (?, ?)
-//       ON DUPLICATE KEY UPDATE points = points + VALUES(points)
-//     `;
-//     db.query(query, [user_id, points], (err, result) => {
-//       if (err) {
-//         console.error("Error updating loyalty points:", err);
-//         return res.status(500).json({ message: "Failed to update loyalty points", error: err });
-//       }
-//       res.status(200).json({ message: "Loyalty points updated successfully" });
-//     });
-//   } else {
-//     res.status(200).json({ message: "No loyalty points to update" });
-//   }
-// });
-// Add this GET endpoint for loyalty points
-// app.get("/loyalty-points", (req, res) => {
-//   const userId = req.query.user_id;
-  
-//   if (!userId) {
-//     return res.status(400).json({ message: "User ID is required" });
-//   }
-
-//   const query = "SELECT points FROM loyalty_points WHERE user_id = ?";
-//   db.query(query, [userId], (err, results) => {
-//     if (err) {
-//       return res.status(500).json({ message: "Error fetching loyalty points", error: err });
-//     }
-    
-//     // Return 0 points if no record exists
-//     const points = results.length > 0 ? results[0].points : 0;
-//     res.status(200).json({ points });
-//   });
-// });
-
-// app.put('/api/loyalty-points', async (req, res) => {
-//   try {
-//     const { user_id, earnedPoints = 0, usedPoints = 0 } = req.body;
-
-//     // Validate inputs
-//     if (!user_id || isNaN(user_id)) {
-//       return res.status(400).json({ 
-//         success: false, 
-//         error: "Valid user ID is required" 
-//       });
-//     }
-
-//     // Convert to numbers
-//     const earned = parseInt(earnedPoints) || 0;
-//     const used = parseInt(usedPoints) || 0;
-
-//     // Start transaction
-//     await db.query("START TRANSACTION");
-
-//     // UPSERT operation
-//     const [result] = await db.query(`
-//       INSERT INTO loyalty_points (user_id, points)
-//       VALUES (?, GREATEST(?, 0))
-//       ON DUPLICATE KEY UPDATE 
-//       points = GREATEST(points + ? - ?, 0)
-//     `, [user_id, earned, earned, used]);
-
-//     // Get updated points
-//     const [rows] = await db.query(
-//       "SELECT points FROM loyalty_points WHERE user_id = ?",
-//       [user_id]
-//     );
-
-//     await db.query("COMMIT");
-
-//     res.json({
-//       success: true,
-//       newPoints: rows[0]?.points || 0
-//     });
-
-//   } catch (error) {
-//     await db.query("ROLLBACK");
-//     console.error("Database Error:", error.sqlMessage || error.message);
-//     res.status(500).json({
-//       success: false,
-//       error: "Internal server error",
-//       detail: error.sqlMessage || error.message
-//     });
-//   }
-// });
-// Add loyalty points
-// app.post("/loyalty-points", (req, res) => {
-//   const { user_id, total_amount } = req.body;
-
-//   if (!user_id || !total_amount) {
-//     return res.status(400).json({ message: "User ID and total amount are required." });
-//   }
-
-//   const points = Math.floor(total_amount / 1000);
-//   if (points > 0) {
-//     const query = `
-//       INSERT INTO loyalty_points (user_id, points)
-//       VALUES (?, ?)
-//       ON DUPLICATE KEY UPDATE points = points + VALUES(points)
-//     `;
-
-//     db.query(query, [user_id, points], (err, result) => {
-//       if (err) {
-//         console.error("Error updating loyalty points:", err);
-//         return res.status(500).json({ message: "Failed to update loyalty points", error: err });
-//       }
-
-//       res.status(200).json({ message: "Loyalty points updated successfully" });
-//     });
-//   } else {
-//     res.status(200).json({ message: "No loyalty points to update" });
-//   }
-// });
-
 
 app.get("/loyalty-points", (req, res) => {
   const userId = req.query.user_id;

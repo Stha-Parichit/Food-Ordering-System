@@ -37,8 +37,11 @@ db.connect((err) => {
     const createUsersTableQuery = `
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        fullName VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
+        phone BIGINT NOT NULL,
+        address VARCHAR(255) NOT NULL,
         reset_token VARCHAR(255) DEFAULT NULL,
         reset_token_expiry BIGINT DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -123,12 +126,12 @@ const generateToken = (user) => {
 };
 
 // User registration
-const registerUser = (email, password, callback) => {
+const registerUser = (fullName, email, password, phone, address, callback) => {
   bcrypt.hash(password, 10, (err, hashedPassword) => {
     if (err) return callback(err);
 
-    const query = `INSERT INTO users (email, password) VALUES (?, ?)`;
-    db.query(query, [email, hashedPassword], (err, result) => {
+    const query = `INSERT INTO users (fullName, email, password, phone, address) VALUES (?, ?, ?, ?, ?)`;
+    db.query(query, [fullName, email, hashedPassword, phone, address], (err, result) => {
       if (err) return callback(err);
       callback(null, { message: "User registered successfully" });
     });

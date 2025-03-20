@@ -105,14 +105,12 @@ const AdminDashboard = () => {
             </ListItemIcon>
             <ListItemText primary="Dashboard" />
           </ListItem>
-          <Link href="/upload-item">
-            <ListItem button sx={{ borderRadius: 2, mb: 1 }}>
+            <ListItem button sx={{ borderRadius: 2, mb: 1 }}onClick={() => navigate("/upload-item")}>
               <ListItemIcon>
                 <PeopleIcon />
               </ListItemIcon>
               <ListItemText primary="Upload" />
             </ListItem>
-          </Link>
           <ListItem button sx={{ borderRadius: 2, mb: 1 }}>
             <ListItemIcon>
               <ReceiptIcon />
