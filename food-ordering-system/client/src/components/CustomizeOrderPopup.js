@@ -599,19 +599,18 @@ const CustomizeOrderPopup = ({ open, onClose, onSave, item, favoriteItems, onTog
 
   const handleSave = () => {
     if (onSave && item) {
-      setIsLoading(true);
-      
-      // Simulate network request
-      setTimeout(() => {
-        onSave(item, {
-          ...customization,
-          quantity,
-          isFavorite
-        });
-        setIsLoading(false);
-        onClose();
-      }, 600);
+      onSave(item, {
+        ...customization,
+        quantity,
+        sides: CUSTOMIZATION_CATEGORIES.sides
+          .filter(side => customization[side.id] > 0)
+          .map(side => ({ id: side.id, label: side.label, quantity: customization[side.id] })),
+        dip_sauce: CUSTOMIZATION_CATEGORIES.dips
+          .filter(dip => customization[dip.id] > 0)
+          .map(dip => ({ id: dip.id, label: dip.label, quantity: customization[dip.id] }))
+      });
     }
+    onClose();
   };
 
   const isRecommended = (optionId) => {

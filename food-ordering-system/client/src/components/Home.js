@@ -215,6 +215,13 @@ const Home = () => {
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme => theme.breakpoints.down('md'));
 
+  useEffect(() => {
+    const isLoggedIn = localStorage.getItem("user_id");
+    if (!isLoggedIn) {
+      navigate("/");
+    }
+  }, [navigate]);
+
   // Sample categories and prices for demo
   const categories = ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack'];
   const prices = ['$8.99', '$12.99', '$15.99', '$7.50', '$9.99', '$14.50'];
@@ -225,10 +232,10 @@ const Home = () => {
   const [openPopup, setOpenPopup] = useState(false);
 
   /// Add to Cart with customization
-const handleAddToCart = (item) => {
-  setSelectedItem(item);
-  setOpenCustomizePopup(true);
-};
+  const handleAddToCart = (item) => {
+    setSelectedItem(item); // Set the selected item
+    setOpenCustomizePopup(true); // Open the customization popup
+  };
 
 // Handle customization save
 const handleSaveCustomization = async (item, customization) => {
@@ -244,18 +251,30 @@ const handleSaveCustomization = async (item, customization) => {
     // Show loading indicator
     setLoading(true);
 
-    const response = await axios.post("http://localhost:5000/cart", {
-      food_id: item.id,
-      user_id: userId,
-      quantity: customization.quantity || 1,
-      extraCheese: customization.extraCheese || false,
-      extraMeat: customization.extraMeat || false,
-      extraVeggies: customization.extraVeggies || false,
-      noOnions: customization.noOnions || false,
-      noGarlic: customization.noGarlic || false,
-      spicyLevel: customization.spicyLevel || 'Medium',
-      specialInstructions: customization.specialInstructions || ""
-    });
+    const sidesValue = customization.sides
+      ? customization.sides.map(side => `${side.label} × ${side.quantity}`).join(", ")
+      : null;
+
+    const dipSauceValue = customization.dip_sauce
+      ? customization.dip_sauce.map(dip => `${dip.label} × ${dip.quantity}`).join(", ")
+      : null;
+
+      const response = await axios.post("http://localhost:5000/cart", {
+        food_id: item.id,
+        user_id: userId,
+        quantity: customization.quantity || 1,
+        extraCheese: customization.extraCheese || false,
+        extraMeat: customization.extraMeat || false,
+        extraVeggies: customization.extraVeggies || false,
+        noOnions: customization.noOnions || false,
+        noGarlic: customization.noGarlic || false,
+        spicyLevel: customization.spicyLevel || 'Medium',
+        specialInstructions: customization.specialInstructions || "",
+        glutenFree: customization.glutenFree || false,
+        cookingPreference: customization.cookingPreference || null,
+        sides: sidesValue, // Pass as a human-readable string
+        dip_sauce: dipSauceValue // Pass as a human-readable string
+      });
 
     if (response.data.success) {
       // Update local cart for UI (optional, you could also re-fetch cart items)
@@ -265,7 +284,10 @@ const handleSaveCustomization = async (item, customization) => {
         cartItem.customization && 
         cartItem.customization.extraCheese === customization.extraCheese &&
         cartItem.customization.extraMeat === customization.extraMeat &&
-        cartItem.customization.noOnions === customization.noOnions
+        cartItem.customization.noOnions === customization.noOnions &&
+        cartItem.customization.glutenFree === customization.glutenFree && // New field
+        cartItem.customization.cookingPreference === customization.cookingPreference && // New field
+        cartItem.customization.dip_sauce === customization.dip_sauce // New field
       );
 
       if (existingItemIndex !== -1) {
@@ -281,7 +303,10 @@ const handleSaveCustomization = async (item, customization) => {
             noOnions: customization.noOnions,
             noGarlic: customization.noGarlic,
             spicyLevel: customization.spicyLevel,
-            specialInstructions: customization.specialInstructions
+            specialInstructions: customization.specialInstructions,
+            glutenFree: customization.glutenFree, // New field
+            cookingPreference: customization.cookingPreference, // New field
+            dip_sauce: customization.dip_sauce // New field
           }
         });
       }
@@ -290,18 +315,27 @@ const handleSaveCustomization = async (item, customization) => {
 
       // Show success message
       let customizationDetails = [];
-      if (customization.extraCheese) customizationDetails.push("Extra Cheese");
-      if (customization.extraMeat) customizationDetails.push("Extra Meat");
-      if (customization.extraVeggies) customizationDetails.push("Extra Veggies");
-      if (customization.noOnions) customizationDetails.push("No Onions");
-      if (customization.noGarlic) customizationDetails.push("No Garlic");
-      if (customization.spicyLevel !== 'Medium') customizationDetails.push(`${customization.spicyLevel} Spice`);
+if (customization.extraCheese) customizationDetails.push("Extra Cheese");
+if (customization.extraMeat) customizationDetails.push("Extra Meat");
+if (customization.extraVeggies) customizationDetails.push("Extra Veggies");
+if (customization.noOnions) customizationDetails.push("No Onions");
+if (customization.noGarlic) customizationDetails.push("No Garlic");
+if (customization.glutenFree) customizationDetails.push("Gluten-Free"); // New field
+if (customization.cookingPreference) customizationDetails.push(`Cooking Preference: ${customization.cookingPreference}`); // New field
+if (customization.dip_sauce && customization.dip_sauce.length > 0) {
+  const dipSauceDetails = customization.dip_sauce.map(dip => `${dip.label} × ${dip.quantity}`).join(", ");
+  customizationDetails.push(`Dip/Sauce: ${dipSauceDetails}`);
+}
+if (customization.sides && customization.sides.length > 0) {
+  const sidesDetails = customization.sides.map(side => `${side.label} × ${side.quantity}`).join(", ");
+  customizationDetails.push(`Sides: ${sidesDetails}`);
+}if (customization.spicyLevel !== 'Medium') customizationDetails.push(`${customization.spicyLevel} Spice`);
 
-      let messageDetails = customizationDetails.length > 0 
-        ? ` with ${customizationDetails.join(", ")}`
-        : "";
+let messageDetails = customizationDetails.length > 0 
+  ? ` with ${customizationDetails.join(", ")}`
+  : "";
 
-      setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messageDetails}!`);
+setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messageDetails}!`);
       setOpenPopup(true);
     } else {
       console.error("Failed to add item to cart:", response.data.message);
@@ -314,7 +348,6 @@ const handleSaveCustomization = async (item, customization) => {
     setLoading(false);
   }
 };
-
 
   useEffect(() => {
     const fetchFoodItems = async () => {
@@ -358,9 +391,14 @@ const handleSaveCustomization = async (item, customization) => {
   // const handleAddToCart = () => {
   //   setOpenDialog(true);
   // };
-
+  
   const handleCloseDialog = () => {
     setOpenDialog(false);
+  };
+
+  const handleSave = (item, customization) => {
+    handleSaveCustomization(item, customization); // Call the existing save logic
+    setOpenCustomizePopup(false); // Close the popup after saving
   };
 
   const handleLoginRedirect = () => {
@@ -370,6 +408,11 @@ const handleSaveCustomization = async (item, customization) => {
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("user_id"); // Remove logged-in status
+    navigate("/"); // Redirect to the landing page
   };
 
   const drawer = (
@@ -567,7 +610,7 @@ const handleSaveCustomization = async (item, customization) => {
         background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
         color: 'white',
       }}
-      onClick={() => navigate("/")}
+      onClick={handleLogout} // Updated to use handleLogout
     >
       Logout
     </StyledButton>
@@ -927,13 +970,13 @@ const handleSaveCustomization = async (item, customization) => {
                               Add to Cart
                             </Button>
                             {selectedItem && (
-                      <CustomizeOrderPopup
-                        open={openCustomizePopup}
-                        onClose={() => setOpenCustomizePopup(false)}
-                        onSave={handleSaveCustomization}
-                        item={selectedItem}
-                      />
-                    )}
+  <CustomizeOrderPopup
+    open={openCustomizePopup}
+    onClose={() => setOpenCustomizePopup(false)}
+    onSave={handleSave} // Pass handleSave here
+    item={selectedItem}
+  />
+)}
                           </Box>
                         </CardContent>
                       </StyledCard>

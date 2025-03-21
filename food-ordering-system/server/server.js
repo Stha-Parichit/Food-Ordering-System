@@ -250,9 +250,23 @@ app.post("/cart", async (req, res) => {
     extraVeggies = false,
     noOnions = false, 
     noGarlic = false,
-    spicyLevel = 'Medium',
-    specialInstructions = "" 
+    spicyLevel = 3, // Default to Medium (numeric value)
+    specialInstructions = "",
+    glutenFree = false,
+    cookingPreference = null,
+    sides = null, // Comma-separated string
+    dip_sauce = null // Comma-separated string
   } = req.body;
+
+  // Map numeric spicy levels to string values
+  const spicyLevelMap = {
+    1: "No Spice",
+    2: "Mild",
+    3: "Medium",
+    4: "Hot",
+    5: "Extra Hot"
+  };
+  const spicyLevelString = spicyLevelMap[spicyLevel] || "Medium";
 
   // Validate required fields
   if (!food_id || !user_id) {
@@ -269,20 +283,32 @@ app.post("/cart", async (req, res) => {
     const extra_veggies = extraVeggies ? 1 : 0;
     const no_onions = noOnions ? 1 : 0;
     const no_garlic = noGarlic ? 1 : 0;
-    
+
+    // Convert sides and dip_sauce to JSON strings if they are arrays
+    const sidesValue = sides ? JSON.stringify(sides) : null;
+    const dipSauceValue = dip_sauce ? JSON.stringify(dip_sauce) : null;
+
     // Check if an identical item configuration already exists in cart
     const checkQuery = `
       SELECT id, quantity FROM cart 
       WHERE user_id = ? AND food_id = ? 
       AND extra_cheese = ? AND extra_meat = ? AND extra_veggies = ?
       AND no_onions = ? AND no_garlic = ? AND spicy_level = ?
+      AND gluten_free = ? AND cooking_preference = ?
       AND (
         (special_instructions IS NULL AND ? = '') OR
         (special_instructions = ?)
       )
+      AND (
+        (sides IS NULL AND ? IS NULL) OR
+        (sides = ?)
+      )
+      AND (
+        (dip_sauce IS NULL AND ? IS NULL) OR
+        (dip_sauce = ?)
+      )
     `;
-    
-    // Use the promisified query
+
     const existingItems = await queryAsync(
       checkQuery, 
       [
@@ -293,9 +319,15 @@ app.post("/cart", async (req, res) => {
         extra_veggies, 
         no_onions, 
         no_garlic, 
-        spicyLevel,
+        spicyLevelString,
+        glutenFree ? 1 : 0,
+        cookingPreference,
         specialInstructions,
-        specialInstructions
+        specialInstructions,
+        sidesValue,
+        sidesValue,
+        dipSauceValue,
+        dipSauceValue
       ]
     );
 
@@ -317,31 +349,32 @@ app.post("/cart", async (req, res) => {
           user_id, food_id, quantity, 
           extra_cheese, extra_meat, extra_veggies,
           no_onions, no_garlic, spicy_level, 
-          special_instructions
+          special_instructions, gluten_free, cooking_preference, sides, dip_sauce
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
-      
-      const result = await queryAsync(
-        insertQuery, 
-        [
-          user_id, 
-          food_id, 
-          quantity, 
-          extra_cheese, 
-          extra_meat, 
-          extra_veggies, 
-          no_onions, 
-          no_garlic, 
-          spicyLevel,
-          specialInstructions
-        ]
-      );
-      
+
+      const insertResult = await queryAsync(insertQuery, [
+        user_id, 
+        food_id, 
+        quantity, 
+        extraCheese ? 1 : 0, 
+        extraMeat ? 1 : 0, 
+        extraVeggies ? 1 : 0, 
+        noOnions ? 1 : 0, 
+        noGarlic ? 1 : 0, 
+        spicyLevelString, // Use string value
+        specialInstructions,
+        glutenFree ? 1 : 0,
+        cookingPreference,
+        sides, // Store as plain text
+        dip_sauce // Store as plain text
+      ]);
+
       return res.status(201).json({ 
         success: true,
         message: "Item added to cart successfully",
-        cart_id: result.insertId
+        cart_id: insertResult.insertId // Use insertResult to get the inserted ID
       });
     }
   } catch (error) {
@@ -367,43 +400,47 @@ app.get("/cart", async (req, res) => {
 
   try {
     const query = `
-      SELECT 
-        c.id AS cart_id, 
-        f.id AS food_id, 
-        f.name AS food_name, 
-        f.description,
-        f.category, 
-        f.image_url, 
-        f.price AS base_price, 
-        c.quantity,
-        c.extra_cheese,
-        c.extra_meat,
-        c.extra_veggies,
-        c.no_onions,
-        c.no_garlic,
-        c.spicy_level,
-        c.special_instructions,
-        (
-          f.price + 
-          (c.extra_cheese * 35) + 
-          (c.extra_meat * 50) + 
-          (c.extra_veggies * 30)
-        ) AS item_price,
-        (
-          (f.price + 
-          (c.extra_cheese * 35) + 
-          (c.extra_meat * 50) + 
-          (c.extra_veggies * 30)) * c.quantity
-        ) AS total_price
-      FROM 
-        cart c
-      JOIN 
-        food_items f ON c.food_id = f.id
-      WHERE 
-        c.user_id = ?
-      ORDER BY
-        c.id DESC
-    `;
+  SELECT 
+    c.id AS cart_id, 
+    f.id AS food_id, 
+    f.name AS food_name, 
+    f.description,
+    f.category, 
+    f.image_url, 
+    f.price AS base_price, 
+    c.quantity,
+    c.extra_cheese,
+    c.extra_meat,
+    c.extra_veggies,
+    c.no_onions,
+    c.no_garlic,
+    c.spicy_level,
+    c.special_instructions,
+    c.gluten_free, -- New field
+    c.cooking_preference, -- New field
+    (
+      f.price + 
+      (c.extra_cheese * 35) + 
+      (c.extra_meat * 50) + 
+      (c.extra_veggies * 30) +
+      (c.gluten_free * 40) -- New field
+    ) AS item_price,
+    (
+      (f.price + 
+      (c.extra_cheese * 35) + 
+      (c.extra_meat * 50) + 
+      (c.extra_veggies * 30) +
+      (c.gluten_free * 40)) * c.quantity -- New field
+    ) AS total_price
+  FROM 
+    cart c
+  JOIN 
+    food_items f ON c.food_id = f.id
+  WHERE 
+    c.user_id = ?
+  ORDER BY
+    c.id DESC
+`;
 
     const cartItems = await queryAsync(query, [user_id]);
     
@@ -423,8 +460,10 @@ app.get("/cart", async (req, res) => {
         extraVeggies: item.extra_veggies === 1,
         noOnions: item.no_onions === 1,
         noGarlic: item.no_garlic === 1,
-        spicyLevel: item.spicy_level,
-        specialInstructions: item.special_instructions || ""
+        spicyLevel: item.spicy_level, // Already stored as string
+        specialInstructions: item.special_instructions || "",
+        sides: item.sides || null,
+    dip_sauce: item.dip_sauce || null
       },
       item_price: item.item_price,
       total_price: item.total_price
@@ -466,8 +505,20 @@ app.put("/cart/:cart_id", async (req, res) => {
     noOnions,
     noGarlic,
     spicyLevel,
-    specialInstructions
+    specialInstructions,
+    glutenFree,
+    cookingPreference
   } = req.body;
+
+  // Map numeric spicy levels to string values
+  const spicyLevelMap = {
+    1: "No Spice",
+    2: "Mild",
+    3: "Medium",
+    4: "Hot",
+    5: "Extra Hot"
+  };
+  const spicyLevelString = spicyLevelMap[spicyLevel] || undefined;
 
   try {
     // Build dynamic update query based on provided fields
@@ -504,14 +555,24 @@ app.put("/cart/:cart_id", async (req, res) => {
       queryParams.push(noGarlic ? 1 : 0);
     }
 
-    if (spicyLevel !== undefined) {
+    if (spicyLevelString !== undefined) {
       updateFields.push("spicy_level = ?");
-      queryParams.push(spicyLevel);
+      queryParams.push(spicyLevelString);
     }
 
     if (specialInstructions !== undefined) {
       updateFields.push("special_instructions = ?");
       queryParams.push(specialInstructions);
+    }
+
+    if (glutenFree !== undefined) {
+      updateFields.push("gluten_free = ?");
+      queryParams.push(glutenFree ? 1 : 0);
+    }
+
+    if (cookingPreference !== undefined) {
+      updateFields.push("cooking_preference = ?");
+      queryParams.push(cookingPreference);
     }
 
     if (updateFields.length === 0) {
@@ -532,7 +593,7 @@ app.put("/cart/:cart_id", async (req, res) => {
       message: "Cart item updated successfully"
     });
   } catch (error) {
-    console.error("Error updating cart item:", error);
+    console.error("Error updating cart item:", error); // Log the error for debugging
     return res.status(500).json({
       success: false,
       message: "Failed to update cart item",
@@ -673,6 +734,149 @@ app.post("/orders", (req, res) => {
   });
 });
 
+app.post("/process-payment", async (req, res) => {
+  const { user_id, total_amount } = req.body;
+
+  if (!user_id || !total_amount) {
+    return res.status(400).json({ message: "User ID and total amount are required." });
+  }
+
+  try {
+    // Start a transaction
+    await queryAsync("START TRANSACTION");
+
+    // Insert into orders table
+    const insertOrderQuery = `
+      INSERT INTO orders (user_id, total_amount)
+      VALUES (?, ?)
+    `;
+    const orderResult = await queryAsync(insertOrderQuery, [user_id, total_amount]);
+    const orderId = orderResult.insertId;
+
+    // Fetch cart items
+    const fetchCartQuery = `
+      SELECT c.*, f.price AS base_price
+      FROM cart c
+      JOIN food_items f ON c.food_id = f.id
+      WHERE c.user_id = ?
+    `;
+    const cartItems = await queryAsync(fetchCartQuery, [user_id]);
+
+    if (cartItems.length === 0) {
+      throw new Error("Cart is empty");
+    }
+
+    // Insert cart items into order_items table
+    const insertOrderItemsQuery = `
+      INSERT INTO order_items (
+        order_id, food_id, quantity, customization, price, 
+        extra_cheese, extra_meat, extra_veggies, no_onions, no_garlic, 
+        spicy_level, special_instructions, gluten_free, cooking_preference, sides, dip_sauce
+      )
+      VALUES ?
+    `;
+    const orderItemsData = cartItems.map((item) => {
+      const customizationPrice =
+        (item.extra_cheese ? 35 : 0) +
+        (item.extra_meat ? 50 : 0) +
+        (item.extra_veggies ? 30 : 0) +
+        (item.gluten_free ? 40 : 0);
+      const itemPrice = item.base_price + customizationPrice;
+
+      return [
+        orderId,
+        item.food_id,
+        item.quantity,
+        JSON.stringify({
+          extraCheese: item.extra_cheese,
+          extraMeat: item.extra_meat,
+          extraVeggies: item.extra_veggies,
+          noOnions: item.no_onions,
+          noGarlic: item.no_garlic,
+          spicyLevel: item.spicy_level,
+          specialInstructions: item.special_instructions,
+          glutenFree: item.gluten_free,
+          cookingPreference: item.cooking_preference,
+          sides: item.sides,
+          dipSauce: item.dip_sauce,
+        }),
+        itemPrice,
+        item.extra_cheese,
+        item.extra_meat,
+        item.extra_veggies,
+        item.no_onions,
+        item.no_garlic,
+        item.spicy_level,
+        item.special_instructions,
+        item.gluten_free,
+        item.cooking_preference,
+        item.sides,
+        item.dip_sauce,
+      ];
+    });
+
+    await queryAsync(insertOrderItemsQuery, [orderItemsData]);
+
+    // Clear the cart
+    const clearCartQuery = `
+      DELETE FROM cart WHERE user_id = ?
+    `;
+    await queryAsync(clearCartQuery, [user_id]);
+
+    // Commit the transaction
+    await queryAsync("COMMIT");
+
+    res.status(200).json({ message: "Order placed successfully", orderId });
+  } catch (error) {
+    console.error("Error processing payment:", error);
+
+    // Rollback the transaction in case of an error
+    await queryAsync("ROLLBACK");
+
+    res.status(500).json({ message: "Failed to process payment", error: error.message });
+  }
+});
+
+app.get("/orders", async (req, res) => {
+  const userId = req.query.user_id;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required." });
+  }
+
+  try {
+    const ordersQuery = `
+      SELECT o.id, o.total_amount, o.created_at
+      FROM orders o
+      WHERE o.user_id = ?
+      ORDER BY o.created_at DESC
+    `;
+    const orders = await queryAsync(ordersQuery, [userId]);
+
+    const orderDetailsQuery = `
+      SELECT 
+        oi.order_id, oi.food_id, f.name AS food_name, f.image_url, oi.quantity, oi.price,
+        oi.customization
+      FROM order_items oi
+      JOIN food_items f ON oi.food_id = f.id
+      WHERE oi.order_id = ?
+    `;
+
+    for (const order of orders) {
+      const items = await queryAsync(orderDetailsQuery, [order.id]);
+      order.items = items.map((item) => ({
+        ...item,
+        customization: item.customization ? JSON.parse(item.customization) : null,
+      }));
+    }
+
+    res.status(200).json(orders);
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    res.status(500).json({ message: "Failed to fetch orders", error: error.message });
+  }
+});
+
 app.get("/loyalty-points", (req, res) => {
   const userId = req.query.user_id;
   if (!userId) {
@@ -742,16 +946,40 @@ app.post("/update-loyalty-points", (req, res) => {
 });
 
 
-// Get orders
-app.get("/orders", (req, res) => {
-  const query = "SELECT * FROM orders";
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error("Error retrieving orders:", err);
-      return res.status(500).json({ message: "Failed to retrieve orders", error: err });
+// Get orders with detailed item information
+app.get("/orders", async (req, res) => {
+  const userId = req.query.user_id;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required." });
+  }
+
+  try {
+    const ordersQuery = `
+      SELECT o.id, o.total_amount, o.created_at
+      FROM orders o
+      WHERE o.user_id = ?
+      ORDER BY o.created_at DESC
+    `;
+    const orders = await queryAsync(ordersQuery, [userId]);
+
+    const orderDetailsQuery = `
+      SELECT oi.order_id, oi.food_id, f.name AS food_name, f.image_url, oi.quantity, oi.price
+      FROM order_items oi
+      JOIN food_items f ON oi.food_id = f.id
+      WHERE oi.order_id = ?
+    `;
+
+    for (const order of orders) {
+      const items = await queryAsync(orderDetailsQuery, [order.id]);
+      order.items = items;
     }
-    res.status(200).json(results);
-  });
+
+    res.status(200).json(orders);
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    res.status(500).json({ message: "Failed to fetch orders", error: error.message });
+  }
 });
 
 // Get order details

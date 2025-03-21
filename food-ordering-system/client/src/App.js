@@ -30,6 +30,7 @@ import UploadFood from './components/UploadFood';
 import AdminDashboard from './components/AdminDashboard';
 import RegisteredUser from './components/RegisteredUsers';
 import FoodItemDetails from './components/FoodItemDetails';
+import Orders from './pages/Orders';
 
 const theme = createTheme(); // Ensure a theme is provided
 
@@ -67,6 +68,7 @@ const App = () => (
           <Route path="/success" element={<PaymentStatus />} />
           <Route path="/failure" element={<PaymentStatus />} />
           <Route path="/food/:id" element={<FoodItemDetails />} />
+          <Route path="/orders" element={<Orders />} />
           </Routes>
       </Router>
     </GoogleOAuthProvider>

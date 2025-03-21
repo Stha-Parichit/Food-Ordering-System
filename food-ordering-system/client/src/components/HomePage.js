@@ -253,7 +253,7 @@ const handleSaveCustomization = async (item, customization) => {
               <FaBell style={{ fontSize: "1.5rem", color: "#333" }} />
             </IconButton>
             <IconButton onClick={handleCartClick}>
-              <FaShoppingCart style={{ fontSize: "1.5rem", color: "#333" }} />
+              <FaShoppingCart style={{ fontSize: "1.5rem", color: "#333" }} onClick={handleCartClick}/>
             </IconButton>
             <IconButton onClick={handleClickProfile}>
               <AccountCircleIcon sx={{ fontSize: "2rem", color: "#333" }} />

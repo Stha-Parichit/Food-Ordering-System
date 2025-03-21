@@ -77,22 +77,26 @@ db.connect((err) => {
     // Create `cart` table
     const createCartTableQuery = `
       CREATE TABLE IF NOT EXISTS cart (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      user_id INT NOT NULL,
-      food_id INT NOT NULL,
-      quantity INT NOT NULL DEFAULT 1,
-      extra_cheese BOOLEAN DEFAULT FALSE,
-      extra_meat BOOLEAN DEFAULT FALSE,
-      extra_veggies BOOLEAN DEFAULT FALSE,
-      no_onions BOOLEAN DEFAULT FALSE,
-      no_garlic BOOLEAN DEFAULT FALSE,
-      spicy_level VARCHAR(20) DEFAULT 'Medium',
-      special_instructions TEXT DEFAULT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (food_id) REFERENCES food_items(id) ON DELETE CASCADE
-    )
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    food_id INT NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    extra_cheese BOOLEAN DEFAULT FALSE,
+    extra_meat BOOLEAN DEFAULT FALSE,
+    extra_veggies BOOLEAN DEFAULT FALSE,
+    no_onions BOOLEAN DEFAULT FALSE,
+    no_garlic BOOLEAN DEFAULT FALSE,
+    spicy_level VARCHAR(20) DEFAULT 'Medium',
+    special_instructions TEXT DEFAULT NULL,
+    gluten_free BOOLEAN DEFAULT FALSE,
+    cooking_preference VARCHAR(50) DEFAULT NULL,
+    sides TEXT DEFAULT NULL,
+    dip_sauce VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (food_id) REFERENCES food_items(id) ON DELETE CASCADE
+  )
 `;
 
     db.query(createCartTableQuery, (err) => {
@@ -113,6 +117,49 @@ db.connect((err) => {
       if (err) console.error("Error creating loyalty_points table:", err);
       else console.log("Loyalty points table ensured");
     });
+    const createOrdersTableQuery = `
+  CREATE TABLE IF NOT EXISTS orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    total_amount DECIMAL(10, 2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`;
+
+db.query(createOrdersTableQuery, (err) => {
+  if (err) console.error("Error creating orders table:", err);
+  else console.log("Orders table ensured");
+});
+
+const createOrderItemsTableQuery = `
+  CREATE TABLE IF NOT EXISTS order_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    food_id INT NOT NULL,
+    quantity INT NOT NULL,
+    customization JSON DEFAULT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    extra_cheese BOOLEAN DEFAULT FALSE,
+    extra_meat BOOLEAN DEFAULT FALSE,
+    extra_veggies BOOLEAN DEFAULT FALSE,
+    no_onions BOOLEAN DEFAULT FALSE,
+    no_garlic BOOLEAN DEFAULT FALSE,
+    spicy_level VARCHAR(20) DEFAULT 'Medium',
+    special_instructions TEXT DEFAULT NULL,
+    gluten_free BOOLEAN DEFAULT FALSE,
+    cooking_preference VARCHAR(50) DEFAULT NULL,
+    sides TEXT DEFAULT NULL,
+    dip_sauce VARCHAR(255) DEFAULT NULL,
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (food_id) REFERENCES food_items(id) ON DELETE CASCADE
+  )
+`;
+
+db.query(createOrderItemsTableQuery, (err) => {
+  if (err) console.error("Error creating order_items table:", err);
+  else console.log("Order items table ensured");
+});
   });
 });
 

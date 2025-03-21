@@ -209,6 +209,15 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme => theme.breakpoints.down('md'));
 
+  useEffect(() => {
+    const isLoggedIn = localStorage.getItem("user_id");
+    if (isLoggedIn) {
+      navigate("/home");
+    } else {
+      navigate("/");
+    }
+  }, [navigate]);
+
   // Sample categories and prices for demo
   const categories = ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack'];
   const prices = ['$8.99', '$12.99', '$15.99', '$7.50', '$9.99', '$14.50'];
