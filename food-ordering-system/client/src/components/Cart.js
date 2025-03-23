@@ -297,8 +297,8 @@ const Cart = () => {
       additions: [],
       removals: [],
       cookingPreference: custom.cookingPreference || null,
-      sides: custom.sides || null,
-      dip_sauce: custom.dip_sauce || null,
+      sides: custom.sides || null, // Include sides
+      dip_sauce: custom.dip_sauce || null, // Include sauces
       spicyLevel: custom.spicyLevel || null,
       allergies: [],
       specialInstructions: custom.specialInstructions || null
@@ -354,9 +354,9 @@ const Cart = () => {
             </IconButton>
           ) : null}
           
-          <Box sx={{ display: "flex", alignItems: "center" }}>
+          {/* <Box sx={{ display: "flex", alignItems: "center" }} onClick={() => window.location.href = '/home'}>
             <img 
-              src="/images/logo.png" 
+              src="/images/logo1.png" 
               alt="Logo" 
               style={{ 
                 width: 40, 
@@ -375,7 +375,7 @@ const Cart = () => {
             >
               YOO!!!
             </Typography>
-          </Box>
+          </Box> */}
           
           {!isMobile && (
             <Box sx={{ 
@@ -517,12 +517,12 @@ const Cart = () => {
         }}
       >
         {/* Drawer content - same as before */}
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <img src="/images/logo.png" alt="Logo" style={{ width: 36, height: 36 }} />
-            <Typography variant="h6" sx={{ ml: 1, fontWeight: 'bold', color: '#ff9800' }}>
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} >
+          <Box sx={{ display: 'flex', alignItems: 'left' }}>
+            <img src="/images/logo1.png" alt="Logo" style={{ width: 50, height: 45 }} />
+            {/* <Typography variant="h6" sx={{ ml: 1, fontWeight: 'bold', color: '#ff9800' }}>
               YOO!!!
-            </Typography>
+            </Typography> */}
           </Box>
           <IconButton onClick={toggleDrawer(false)}>
             <CloseIcon />
@@ -824,7 +824,7 @@ const Cart = () => {
                                 fontWeight: 'bold'
                               }}
                             >
-                              Rs.{item.item_price}
+                              Rs.{(Number(item.total_price) || 0).toFixed(2)} {/* Display total price including customizations and quantity */}
                             </Typography>
                           </Box>
                           
@@ -946,7 +946,7 @@ const Cart = () => {
                                                 </Box>
                                                 <Box>
                                                   <Typography variant="body2" fontWeight="medium" sx={{ mb: 0.5, textTransform: 'capitalize' }}>
-                                                    {type}
+                                                    {type.replace(/_/g, ' ')} {/* Format type for better readability */}
                                                   </Typography>
                                                   {Array.isArray(values) ? (
                                                     values.map((value, idx) => (
@@ -1136,7 +1136,9 @@ const Cart = () => {
                                         }}>
                                           <InfoOutlinedIcon fontSize="small" sx={{ mr: 1, color: 'text.disabled' }} />
                                           <Typography variant="caption" color="text.disabled">
-                                            Delivery times may vary during peak hours
+                                            Delivery times may vary during peak hours <br/>
+                                            
+                                            Use promo code "WELCOME20" for 20% off for new users
                                           </Typography>
                                         </Box>
                                       </Box>

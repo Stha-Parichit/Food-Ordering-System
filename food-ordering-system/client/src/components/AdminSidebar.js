@@ -1,0 +1,368 @@
+import React, { useState } from 'react';
+import { 
+  Box, 
+  Drawer, 
+  List, 
+  ListItem, 
+  ListItemIcon, 
+  ListItemText, 
+  Typography, 
+  Button, 
+  Divider, 
+  IconButton, 
+  useTheme,
+  useMediaQuery,
+  Avatar,
+  Badge,
+  Collapse
+} from '@mui/material';
+import { Link, useLocation } from 'react-router-dom';
+import CloseIcon from '@mui/icons-material/Close';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import { 
+  FaHome, 
+  FaThList, 
+  FaChartBar, 
+  FaUser, 
+  FaHeart, 
+  FaHistory, 
+  FaWallet, 
+  FaMapMarkerAlt, 
+  FaHeadset, 
+  FaTicketAlt,
+  FaCog,
+  FaUtensils
+} from 'react-icons/fa';
+
+const AdminSidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const location = useLocation();
+  const [openSubMenu, setOpenSubMenu] = useState('');
+  
+  const userEmail = localStorage.getItem("userEmail") || "user@example.com";
+  const userName = userEmail.split('@')[0];
+  const userInitial = userName.charAt(0).toUpperCase();
+  
+  const mainMenuItems = [
+    { text: 'Home', icon: <FaHome size={20} />, link: '/admin-home' },
+    { text: 'Users', icon: <FaUtensils size={20} />, link: '/users-list' },
+    { text: 'Dashboard', icon: <FaChartBar size={20} />, link: '/admin-dashboard' },
+  ];
+  
+  const userMenuItems = [
+    { 
+      text: 'My Account', 
+      icon: <FaUser size={20} />, 
+      link: '/profile',
+      submenu: [
+        { text: 'Profile', icon: <FaUser size={16}/>, link: '/admin-profile' },
+        { text: 'Addresses', icon: <FaMapMarkerAlt size={16} />, link: '/admin-addresses' },
+        { text: 'Payment Methods', icon: <FaWallet size={16} />, link: '/payment-methods' },
+      ]
+    },
+    { text: 'My Orders', icon: <FaHistory size={20} />, link: '/admin-orders' },
+    { text: 'Offers & Promos', icon: <FaTicketAlt size={20} />, link: '/offers' },
+  ];
+  
+  const supportMenuItems = [
+    { text: 'Help Center', icon: <FaHeadset size={20} />, link: '/help' },
+    { text: 'Settings', icon: <FaCog size={20} />, link: '/settings' },
+  ];
+
+  // Common styles for both sidebars
+  const drawerPaperStyle = {
+    width: 280,
+    boxSizing: 'border-box',
+    background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)',
+    color: '#fff',
+    boxShadow: '0 0 20px rgba(0,0,0,0.3)'
+  };
+
+  const listItemStyle = (itemLink) => ({
+    color: '#fff',
+    borderRadius: '8px',
+    margin: '4px 8px',
+    paddingLeft: '16px',
+    '&:hover': { 
+      backgroundColor: 'rgba(255,255,255,0.12)',
+    },
+    ...(location.pathname === itemLink && {
+      backgroundColor: 'rgba(255,99,132,0.15)',
+      borderLeft: '4px solid #FF6384',
+      paddingLeft: '12px',
+    })
+  });
+  
+  const toggleSubMenu = (menuText) => {
+    setOpenSubMenu(openSubMenu === menuText ? '' : menuText);
+  };
+
+  // Sidebar content component to avoid duplication
+  const SidebarContent = ({ mobile = false }) => (
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100%',
+      overflow: 'auto'
+    }}>
+      {/* Logo and App Title */}
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: mobile ? 'space-between' : 'flex-start', 
+        padding: 2 
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }} onClick={() => window.location.href = '/admin-home'}>
+            <img src="/images/logo1.png" alt="Logo" style={{ width: 50, height: 45 }}/>
+          {/* <Typography variant="h5" sx={{ ml: 2, fontWeight: 'bold', color: '#fff' }}>
+            YOO!!!
+          </Typography> */}
+        </Box>
+        {mobile && (
+          <IconButton onClick={toggleSidebar} sx={{ color: '#fff' }}>
+            <CloseIcon />
+          </IconButton>
+        )}
+      </Box>
+      
+      {/* User Profile Section */}
+      <Box sx={{ 
+        p: 2, 
+        mt: 1, 
+        mx: 2, 
+        bgcolor: 'rgba(255,255,255,0.05)', 
+        borderRadius: 2,
+        display: 'flex',
+        alignItems: 'center',
+        position: 'relative'
+      }}>
+        <Avatar sx={{ 
+          bgcolor: '#FF6384', 
+          width: 44, 
+          height: 44,
+          border: '2px solid rgba(255,255,255,0.2)'
+        }}>
+          {userInitial}
+        </Avatar>
+        <Box sx={{ ml: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', lineHeight: 1.2 }}>
+            {userName}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.2 }}>
+            Food Enthusiast
+          </Typography>
+        </Box>
+        <IconButton 
+          size="small"
+          sx={{ 
+            position: 'absolute', 
+            top: 8, 
+            right: 8, 
+            color: 'rgba(255,255,255,0.7)' 
+          }}
+        >
+          <Badge badgeContent={3} color="error">
+            <NotificationsIcon fontSize="small" />
+          </Badge>
+        </IconButton>
+      </Box>
+      
+      <Divider sx={{ backgroundColor: 'rgba(255,255,255,0.08)', my: 2 }} />
+      
+      {/* Main Menu */}
+      <Typography variant="overline" sx={{ px: 3, color: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }}>
+        Main Menu
+      </Typography>
+      <List sx={{ px: 1 }}>
+        {mainMenuItems.map((item) => (
+          <ListItem 
+            button 
+            key={item.text} 
+            component={Link} 
+            to={item.link}
+            onClick={mobile ? toggleSidebar : undefined}
+            sx={listItemStyle(item.link)}
+          >
+            <ListItemIcon sx={{ color: '#FF6384', minWidth: 40 }}>
+              {item.icon}
+            </ListItemIcon>
+            <ListItemText primary={item.text} />
+          </ListItem>
+        ))}
+      </List>
+      
+      <Divider sx={{ backgroundColor: 'rgba(255,255,255,0.08)', my: 2 }} />
+      
+      {/* User Menu */}
+      <Typography variant="overline" sx={{ px: 3, color: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }}>
+        Your Account
+      </Typography>
+      <List sx={{ px: 1 }}>
+        {userMenuItems.map((item) => (
+          <React.Fragment key={item.text}>
+            <ListItem 
+              button 
+              component={item.submenu ? 'div' : Link}
+              to={item.submenu ? undefined : item.link}
+              onClick={item.submenu ? () => toggleSubMenu(item.text) : mobile ? toggleSidebar : undefined}
+              sx={listItemStyle(item.link)}
+            >
+              <ListItemIcon sx={{ color: '#FF6384', minWidth: 40 }}>
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText primary={item.text} />
+              {item.submenu && (
+                openSubMenu === item.text ? <ExpandLessIcon /> : <ExpandMoreIcon />
+              )}
+            </ListItem>
+            
+            {item.submenu && (
+              <Collapse in={openSubMenu === item.text} timeout="auto" unmountOnExit>
+                <List component="div" disablePadding>
+                  {item.submenu.map((subItem) => (
+                    <ListItem
+                      button
+                      key={subItem.text}
+                      component={Link}
+                      to={subItem.link}
+                      onClick={mobile ? toggleSidebar : undefined}
+                      sx={{
+                        pl: 6,
+                        ...listItemStyle(subItem.link),
+                        borderRadius: '8px',
+                        margin: '2px 16px 2px 24px',
+                      }}
+                    >
+                      {subItem.icon && (
+                        <ListItemIcon sx={{ color: 'rgba(255,99,132,0.7)', minWidth: 32 }}>
+                          {subItem.icon}
+                        </ListItemIcon>
+                      )}
+                      <ListItemText 
+                        primary={subItem.text} 
+                        primaryTypographyProps={{ 
+                          variant: 'body2',
+                          sx: { fontWeight: location.pathname === subItem.link ? 'bold' : 'normal' }
+                        }} 
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Collapse>
+            )}
+          </React.Fragment>
+        ))}
+      </List>
+      
+      <Divider sx={{ backgroundColor: 'rgba(255,255,255,0.08)', my: 2 }} />
+      
+      {/* Support Menu */}
+      <Typography variant="overline" sx={{ px: 3, color: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }}>
+        Support
+      </Typography>
+      <List sx={{ px: 1 }}>
+        {supportMenuItems.map((item) => (
+          <ListItem 
+            button 
+            key={item.text} 
+            component={Link} 
+            to={item.link}
+            onClick={mobile ? toggleSidebar : undefined}
+            sx={listItemStyle(item.link)}
+          >
+            <ListItemIcon sx={{ color: '#FF6384', minWidth: 40 }}>
+              {item.icon}
+            </ListItemIcon>
+            <ListItemText primary={item.text} />
+          </ListItem>
+        ))}
+      </List>
+      
+      <Box sx={{ 
+        margin: '16px 16px 24px 16px', 
+        padding: '16px', 
+        borderRadius: '12px',
+        background: 'linear-gradient(45deg, rgba(255,99,132,0.8) 0%, rgba(255,99,132,0.4) 100%)',
+        boxShadow: '0 4px 12px rgba(255,99,132,0.3)',
+        textAlign: 'center'
+      }}>
+        <Typography variant="subtitle2" sx={{ mb: 1, color: 'white', fontWeight: 'bold' }}>
+          Need Help?
+        </Typography>
+        <Typography variant="body2" sx={{ mb: 2, color: 'rgba(255,255,255,0.8)' }}>
+          Our support team is just a click away
+        </Typography>
+        <Button 
+          variant="contained" 
+          fullWidth 
+          sx={{ 
+            backgroundColor: 'white',
+            color: '#FF6384',
+            '&:hover': { backgroundColor: 'rgba(255,255,255,0.9)' }
+          }}
+        >
+          Contact Support
+        </Button>
+      </Box>
+      
+      {/* Logout Button */}
+      <Box sx={{ padding: '0 16px 24px 16px', mt: 'auto' }}>
+        <Button 
+          variant="contained" 
+          fullWidth 
+          onClick={handleLogout}
+          sx={{ 
+            backgroundColor: 'rgba(255,255,255,0.15)',
+            color: 'white',
+            borderRadius: '8px',
+            height: '48px',
+            '&:hover': { backgroundColor: 'rgba(255,255,255,0.25)' }
+          }}
+        >
+          Logout
+        </Button>
+      </Box>
+    </Box>
+  );
+
+  return (
+    <>
+      {/* Permanent Desktop Sidebar */}
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: 280,
+          flexShrink: 0,
+          display: { xs: 'none', md: 'block' },
+          '& .MuiDrawer-paper': drawerPaperStyle
+        }}
+      >
+        <SidebarContent />
+      </Drawer>
+
+      {/* Mobile Sidebar */}
+      <Drawer
+        variant="temporary"
+        open={sidebarOpen}
+        onClose={toggleSidebar}
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          '& .MuiDrawer-paper': {
+            ...drawerPaperStyle,
+            borderRadius: '0 16px 16px 0',
+          }
+        }}
+        ModalProps={{
+          keepMounted: true, // Better open performance on mobile
+        }}
+      >
+        <SidebarContent mobile={true} />
+      </Drawer>
+    </>
+  );
+};
+
+export default AdminSidebar;

@@ -34,6 +34,13 @@ const Checkout = () => {
     fetchUserPoints();
   }, []);
 
+  useEffect(() => {
+        const isLoggedIn = localStorage.getItem("user_id");
+        if (!isLoggedIn) {
+          navigate("/");
+        }
+      }, [navigate]);
+
   const fetchCartItems = async () => {
     setLoading(true);
     try {

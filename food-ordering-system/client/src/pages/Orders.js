@@ -845,7 +845,7 @@ const Orders = () => {
                                     color: "primary.main",
                                   }}
                                 >
-                                  Rs.{item.price.toFixed(2)}
+                                  Rs.{(Number(item.price) || 0).toFixed(2)}
                                 </Typography>
                               </Box>
                               

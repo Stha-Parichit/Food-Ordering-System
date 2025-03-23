@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import LandingPage from './components/LandingPage';
@@ -30,49 +30,103 @@ import UploadFood from './components/UploadFood';
 import AdminDashboard from './components/AdminDashboard';
 import RegisteredUser from './components/RegisteredUsers';
 import FoodItemDetails from './components/FoodItemDetails';
+import UploadTutorial from './pages/UploadTutorial';
+import ViewTutorials from './pages/ViewTutorials';
 import Orders from './pages/Orders';
-
+import AllUsers from "./components/AllUsers";
+import { logout } from './utils/auth';
 const theme = createTheme(); // Ensure a theme is provided
 
-const App = () => (
-  <ThemeProvider theme={theme}>
-    <CssBaseline />
-    <GoogleOAuthProvider clientId="997514767176-rvk4v4cho4qvibhti41b08ser7afsm7t.apps.googleusercontent.com">
-      <Router>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          {/* <Route path="/home" element={<HomePage />} /> */}
-          <Route path="/home" element={<Home />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/filter" element={<FilterPage />} />
-          <Route path="/sidebar" element={<Sidebar />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/payment" element={<PaymentPage />} />
-          <Route path="/track" element={<OrderTracking />} />
-          <Route path="/categories" element={<CategoriesPage />} />
-          <Route path="/order-confirmation" element={<OrderConfirmation />} />
-          <Route path="/chef-orders" element={<ChefOrders />} />
-          <Route path="/order-details/:orderId" element={<OrderDetails />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/upload-item" element={<UploadFood />} />
-          <Route path="/payment-success" element={<PaymentSuccess />} />
-          <Route path="/payment-failed" element={<PaymentFailed />} />
-          <Route path="/admin-dashboard" element={<AdminDashboard />} />
-          <Route path="/registered-user" element={<RegisteredUser />} />
-          <Route path="/e-pay" element={<EsewaPayment />} />
-          <Route path="/success" element={<PaymentStatus />} />
-          <Route path="/failure" element={<PaymentStatus />} />
-          <Route path="/food/:id" element={<FoodItemDetails />} />
-          <Route path="/orders" element={<Orders />} />
+const PageTitleUpdater = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const pageTitles = {
+      '/': 'Landing Page',
+      '/home': 'Home',
+      '/dashboard': 'Dashboard',
+      '/profile': 'Profile',
+      '/filter': 'Filter',
+      '/categories': 'Categories',
+      '/orders': 'Orders',
+      '/cart': 'Cart',
+      '/checkout': 'Checkout',
+      '/payment': 'Payment',
+      '/track': 'Order Tracking',
+      '/upload-item': 'Upload Food',
+      '/admin-dashboard': 'Admin Dashboard',
+      '/register': 'Register',
+      '/login': 'Login',
+      '/forgot-password': 'Forgot Password',
+      '/reset-password': 'Reset Password',
+      '/upload-tutorial': 'Upload Tutorial',
+      '/view-tutorials': 'View Tutorials',
+      '/order-confirmation': 'Order Confirmation',
+      '/chef-orders': 'Chef Orders',
+      '/payment-success': 'Payment Success',
+      '/payment-failed': 'Payment Failed',
+      '/order-details': 'Order Details',
+      '/food': 'Food Item Details',
+      '/registered-user': 'Registered Users',
+      '/users-list': 'All Users',
+      '/e-pay': 'Esewa Payment',
+      '/success': 'Payment Success',
+      '/failure': 'Payment Failed',
+    };
+    const pageTitle = pageTitles[location.pathname] || 'Page';
+    document.title = `${pageTitle} - YOO!!!`;
+  }, [location]);
+
+  return null;
+};
+
+const App = () => {
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <GoogleOAuthProvider clientId="997514767176-rvk4v4cho4qvibhti41b08ser7afsm7t.apps.googleusercontent.com">
+        <Router>
+          <PageTitleUpdater />
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            {/* <Route path="/home" element={<HomePage />} /> */}
+            <Route path="/home" element={<Home />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/filter" element={<FilterPage />} />
+            <Route path="/sidebar" element={<Sidebar />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/payment" element={<PaymentPage />} />
+            <Route path="/track" element={<OrderTracking />} />
+            <Route path="/categories" element={<CategoriesPage />} />
+            <Route path="/order-confirmation" element={<OrderConfirmation />} />
+            <Route path="/chef-orders" element={<ChefOrders />} />
+            <Route path="/order-details/:orderId" element={<OrderDetails />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/upload-item" element={<UploadFood />} />
+            <Route path="/payment-success" element={<PaymentSuccess />} />
+            <Route path="/payment-failed" element={<PaymentFailed />} />
+            <Route path="/admin-dashboard" element={<AdminDashboard />} />
+            <Route path="/registered-user" element={<RegisteredUser />} />
+            <Route path="/e-pay" element={<EsewaPayment />} />
+            <Route path="/success" element={<PaymentStatus />} />
+            <Route path="/failure" element={<PaymentStatus />} />
+            <Route path="/food/:id" element={<FoodItemDetails />} />
+            <Route path="/upload-tutorial" element={<UploadTutorial />} />
+            <Route path="/view-tutorials" element={<ViewTutorials />} />    
+            <Route path="/orders" element={<Orders />} />      
+            <Route path="/users-list" element={<AllUsers />} />
           </Routes>
-      </Router>
-    </GoogleOAuthProvider>
-  </ThemeProvider>
-);
+          {/* Example usage of logout */}
+          {/* <button onClick={logout}>Logout</button> */}
+        </Router>
+      </GoogleOAuthProvider>
+    </ThemeProvider>
+  );
+};
 
 export default App;

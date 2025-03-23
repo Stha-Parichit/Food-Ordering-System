@@ -2,51 +2,81 @@ import React, { useState, useEffect } from "react";
 import { 
   Button, Box, Typography, Grid, TextField, IconButton, 
   Menu, MenuItem, Card, CardContent, Table, TableHead, TableRow, TableCell, TableBody, Paper, 
-  List, ListItem, ListItemText, Avatar, Drawer, ListItemIcon, Divider, Badge
+  List, ListItem, ListItemText, Avatar, Badge, useTheme, useMediaQuery
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import AccountCircleIcon from "@mui/icons-material/AccountCircle";
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import PeopleIcon from "@mui/icons-material/People";
-import ReceiptIcon from "@mui/icons-material/Receipt";
-import SettingsIcon from "@mui/icons-material/Settings";
-import LogoutIcon from "@mui/icons-material/Logout";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import MenuIcon from "@mui/icons-material/Menu";
 import { Pie, Bar, Line } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement } from "chart.js";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import AdminSidebar from "./AdminSidebar"; // Import the AdminSidebar component
+
+axios.defaults.baseURL = "http://localhost:5000"; // Ensure this matches your server's base URL
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement);
 
 const AdminDashboard = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [anchorEl, setAnchorEl] = useState(null);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
-  const userEmail = localStorage.getItem("userEmail");
+  const userEmail = localStorage.getItem("userEmail") || "admin@example.com";
   const [recentUsers, setRecentUsers] = useState([]);
-  const [notifications, setNotifications] = useState([]);
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
-
-  const drawerWidth = 240;
+  const [notifications, setNotifications] = useState([
+    { id: 1, message: "New user registered", time: "10 min ago" },
+    { id: 2, message: "New order received", time: "30 min ago" },
+    { id: 3, message: "Payment confirmed", time: "1 hour ago" }
+  ]);
+  const [recentCustomers, setRecentCustomers] = useState([]);
+  const [recentOrders, setRecentOrders] = useState([]);
 
   useEffect(() => {
-    document.title = "Admin Dashboard";
+    document.title = "Food Admin Dashboard";
     fetchRecentUsers();
+    fetchRecentCustomers();
+    fetchRecentOrders(); // Fetch recent orders
   }, []);
 
   const fetchRecentUsers = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/recent-users");
-      setRecentUsers(response.data);
+      // Replace with actual API call
+      setRecentUsers([
+        { email: "user1@example.com", date: new Date(2025, 2, 22) },
+        { email: "user2@example.com", date: new Date(2025, 2, 21) },
+        { email: "user3@example.com", date: new Date(2025, 2, 20) },
+        { email: "user4@example.com", date: new Date(2025, 2, 19) }
+      ]);
     } catch (error) {
       console.error("Failed to fetch recent users:", error);
     }
   };
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
+  // Fetch recent customers
+  const fetchRecentCustomers = async () => {
+    try {
+      const response = await axios.get("/api/recent-users");
+      setRecentCustomers(response.data);
+    } catch (error) {
+      console.error("Failed to fetch recent customers:", error);
+    }
+  };
+
+  // Fetch recent orders
+  const fetchRecentOrders = async () => {
+    try {
+      const response = await axios.get("/api/recent-orders");
+      setRecentOrders(response.data);
+    } catch (error) {
+      console.error("Failed to fetch recent orders:", error);
+    }
+  };
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
   };
 
   const handleProfileClick = (event) => {
@@ -73,135 +103,148 @@ const AdminDashboard = () => {
 
   // Chart Data
   const pieData = {
-    labels: ["Donations", "Users", "Meals Served"],
-    datasets: [{ data: [400000, 50000, 60000], backgroundColor: ["#8b5cf6", "#3b82f6", "#10b981"] }]
+    labels: ["Delivery Orders", "Pickup Orders", "Dine-in"],
+    datasets: [{ 
+      data: [65, 25, 10], 
+      backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56"],
+      borderColor: ["#fff", "#fff", "#fff"],
+      borderWidth: 2
+    }]
   };
 
   const barData = {
-    labels: ["Jan", "Feb", "Mar", "Apr"],
-    datasets: [{ label: "Revenue", data: [450000, 480000, 500000, 530000], backgroundColor: "#8b5cf6" }]
+    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    datasets: [{ 
+      label: "Daily Orders", 
+      data: [65, 59, 80, 81, 90, 110, 120], 
+      backgroundColor: "#FF6384",
+      borderRadius: 6
+    }]
   };
 
   const lineData = {
     labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
-    datasets: [{ label: "User Growth", data: [1000, 1500, 3000, 5000], borderColor: "#10b981", fill: false }]
+    datasets: [
+      { 
+        label: "Revenue", 
+        data: [10000, 15000, 13000, 17000], 
+        borderColor: "#36A2EB",
+        backgroundColor: "rgba(54, 162, 235, 0.1)",
+        fill: true,
+        tension: 0.4
+      },
+      { 
+        label: "Orders", 
+        data: [500, 600, 550, 700], 
+        borderColor: "#FF6384",
+        backgroundColor: "rgba(255, 99, 132, 0.1)",
+        fill: true,
+        tension: 0.4
+      }
+    ]
   };
 
-  const chartOptions = { responsive: true, maintainAspectRatio: false };
-
-  const drawer = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid rgba(0, 0, 0, 0.12)' }}>
-        <img src="/images/logo.png" alt="Logo" style={{ width: 40, height: 40 }} />
-        <Typography variant="h6" sx={{ ml: 2, fontWeight: 'bold' }}>
-          YOO!!!
-        </Typography>
-      </Box>
-      <Box sx={{ flexGrow: 1, p: 2 }}>
-        <List>
-          <ListItem button selected sx={{ borderRadius: 2, mb: 1, backgroundColor: '#8b5cf6', color: 'white' }}>
-            <ListItemIcon>
-              <DashboardIcon sx={{ color: 'white' }} />
-            </ListItemIcon>
-            <ListItemText primary="Dashboard" />
-          </ListItem>
-            <ListItem button sx={{ borderRadius: 2, mb: 1 }}onClick={() => navigate("/upload-item")}>
-              <ListItemIcon>
-                <PeopleIcon />
-              </ListItemIcon>
-              <ListItemText primary="Upload" />
-            </ListItem>
-          <ListItem button sx={{ borderRadius: 2, mb: 1 }}>
-            <ListItemIcon>
-              <ReceiptIcon />
-            </ListItemIcon>
-            <ListItemText primary="Transactions" />
-          </ListItem>
-          <ListItem button sx={{ borderRadius: 2, mb: 1 }}>
-            <ListItemIcon>
-              <SettingsIcon />
-            </ListItemIcon>
-            <ListItemText primary="Settings" />
-          </ListItem>
-        </List>
-      </Box>
-      <Box sx={{ p: 2, borderTop: '1px solid rgba(0, 0, 0, 0.12)' }}>
-        <List>
-          <ListItem button onClick={handleLogout} sx={{ borderRadius: 2 }}>
-            <ListItemIcon>
-              <LogoutIcon />
-            </ListItemIcon>
-            <ListItemText primary="Logout" />
-          </ListItem>
-        </List>
-      </Box>
-    </Box>
-  );
+  const chartOptions = { 
+    responsive: true, 
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom'
+      }
+    }
+  };
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      {/* Sidebar */}
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-      >
-        {/* Mobile drawer */}
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{ keepMounted: true }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-          }}
-        >
-          {drawer}
-        </Drawer>
-        
-        {/* Desktop drawer */}
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, borderRight: '1px solid rgba(0, 0, 0, 0.12)' },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
+    <Box sx={{ display: 'flex', backgroundColor: '#f7f8fc', minHeight: '100vh' }}>
+      {/* AdminSidebar Component */}
+      <AdminSidebar 
+        sidebarOpen={sidebarOpen} 
+        toggleSidebar={toggleSidebar} 
+        handleLogout={handleLogout} 
+      />
 
       {/* Main content */}
-      <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
+      <Box 
+        component="main" 
+        sx={{ 
+          flexGrow: 1, 
+          p: { xs: 2, md: 3 }, 
+          width: { xs: '100%', md: 'calc(100% - 280px)' },
+          ml: { xs: 0, md: '0' }
+        }}
+      >
         {/* Top bar */}
-        <Box sx={{ display: 'flex', mb: 4, alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            mb: 4, 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            backgroundColor: '#fff',
+            borderRadius: 2,
+            p: 2,
+            boxShadow: '0 2px 10px rgba(0,0,0,0.05)'
+          }}
+        >
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <IconButton
               color="inherit"
               aria-label="open drawer"
               edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ mr: 2, display: { sm: 'none' } }}
+              onClick={toggleSidebar}
+              sx={{ mr: 2, display: { md: 'none' } }}
             >
               <MenuIcon />
             </IconButton>
-            <Typography variant="h5" fontWeight="bold">Admin Dashboard</Typography>
+            <Typography variant="h5" fontWeight="bold" color="#1a1a2e">Food Admin Dashboard</Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <IconButton onClick={handleNotificationClick} sx={{ mr: 1 }}>
-              <Badge badgeContent={2} color="error">
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                backgroundColor: '#f5f5f5', 
+                borderRadius: 20, 
+                px: 2, 
+                py: 1,
+                mr: 1,
+                display: { xs: 'none', sm: 'flex' }
+              }}
+            >
+              <SearchIcon color="action" />
+              <TextField 
+                variant="standard" 
+                placeholder="Search..." 
+                InputProps={{ disableUnderline: true }} 
+                sx={{ ml: 1, minWidth: 120 }}
+              />
+            </Box>
+            
+            <IconButton onClick={handleNotificationClick} sx={{ position: 'relative' }}>
+              <Badge badgeContent={notifications.length} color="error">
                 <NotificationsIcon />
               </Badge>
             </IconButton>
-            <Box sx={{ display: 'flex', alignItems: 'center', backgroundColor: '#f5f5f5', borderRadius: 40, p: 1 }}>
-              <Avatar sx={{ backgroundColor: '#8b5cf6', width: 32, height: 32 }}>
+            
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                backgroundColor: '#f5f5f5', 
+                borderRadius: 20, 
+                p: 0.5,
+                cursor: 'pointer'
+              }}
+              onClick={handleProfileClick}
+            >
+              <Avatar sx={{ backgroundColor: '#FF6384', width: 32, height: 32 }}>
                 {userEmail?.charAt(0).toUpperCase() || 'A'}
               </Avatar>
-              <Typography variant="body1" sx={{ ml: 1, mr: 1 }}>
+              <Typography variant="body2" sx={{ ml: 1, mr: 1, display: { xs: 'none', sm: 'block' } }}>
                 {userEmail || 'Admin'}
               </Typography>
-              <IconButton size="small" onClick={handleProfileClick}>
+              <IconButton size="small" sx={{ display: { xs: 'none', sm: 'flex' } }}>
                 <MenuIcon fontSize="small" />
               </IconButton>
             </Box>
@@ -213,8 +256,17 @@ const AdminDashboard = () => {
           open={Boolean(anchorEl)}
           onClose={handleCloseProfileMenu}
           sx={{ mt: 1 }}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
         >
-          <MenuItem>Profile</MenuItem>
+          <MenuItem sx={{ minWidth: 150 }}>Profile</MenuItem>
+          <MenuItem>Account Settings</MenuItem>
           <MenuItem onClick={handleLogout}>Logout</MenuItem>
         </Menu>
 
@@ -223,102 +275,244 @@ const AdminDashboard = () => {
           open={Boolean(notificationAnchorEl)}
           onClose={handleNotificationClose}
           sx={{ mt: 1 }}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
         >
-          <MenuItem disabled>Notifications</MenuItem>
-          <MenuItem>New user registered</MenuItem>
-          <MenuItem>Payment received</MenuItem>
+          <MenuItem sx={{ backgroundColor: '#f5f5f5', minWidth: 250 }}>
+            <Typography variant="subtitle2" fontWeight="bold">Notifications</Typography>
+          </MenuItem>
+          {notifications.map(notification => (
+            <MenuItem key={notification.id} sx={{ py: 1.5 }}>
+              <Box>
+                <Typography variant="body2">{notification.message}</Typography>
+                <Typography variant="caption" color="text.secondary">{notification.time}</Typography>
+              </Box>
+            </MenuItem>
+          ))}
+          <MenuItem sx={{ justifyContent: 'center' }}>
+            <Typography variant="body2" color="primary">View all notifications</Typography>
+          </MenuItem>
         </Menu>
+
+        {/* Welcome Section */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h4" fontWeight="bold" color="#1a1a2e">Welcome back!</Typography>
+          <Typography variant="body1" color="text.secondary">
+            Here's what's happening with your restaurant today.
+          </Typography>
+        </Box>
 
         {/* Stats cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={3}>
-            <Card sx={{ borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', height: '100%', background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)' }}>
-              <CardContent sx={{ p: 3, color: 'white' }}>
-                <Typography variant="h6" gutterBottom>Total Revenue</Typography>
-                <Typography variant="h4" fontWeight="bold">Rs. 1,960,000</Typography>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>+8% from last month</Typography>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%', position: 'relative', overflow: 'hidden' }}>
+              <Box sx={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, borderRadius: '0 0 0 100%', backgroundColor: 'rgba(255, 99, 132, 0.1)' }} />
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>Total Orders</Typography>
+                <Typography variant="h4" fontWeight="bold">1,243</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                  <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
+                    +12%
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>vs last week</Typography>
+                </Box>
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <Card sx={{ borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', height: '100%' }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%', position: 'relative', overflow: 'hidden' }}>
+              <Box sx={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, borderRadius: '0 0 0 100%', backgroundColor: 'rgba(54, 162, 235, 0.1)' }} />
               <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom color="textSecondary">New Users</Typography>
-                <Typography variant="h4" fontWeight="bold">5,000</Typography>
-                <Typography variant="body2" color="green">+12% from last month</Typography>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>Revenue</Typography>
+                <Typography variant="h4" fontWeight="bold">₹24,500</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                  <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
+                    +8%
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>vs last week</Typography>
+                </Box>
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <Card sx={{ borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', height: '100%' }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%', position: 'relative', overflow: 'hidden' }}>
+              <Box sx={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, borderRadius: '0 0 0 100%', backgroundColor: 'rgba(255, 206, 86, 0.1)' }} />
               <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom color="textSecondary">Transactions</Typography>
-                <Typography variant="h4" fontWeight="bold">12,456</Typography>
-                <Typography variant="body2" color="green">+5% from last month</Typography>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>Customers</Typography>
+                <Typography variant="h4" fontWeight="bold">5,847</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                  <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
+                    +18%
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>vs last month</Typography>
+                </Box>
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <Card sx={{ borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', height: '100%' }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%', position: 'relative', overflow: 'hidden' }}>
+              <Box sx={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, borderRadius: '0 0 0 100%', backgroundColor: 'rgba(75, 192, 192, 0.1)' }} />
               <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom color="textSecondary">Donations</Typography>
-                <Typography variant="h4" fontWeight="bold">Rs. 400,000</Typography>
-                <Typography variant="body2" color="green">+15% from last month</Typography>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>Avg. Order Value</Typography>
+                <Typography variant="h4" fontWeight="bold">₹230</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                  <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
+                    +5%
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>vs last month</Typography>
+                </Box>
               </CardContent>
             </Card>
           </Grid>
         </Grid>
 
-        {/* Charts */}
-        <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>Impact & Revenue Overview</Typography>
+        {/* Charts & Analytics */}
+        <Typography variant="h5" fontWeight="bold" sx={{ mb: 3, color: '#1a1a2e' }}>Order Analytics</Typography>
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={4}>
-            <Card sx={{ borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <Grid item xs={12} md={8}>
+            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
               <CardContent>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>Donations & Users</Typography>
-                <Box sx={{ height: 300 }}>
-                  <Pie data={pieData} options={chartOptions} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" fontWeight="bold">Revenue & Orders</Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button size="small" variant="outlined" sx={{ borderRadius: 20, textTransform: 'none' }}>Weekly</Button>
+                    <Button size="small" variant="contained" sx={{ borderRadius: 20, bgcolor: '#FF6384', textTransform: 'none' }}>Monthly</Button>
+                  </Box>
                 </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Card sx={{ borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-              <CardContent>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>Revenue</Typography>
-                <Box sx={{ height: 300 }}>
-                  <Bar data={barData} options={chartOptions} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Card sx={{ borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-              <CardContent>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>User Growth</Typography>
                 <Box sx={{ height: 300 }}>
                   <Line data={lineData} options={chartOptions} />
                 </Box>
               </CardContent>
             </Card>
           </Grid>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>Order Distribution</Typography>
+                <Box sx={{ height: 300, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <Pie data={pieData} options={chartOptions} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
 
-        {/* Recent Users and Transactions */}
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Card sx={{ borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} lg={8}>
+            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
               <CardContent>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>Recent Users</Typography>
+                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>Daily Order Volume</Typography>
+                <Box sx={{ height: 250 }}>
+                  <Bar data={barData} options={chartOptions} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} lg={4}>
+            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" fontWeight="bold">Popular Items</Typography>
+                  <Button size="small" sx={{ textTransform: 'none', color: '#FF6384' }}>View All</Button>
+                </Box>
+                <List disablePadding>
+                  {[
+                    { name: "Butter Chicken", orders: 125, price: "₹320" },
+                    { name: "Veg Biryani", orders: 98, price: "₹280" },
+                    { name: "Masala Dosa", orders: 87, price: "₹150" },
+                    { name: "Paneer Tikka", orders: 76, price: "₹220" },
+                  ].map((item, index) => (
+                    <ListItem 
+                      key={index} 
+                      sx={{ 
+                        px: 0, 
+                        py: 1.5, 
+                        borderBottom: index < 3 ? '1px solid #f0f0f0' : 'none',
+                      }}
+                    >
+                      <Box 
+                        sx={{ 
+                          width: 40, 
+                          height: 40, 
+                          borderRadius: 1, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          backgroundColor: `rgba(${index * 50}, ${255 - index * 30}, ${150 + index * 20}, 0.1)`,
+                          mr: 2
+                        }}
+                      >
+                        <Typography variant="body2" fontWeight="bold">#{index + 1}</Typography>
+                      </Box>
+                      <ListItemText 
+                        primary={item.name}
+                        secondary={`${item.orders} orders`}
+                        primaryTypographyProps={{ fontWeight: 'medium' }}
+                      />
+                      <Typography variant="body2" fontWeight="bold">{item.price}</Typography>
+                    </ListItem>
+                  ))}
+                </List>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Recent Tables */}
+        <Grid container spacing={3}>
+          <Grid item xs={12} lg={7}>
+            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" fontWeight="bold">Recent Orders</Typography>
+                  <Button size="small" sx={{ textTransform: 'none', color: '#FF6384' }}>View All</Button>
+                </Box>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Order ID</TableCell>
+                      <TableCell>Customer</TableCell>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Amount</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {recentOrders.map((order) => (
+                      <TableRow key={order.order_id}>
+                        <TableCell>{`#ORD-${order.order_id}`}</TableCell>
+                        <TableCell>{order.customer_name}</TableCell>
+                        <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>{`₹${order.total_amount}`}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} lg={5}>
+            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" fontWeight="bold">Recent Customers</Typography>
+                  <Button size="small" sx={{ textTransform: 'none', color: '#FF6384' }}>View All</Button>
+                </Box>
                 <List>
-                  {[1, 2, 3, 4].map((_, index) => (
-                    <ListItem key={index} sx={{ px: 0, py: 1 }}>
-                      <Avatar sx={{ mr: 2, backgroundColor: '#8b5cf6' }}>
-                        {String.fromCharCode(65 + index)}
+                  {recentCustomers.map((customer, index) => (
+                    <ListItem key={index} sx={{ px: 0, py: 1.5, borderBottom: index < 4 ? '1px solid #f0f0f0' : 'none' }}>
+                      <Avatar sx={{ mr: 2, backgroundColor: `#${Math.floor(Math.random()*16777215).toString(16)}` }}>
+                        {customer.email.charAt(0).toUpperCase()}
                       </Avatar>
                       <ListItemText 
-                        primary={`user${index + 1}@example.com`} 
-                        secondary={new Date(2025, 2, 19 - index).toLocaleDateString()} 
+                        primary={customer.email.split('@')[0]}
+                        secondary={new Date(customer.created_at).toLocaleDateString()} 
+                        primaryTypographyProps={{ fontWeight: 'medium' }}
                       />
                     </ListItem>
                   ))}
@@ -326,29 +520,14 @@ const AdminDashboard = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={6}>
-            <Card sx={{ borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-              <CardContent>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>Recent Transactions</Typography>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Order ID</TableCell>
-                      <TableCell>Customer</TableCell>
-                      <TableCell>Amount</TableCell>
-                      <TableCell>Status</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    <TableRow><TableCell>#101</TableCell><TableCell>John Doe</TableCell><TableCell>Rs.50</TableCell><TableCell><span style={{ color: 'green' }}>Completed</span></TableCell></TableRow>
-                    <TableRow><TableCell>#102</TableCell><TableCell>Jane Smith</TableCell><TableCell>Rs.75</TableCell><TableCell><span style={{ color: 'orange' }}>Pending</span></TableCell></TableRow>
-                    <TableRow><TableCell>#103</TableCell><TableCell>Alice Brown</TableCell><TableCell>Rs.100</TableCell><TableCell><span style={{ color: 'red' }}>Refunded</span></TableCell></TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </Grid>
         </Grid>
+        
+        {/* Footer */}
+        <Box sx={{ mt: 4, textAlign: 'center', py: 3 }}>
+          <Typography variant="body2" color="text.secondary">
+            © 2025 YOO!!! Food Ordering Admin Panel. All rights reserved.
+          </Typography>
+        </Box>
       </Box>
     </Box>
   );

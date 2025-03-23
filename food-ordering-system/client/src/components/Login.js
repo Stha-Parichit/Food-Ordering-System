@@ -51,7 +51,13 @@ const Login = () => {
         localStorage.setItem('token', response.data.token); 
         localStorage.setItem('userEmail', form.email);
         localStorage.setItem("user_id", response.data.userId);
-        window.location.href = '/home';
+
+        // Navigate based on user ID
+        if (response.data.userId === 1) {
+          window.location.href = '/admin-dashboard';
+        } else {
+          window.location.href = '/dashboard';
+        }
       }
     } catch (error) {
       setMessage(error.response?.status === 401 ? 'Invalid credentials. Please try again.' : 'Error logging in. Please try again.');
@@ -220,7 +226,7 @@ const Login = () => {
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent'
               }}>
-                FoodDelight
+                YOO!!!
               </Typography>
             </Box>
             
@@ -357,7 +363,7 @@ const Login = () => {
             }}>
               <RestaurantIcon fontSize="large" />
               <Typography variant="h4" component="h1" fontWeight="bold">
-                FoodDelight
+              YOO!!!
               </Typography>
             </Box>
             <Typography variant="body1">
@@ -397,7 +403,7 @@ const Login = () => {
             }}>
               <RestaurantIcon sx={{ color: '#FF5722', fontSize: 32, mr: 1 }} />
               <Typography variant="h5" component="h1" fontWeight="bold" color="#FF5722">
-                FoodDelight
+              YOO!!!
               </Typography>
             </Box>
 
@@ -511,7 +517,7 @@ const Login = () => {
             
             <Box sx={{ textAlign: 'center', mt: 'auto' }}>
               <Typography variant="body1">
-                New to FoodDelight? {' '}
+                New to  YOO!!!? {' '}
                 <a 
                   href="/register" 
                   style={{ 
