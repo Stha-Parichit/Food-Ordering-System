@@ -29,8 +29,19 @@ import {
   Fade,
   Skeleton,
   Snackbar,
-  InputAdornment
+  InputAdornment, ListItemIcon, Avatar, 
 } from "@mui/material";
+import HomeIcon from "@mui/icons-material/Home";
+import CategoryIcon from "@mui/icons-material/Category";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import ReceiptIcon from "@mui/icons-material/Receipt";
+import PersonIcon from "@mui/icons-material/Person";
+import LogoutIcon from "@mui/icons-material/Logout";
+import FacebookIcon from '@mui/icons-material/Facebook';
+import TwitterIcon from '@mui/icons-material/Twitter';
+import InstagramIcon from '@mui/icons-material/Instagram';
+import YouTubeIcon from '@mui/icons-material/YouTube';
+
 import { styled, alpha } from "@mui/material/styles";
 import { useNavigate } from 'react-router-dom';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -46,6 +57,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { motion } from "framer-motion";
 import axios from "axios";
 import CustomizeOrderPopup from "./CustomizeOrderPopup";
+
 
 // Styled components
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -101,11 +113,11 @@ const StyledButton = styled(Button)(({ theme }) => ({
   padding: '10px 24px',
   fontWeight: 600,
   textTransform: 'none',
-  boxShadow: '0 4px 14px 0 rgba(0, 0, 0, 0.1)',
+  transform: 'translateY(-2px)',
+    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)',
   transition: 'all 0.2s ease',
   '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)',
+    boxShadow: '0 4px 14px 0 rgba(0, 0, 0, 1)',
   },
 }));
 
@@ -211,9 +223,21 @@ const Home = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const userEmail = localStorage.getItem("userEmail");
+
+  
   
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme => theme.breakpoints.down('md'));
+
+  useEffect(() => {
+    const isLoggedIn = localStorage.getItem("user_id");
+    if (!isLoggedIn) {
+      navigate("/");
+    }
+  }, [navigate]);
 
   // Sample categories and prices for demo
   const categories = ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack'];
@@ -225,10 +249,10 @@ const Home = () => {
   const [openPopup, setOpenPopup] = useState(false);
 
   /// Add to Cart with customization
-const handleAddToCart = (item) => {
-  setSelectedItem(item);
-  setOpenCustomizePopup(true);
-};
+  const handleAddToCart = (item) => {
+    setSelectedItem(item); // Set the selected item
+    setOpenCustomizePopup(true); // Open the customization popup
+  };
 
 // Handle customization save
 const handleSaveCustomization = async (item, customization) => {
@@ -244,18 +268,43 @@ const handleSaveCustomization = async (item, customization) => {
     // Show loading indicator
     setLoading(true);
 
-    const response = await axios.post("http://localhost:5000/cart", {
-      food_id: item.id,
-      user_id: userId,
-      quantity: customization.quantity || 1,
-      extraCheese: customization.extraCheese || false,
-      extraMeat: customization.extraMeat || false,
-      extraVeggies: customization.extraVeggies || false,
-      noOnions: customization.noOnions || false,
-      noGarlic: customization.noGarlic || false,
-      spicyLevel: customization.spicyLevel || 'Medium',
-      specialInstructions: customization.specialInstructions || ""
-    });
+    const sidesValue = customization.sides
+      ? customization.sides.map(side => `${side.label} × ${side.quantity}`).join(", ")
+      : null;
+
+    const dipSauceValue = customization.dip_sauce
+      ? customization.dip_sauce.map(dip => `${dip.label} × ${dip.quantity}`).join(", ")
+      : null;
+
+      // Calculate the total price
+    let totalPrice = parseFloat(item.price) || 0; // Base price
+    if (customization.sides) {
+      totalPrice += customization.sides.reduce((sum, side) => sum + (side.price * side.quantity), 0);
+    }
+    if (customization.dip_sauce) {
+      totalPrice += customization.dip_sauce.reduce((sum, dip) => sum + (dip.price * dip.quantity), 0);
+    }
+    if (customization.extraCheese) totalPrice += 1.5; // Example price for extra cheese
+    if (customization.extraMeat) totalPrice += 2.0; // Example price for extra meat
+    if (customization.extraVeggies) totalPrice += 1.0; // Example price for extra veggies
+
+      const response = await axios.post("http://localhost:5000/cart", {
+        food_id: item.id,
+        user_id: userId,
+        quantity: customization.quantity || 1,
+        total_price: totalPrice * (customization.quantity || 1), // Send total price
+        extraCheese: customization.extraCheese || false,
+        extraMeat: customization.extraMeat || false,
+        extraVeggies: customization.extraVeggies || false,
+        noOnions: customization.noOnions || false,
+        noGarlic: customization.noGarlic || false,
+        spicyLevel: customization.spicyLevel || 'Medium',
+        specialInstructions: customization.specialInstructions || "",
+        glutenFree: customization.glutenFree || false,
+        cookingPreference: customization.cookingPreference || null,
+        sides: sidesValue, // Pass as a human-readable string
+        dip_sauce: dipSauceValue // Pass as a human-readable string
+      });
 
     if (response.data.success) {
       // Update local cart for UI (optional, you could also re-fetch cart items)
@@ -265,7 +314,10 @@ const handleSaveCustomization = async (item, customization) => {
         cartItem.customization && 
         cartItem.customization.extraCheese === customization.extraCheese &&
         cartItem.customization.extraMeat === customization.extraMeat &&
-        cartItem.customization.noOnions === customization.noOnions
+        cartItem.customization.noOnions === customization.noOnions &&
+        cartItem.customization.glutenFree === customization.glutenFree && // New field
+        cartItem.customization.cookingPreference === customization.cookingPreference && // New field
+        cartItem.customization.dip_sauce === customization.dip_sauce // New field
       );
 
       if (existingItemIndex !== -1) {
@@ -281,7 +333,10 @@ const handleSaveCustomization = async (item, customization) => {
             noOnions: customization.noOnions,
             noGarlic: customization.noGarlic,
             spicyLevel: customization.spicyLevel,
-            specialInstructions: customization.specialInstructions
+            specialInstructions: customization.specialInstructions,
+            glutenFree: customization.glutenFree, // New field
+            cookingPreference: customization.cookingPreference, // New field
+            dip_sauce: customization.dip_sauce // New field
           }
         });
       }
@@ -290,18 +345,27 @@ const handleSaveCustomization = async (item, customization) => {
 
       // Show success message
       let customizationDetails = [];
-      if (customization.extraCheese) customizationDetails.push("Extra Cheese");
-      if (customization.extraMeat) customizationDetails.push("Extra Meat");
-      if (customization.extraVeggies) customizationDetails.push("Extra Veggies");
-      if (customization.noOnions) customizationDetails.push("No Onions");
-      if (customization.noGarlic) customizationDetails.push("No Garlic");
-      if (customization.spicyLevel !== 'Medium') customizationDetails.push(`${customization.spicyLevel} Spice`);
+if (customization.extraCheese) customizationDetails.push("Extra Cheese");
+if (customization.extraMeat) customizationDetails.push("Extra Meat");
+if (customization.extraVeggies) customizationDetails.push("Extra Veggies");
+if (customization.noOnions) customizationDetails.push("No Onions");
+if (customization.noGarlic) customizationDetails.push("No Garlic");
+if (customization.glutenFree) customizationDetails.push("Gluten-Free"); // New field
+if (customization.cookingPreference) customizationDetails.push(`Cooking Preference: ${customization.cookingPreference}`); // New field
+if (customization.dip_sauce && customization.dip_sauce.length > 0) {
+  const dipSauceDetails = customization.dip_sauce.map(dip => `${dip.label} × ${dip.quantity}`).join(", ");
+  customizationDetails.push(`Dip/Sauce: ${dipSauceDetails}`);
+}
+if (customization.sides && customization.sides.length > 0) {
+  const sidesDetails = customization.sides.map(side => `${side.label} × ${side.quantity}`).join(", ");
+  customizationDetails.push(`Sides: ${sidesDetails}`);
+}if (customization.spicyLevel !== 'Medium') customizationDetails.push(`${customization.spicyLevel} Spice`);
 
-      let messageDetails = customizationDetails.length > 0 
-        ? ` with ${customizationDetails.join(", ")}`
-        : "";
+let messageDetails = customizationDetails.length > 0 
+  ? ` with ${customizationDetails.join(", ")}`
+  : "";
 
-      setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messageDetails}!`);
+setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messageDetails}!`);
       setOpenPopup(true);
     } else {
       console.error("Failed to add item to cart:", response.data.message);
@@ -315,7 +379,6 @@ const handleSaveCustomization = async (item, customization) => {
   }
 };
 
-
   useEffect(() => {
     const fetchFoodItems = async () => {
       try {
@@ -325,7 +388,7 @@ const handleSaveCustomization = async (item, customization) => {
         // Add sample prices and categories for the demo
         const enhancedData = data.map((item, index) => ({
           ...item,
-          price: item.price,
+          price: parseFloat(item.price) || 0, // Ensure price is a valid number
           category: item.category,
           preparationTime: Math.floor(Math.random() * 30) + 15 + ' min', // Random prep time between 15-45 min
         }));
@@ -344,7 +407,7 @@ const handleSaveCustomization = async (item, customization) => {
           description: "A mouth-watering dish that will satisfy your cravings.",
           image_url: "/images/default-placeholder.png",
           rating: Math.floor(Math.random() * 2) + 3 + Math.random(),
-          price: prices[i % prices.length],
+          price: parseFloat(prices[i % prices.length]), // Ensure fallback price is a number
           category: categories[i % categories.length],
           preparationTime: Math.floor(Math.random() * 30) + 15 + ' min',
         }));
@@ -358,9 +421,14 @@ const handleSaveCustomization = async (item, customization) => {
   // const handleAddToCart = () => {
   //   setOpenDialog(true);
   // };
-
+  
   const handleCloseDialog = () => {
     setOpenDialog(false);
+  };
+
+  const handleSave = (item, customization) => {
+    handleSaveCustomization(item, customization); // Call the existing save logic
+    setOpenCustomizePopup(false); // Close the popup after saving
   };
 
   const handleLoginRedirect = () => {
@@ -369,7 +437,12 @@ const handleSaveCustomization = async (item, customization) => {
   };
 
   const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
+    setDrawerOpen(!drawerOpen); // Toggle the drawerOpen state
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("user_id"); // Remove logged-in status
+    navigate("/"); // Redirect to the landing page
   };
 
   const drawer = (
@@ -378,9 +451,9 @@ const handleSaveCustomization = async (item, customization) => {
         <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
           YOO!!!
         </Typography>
-        <IconButton onClick={handleDrawerToggle}>
+        <img src="./images/logo1.png" onClick={handleDrawerToggle} alt="Logo" style={{ width: 36, height: 36, borderRadius: "30px" }} > 
           <CloseIcon />
-        </IconButton>
+        </img>
       </Box>
       <Divider sx={{ mb: 2 }} />
       <List>
@@ -425,6 +498,12 @@ const handleSaveCustomization = async (item, customization) => {
     }
   };
   
+  const toggleDrawer = (open) => (event) => {
+    if (event.type === 'keydown' && (event.key === 'Tab' || event.key === 'Shift')) {
+      return;
+    }
+    setDrawerOpen(open);
+  };
 
   return (
     <div>
@@ -452,8 +531,9 @@ const handleSaveCustomization = async (item, customization) => {
                   <MenuIcon />
                 </IconButton>
               )}
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Typography 
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <img src="/images/logo1.png" alt="Logo" style={{ width: 50, height: 45,}} />
+                {/* <Typography 
                   variant="h5" 
                   sx={{ 
                     fontWeight: 800, 
@@ -464,12 +544,8 @@ const handleSaveCustomization = async (item, customization) => {
                   }}
                 >
                   YOO!!!
-                </Typography>
-                <LocalDiningIcon 
-                  sx={{ 
-                    color: "#FF6B6B"
-                  }} 
-                />
+                </Typography> */}
+                
               </Box>
             </Box>
             
@@ -529,7 +605,7 @@ const handleSaveCustomization = async (item, customization) => {
   <>
     <Button 
       variant="text"
-      startIcon={<ShoppingCartIcon />}
+      startIcon={<ShoppingCartIcon href="/cart"/>}
       sx={{ 
         mr: 1,
         color: "#333",
@@ -567,14 +643,18 @@ const handleSaveCustomization = async (item, customization) => {
         background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
         color: 'white',
       }}
-      onClick={() => navigate("/")}
+      onClick={handleLogout} // Updated to use handleLogout
     >
       Logout
     </StyledButton>
   </>
 )}
               {isMobile && (
-                <IconButton color="inherit">
+                <IconButton 
+                  color="inherit" 
+                  onClick={() => navigate("/cart")} 
+                  sx={{ display: 'flex', alignItems: 'center' }}
+                >
                   <ShoppingCartIcon />
                 </IconButton>
               )}
@@ -584,15 +664,93 @@ const handleSaveCustomization = async (item, customization) => {
       </HideOnScroll>
       
       {/* Mobile Drawer */}
-      // Update the drawer buttons for logged-in state
-<Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
-  <Button variant="outlined" color="primary" fullWidth component="a" href="/profile">
-    My Profile
-  </Button>
-  <Button variant="contained" color="primary" fullWidth onClick={() => navigate("/logout")}>
-    Logout
-  </Button>
-</Box>
+      {isMobile && (
+  <>
+    <IconButton
+      color="inherit"
+      aria-label="open drawer"
+      edge="start"
+      onClick={handleDrawerToggle}
+      sx={{ mr: 2 }}
+    >
+      <MenuIcon />
+    </IconButton>
+    <Drawer
+        anchor="left"
+        open={drawerOpen} // Use the drawerOpen state to control visibility
+        onClose={toggleDrawer(false)} // Close the drawer when clicking outside
+        sx={{
+          '& .MuiDrawer-paper': { 
+            width: 280,
+            borderRadius: '0 16px 16px 0',
+          },
+        }}
+      >
+        {/* Drawer content - same as before */}
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <img src="/images/logo1.png" alt="Logo" style={{ width: 50, height: 45 }} />
+            {/* <Typography variant="h6" sx={{ ml: 1, fontWeight: 'bold', color: '#ff9800' }}>
+              YOO!!!
+            </Typography> */}
+          </Box>
+          <IconButton onClick={toggleDrawer(false)}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        
+        <Divider />
+        
+        <Box sx={{ p: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, mt: 1 }}>
+            <Avatar sx={{ bgcolor: "#ff9800", mr: 2 }}>
+              {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
+            </Avatar>
+            <Box>
+              <Typography sx={{ fontWeight: 'medium' }}>
+                {userEmail?.split('@')[0] || 'Guest'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {userEmail || 'Not signed in'}
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+        
+        <List>
+          <ListItem button component="a" href="/home" onClick={toggleDrawer(false)}>
+            <ListItemIcon><HomeIcon /></ListItemIcon>
+            <ListItemText primary="Home" />
+          </ListItem>
+          <ListItem button component="a" href="/categories" onClick={toggleDrawer(false)}>
+            <ListItemIcon><CategoryIcon /></ListItemIcon>
+            <ListItemText primary="Menu" />
+          </ListItem>
+          <ListItem button component="a" href="/dashboard" onClick={toggleDrawer(false)}>
+            <ListItemIcon><DashboardIcon /></ListItemIcon>
+            <ListItemText primary="Dashboard" />
+          </ListItem>
+          <ListItem button component="a" href="/orders" onClick={toggleDrawer(false)}>
+            <ListItemIcon><ReceiptIcon /></ListItemIcon>
+            <ListItemText primary="My Orders" />
+          </ListItem>
+        </List>
+        
+        <Divider />
+        
+        <List>
+          <ListItem button component="a" href="/profile" onClick={toggleDrawer(false)}>
+            <ListItemIcon><PersonIcon /></ListItemIcon>
+            <ListItemText primary="Profile" />
+          </ListItem>
+          <ListItem button onClick={() => { handleLogout(); toggleDrawer(false)(); }}>
+            <ListItemIcon><LogoutIcon color="error" /></ListItemIcon>
+            <ListItemText primary="Logout" sx={{ color: 'error.main' }} />
+          </ListItem>
+        </List>
+      </Drawer>
+  </>
+)}
       
       {/* Toolbar spacer */}
       <Toolbar />
@@ -727,7 +885,7 @@ const handleSaveCustomization = async (item, customization) => {
                 }}
               >
                 <img 
-                  src="/api/placeholder/600/400"
+                  src="./images/delivery.jpg"
                   alt="Food delivery" 
                   style={{ 
                     maxWidth: '100%', 
@@ -858,7 +1016,7 @@ const handleSaveCustomization = async (item, customization) => {
                   <Grid item key={index} xs={12} sm={6} md={4}>
                     <motion.div variants={itemVariants}>
                       <StyledCard>
-                        <PriceTag>{item.price}</PriceTag>
+                        <PriceTag>{`Rs. ${Number(item.price || 0).toFixed(2)}`}</PriceTag>
                         <CategoryChip 
                           label={item.category} 
                           size="small"
@@ -927,13 +1085,13 @@ const handleSaveCustomization = async (item, customization) => {
                               Add to Cart
                             </Button>
                             {selectedItem && (
-                      <CustomizeOrderPopup
-                        open={openCustomizePopup}
-                        onClose={() => setOpenCustomizePopup(false)}
-                        onSave={handleSaveCustomization}
-                        item={selectedItem}
-                      />
-                    )}
+  <CustomizeOrderPopup
+    open={openCustomizePopup}
+    onClose={() => setOpenCustomizePopup(false)}
+    onSave={handleSave} // Pass handleSave here
+    item={selectedItem}
+  />
+)}
                           </Box>
                         </CardContent>
                       </StyledCard>
@@ -972,21 +1130,21 @@ const handleSaveCustomization = async (item, customization) => {
               role: "Food Enthusiast",
               quote: "YOO!!! has changed the way I order food. The quality is excellent and delivery is always on time!",
               rating: 5,
-              image: "/api/placeholder/100/100?text=Alex"
+              image: "./images/user1.jpg?text=Alex"
             },
             {
               name: "Sarah Williams",
               role: "Busy Professional",
               quote: "As someone with a hectic schedule, YOO!!! saves me so much time. The app is intuitive and the food is delicious.",
               rating: 4.5,
-              image: "/api/placeholder/100/100?text=Sarah"
+              image: "./images/user2.jpg?text=Sarah"
             },
             {
               name: "Mike Chen",
               role: "Foodie",
               quote: "I've tried many food delivery services, but YOO!!! stands out with its quality ingredients and excellent customer service.",
               rating: 5,
-              image: "/api/placeholder/100/100?text=Mike"
+              image: "./images/user3.jpg?text=Mike"
             }
           ].map((testimonial, index) => (
             <Grid item key={index} xs={12} md={4}>
@@ -1110,7 +1268,7 @@ const handleSaveCustomization = async (item, customization) => {
             <Grid item xs={12} md={5}>
               <Box 
                 component="img"
-                src="/api/placeholder/300/600"
+                src="./images/logo1.png"
                 alt="Mobile App"
                 sx={{
                   maxWidth: '100%',
@@ -1164,19 +1322,18 @@ const handleSaveCustomization = async (item, customization) => {
                 >
                   YOO!!!
                 </Typography>
-                <LocalDiningIcon 
-                  sx={{ 
-                    color: '#FF6B6B'
-                  }} 
-                />
+                <img src="/images/logo1.png" alt="Logo" style={{ width: 36, height: 36, borderRadius: "10px", }} />
               </Box>
               <Typography variant="body2" sx={{ mb: 2, color: 'rgba(255, 255, 255, 0.7)' }}>
                 Delicious food delivered to your doorstep. We make food ordering and delivery simple, reliable, and fun.
               </Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
-                {['facebook', 'twitter', 'instagram', 'youtube'].map(social => (
+                {[{ icon: <FacebookIcon />, name: 'facebook' },
+                  { icon: <TwitterIcon />, name: 'twitter' },
+                  { icon: <InstagramIcon />, name: 'instagram' },
+                  { icon: <YouTubeIcon />, name: 'youtube' }].map((social) => (
                   <IconButton 
-                    key={social} 
+                    key={social.name} 
                     size="small" 
                     sx={{ 
                       color: 'rgba(255, 255, 255, 0.7)',
@@ -1187,20 +1344,7 @@ const handleSaveCustomization = async (item, customization) => {
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    <Box 
-                      component="span" 
-                      sx={{ 
-                        width: 30, 
-                        height: 30, 
-                        borderRadius: '50%', 
-                        bgcolor: 'rgba(255, 255, 255, 0.1)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      {social[0].toUpperCase()}
-                    </Box>
+                    {social.icon}
                   </IconButton>
                 ))}
               </Box>

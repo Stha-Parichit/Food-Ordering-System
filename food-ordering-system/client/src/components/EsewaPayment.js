@@ -470,43 +470,29 @@ useEffect(() => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    
+  
     try {
-      
-      // Simulated payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Clear cart
       const userId = localStorage.getItem("user_id");
-      await axios.delete(`${apiUrl}/cart`, { params: { user_id: userId } });
+      const response = await axios.post(`${apiUrl}/process-payment`, {
+        user_id: userId,
+        total_amount: orderDetails.total,
+      });
   
-      
-      // Calculate points earned and used
-    const earnedPoints = Math.floor(orderDetails.total / 1000); // Points earned based on the total
-    const usedPoints = selectedDiscount?.requiredPoints || 0; // Points used for the discount
-
-    // Update loyalty points (both addition and deduction in one request)
-    await axios.post(`${apiUrl}/update-loyalty-points`, {
-      user_id: userId,
-      total_amount: orderDetails.total,
-      used_points: usedPoints,  // Points used from discount
-      earned_points: earnedPoints // Points earned from the total
-    });
-
-      // Clear local storage
-      localStorage.removeItem("deliveryAddress");
-      localStorage.removeItem("selectedDiscount");
-      localStorage.removeItem("selectedCharity");
+      if (response.data.message === "Order placed successfully") {
+        // Clear local storage
+        localStorage.removeItem("deliveryAddress");
+        localStorage.removeItem("selectedDiscount");
+        localStorage.removeItem("selectedCharity");
   
-      // Show success and receipt
-      setSuccess(true);
-      setReceiptOpen(true);
-      
-      // Store transaction details
-      localStorage.setItem("transactionId", `ESEWA-${Date.now()}`);
-      localStorage.setItem("paymentAmount", formData.amount);
-      localStorage.setItem("paymentMethod", "eSewa");
+        // Show success and receipt
+        setSuccess(true);
+        setReceiptOpen(true);
   
+        // Store transaction details
+        localStorage.setItem("transactionId", `ESEWA-${Date.now()}`);
+        localStorage.setItem("paymentAmount", formData.amount);
+        localStorage.setItem("paymentMethod", "eSewa");
+      }
     } catch (error) {
       console.error("Payment processing error:", error);
       setError("Payment processing failed. Please try again.");

@@ -12,8 +12,8 @@ const { body, validationResult } = require("express-validator"); // For input va
 const db = require("./db"); // Database connection file
 const { updateLoyaltyPoints } = require("./db"); // Import the function
 const { Client } = require('@elastic/elasticsearch');
-const util = require('util');
-const queryAsync = util.promisify(db.query).bind(db);
+const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 
 
 const app = express();
@@ -58,9 +58,14 @@ router.post('/google-login', async (req, res) => {
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+}));
 app.use(bodyParser.json());
 app.use("/images", express.static(path.join(__dirname, "../client/public/images")));
+app.use("/videos", express.static(path.join(__dirname, "../client/public/videos")));
 
 // Multer for image uploads
 const storage = multer.diskStorage({
@@ -72,7 +77,22 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
+// const upload = multer({ storage });
+
+// Multer for video uploads
+const videoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, "../client/public/videos"));
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
+});
+
+const videoUpload = multer({
+  storage: videoStorage,
+  limits: { fileSize: 300 * 1024 * 1024 }, // Set file size limit to 300 MB
+});
 
 // Middleware to verify JWT
 const authenticateToken = (req, res, next) => {
@@ -250,9 +270,23 @@ app.post("/cart", async (req, res) => {
     extraVeggies = false,
     noOnions = false, 
     noGarlic = false,
-    spicyLevel = 'Medium',
-    specialInstructions = "" 
+    spicyLevel = 3, // Default to Medium (numeric value)
+    specialInstructions = "",
+    glutenFree = false,
+    cookingPreference = null,
+    sides = null, // Comma-separated string
+    dip_sauce = null // Comma-separated string
   } = req.body;
+
+  // Map numeric spicy levels to string values
+  const spicyLevelMap = {
+    1: "No Spice",
+    2: "Mild",
+    3: "Medium",
+    4: "Hot",
+    5: "Extra Hot"
+  };
+  const spicyLevelString = spicyLevelMap[spicyLevel] || "Medium";
 
   // Validate required fields
   if (!food_id || !user_id) {
@@ -269,21 +303,33 @@ app.post("/cart", async (req, res) => {
     const extra_veggies = extraVeggies ? 1 : 0;
     const no_onions = noOnions ? 1 : 0;
     const no_garlic = noGarlic ? 1 : 0;
-    
+
+    // Convert sides and dip_sauce to JSON strings if they are arrays
+    const sidesValue = sides ? JSON.stringify(sides) : null;
+    const dipSauceValue = dip_sauce ? JSON.stringify(dip_sauce) : null;
+
     // Check if an identical item configuration already exists in cart
     const checkQuery = `
       SELECT id, quantity FROM cart 
       WHERE user_id = ? AND food_id = ? 
       AND extra_cheese = ? AND extra_meat = ? AND extra_veggies = ?
       AND no_onions = ? AND no_garlic = ? AND spicy_level = ?
+      AND gluten_free = ? AND cooking_preference = ?
       AND (
         (special_instructions IS NULL AND ? = '') OR
         (special_instructions = ?)
       )
+      AND (
+        (sides IS NULL AND ? IS NULL) OR
+        (sides = ?)
+      )
+      AND (
+        (dip_sauce IS NULL AND ? IS NULL) OR
+        (dip_sauce = ?)
+      )
     `;
-    
-    // Use the promisified query
-    const existingItems = await queryAsync(
+
+    const [existingItems] = await db.pool.execute(
       checkQuery, 
       [
         user_id, 
@@ -293,16 +339,22 @@ app.post("/cart", async (req, res) => {
         extra_veggies, 
         no_onions, 
         no_garlic, 
-        spicyLevel,
+        spicyLevelString,
+        glutenFree ? 1 : 0,
+        cookingPreference,
         specialInstructions,
-        specialInstructions
+        specialInstructions,
+        sidesValue,
+        sidesValue,
+        dipSauceValue,
+        dipSauceValue
       ]
     );
 
     if (existingItems.length > 0) {
       // If identical configuration exists, update quantity
       const updateQuery = "UPDATE cart SET quantity = quantity + ? WHERE id = ?";
-      await queryAsync(updateQuery, [quantity, existingItems[0].id]);
+      await db.pool.execute(updateQuery, [quantity, existingItems[0].id]);
       
       return res.status(200).json({ 
         success: true,
@@ -317,31 +369,32 @@ app.post("/cart", async (req, res) => {
           user_id, food_id, quantity, 
           extra_cheese, extra_meat, extra_veggies,
           no_onions, no_garlic, spicy_level, 
-          special_instructions
+          special_instructions, gluten_free, cooking_preference, sides, dip_sauce
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
-      
-      const result = await queryAsync(
-        insertQuery, 
-        [
-          user_id, 
-          food_id, 
-          quantity, 
-          extra_cheese, 
-          extra_meat, 
-          extra_veggies, 
-          no_onions, 
-          no_garlic, 
-          spicyLevel,
-          specialInstructions
-        ]
-      );
-      
+
+      const insertResult = await db.pool.execute(insertQuery, [
+        user_id, 
+        food_id, 
+        quantity, 
+        extraCheese ? 1 : 0, 
+        extraMeat ? 1 : 0, 
+        extraVeggies ? 1 : 0, 
+        noOnions ? 1 : 0, 
+        noGarlic ? 1 : 0, 
+        spicyLevelString, // Use string value
+        specialInstructions,
+        glutenFree ? 1 : 0,
+        cookingPreference,
+        sides, // Store as plain text
+        dip_sauce // Store as plain text
+      ]);
+
       return res.status(201).json({ 
         success: true,
         message: "Item added to cart successfully",
-        cart_id: result.insertId
+        cart_id: insertResult.insertId // Use insertResult to get the inserted ID
       });
     }
   } catch (error) {
@@ -367,45 +420,49 @@ app.get("/cart", async (req, res) => {
 
   try {
     const query = `
-      SELECT 
-        c.id AS cart_id, 
-        f.id AS food_id, 
-        f.name AS food_name, 
-        f.description,
-        f.category, 
-        f.image_url, 
-        f.price AS base_price, 
-        c.quantity,
-        c.extra_cheese,
-        c.extra_meat,
-        c.extra_veggies,
-        c.no_onions,
-        c.no_garlic,
-        c.spicy_level,
-        c.special_instructions,
-        (
-          f.price + 
-          (c.extra_cheese * 35) + 
-          (c.extra_meat * 50) + 
-          (c.extra_veggies * 30)
-        ) AS item_price,
-        (
-          (f.price + 
-          (c.extra_cheese * 35) + 
-          (c.extra_meat * 50) + 
-          (c.extra_veggies * 30)) * c.quantity
-        ) AS total_price
-      FROM 
-        cart c
-      JOIN 
-        food_items f ON c.food_id = f.id
-      WHERE 
-        c.user_id = ?
-      ORDER BY
-        c.id DESC
-    `;
+  SELECT 
+    c.id AS cart_id, 
+    f.id AS food_id, 
+    f.name AS food_name, 
+    f.description,
+    f.category, 
+    f.image_url, 
+    f.price AS base_price, 
+    c.quantity,
+    c.extra_cheese,
+    c.extra_meat,
+    c.extra_veggies,
+    c.no_onions,
+    c.no_garlic,
+    c.spicy_level,
+    c.special_instructions,
+    c.gluten_free, -- New field
+    c.cooking_preference, -- New field
+    (
+      f.price + 
+      (c.extra_cheese * 35) + 
+      (c.extra_meat * 50) + 
+      (c.extra_veggies * 30) +
+      (c.gluten_free * 40) -- New field
+    ) AS item_price,
+    (
+      (f.price + 
+      (c.extra_cheese * 35) + 
+      (c.extra_meat * 50) + 
+      (c.extra_veggies * 30) +
+      (c.gluten_free * 40)) * c.quantity -- New field
+    ) AS total_price
+  FROM 
+    cart c
+  JOIN 
+    food_items f ON c.food_id = f.id
+  WHERE 
+    c.user_id = ?
+  ORDER BY
+    c.id DESC
+`;
 
-    const cartItems = await queryAsync(query, [user_id]);
+    const [cartItems] = await db.pool.execute(query, [user_id]);
     
     // Format the results for the frontend
     const formattedItems = cartItems.map(item => ({
@@ -423,8 +480,10 @@ app.get("/cart", async (req, res) => {
         extraVeggies: item.extra_veggies === 1,
         noOnions: item.no_onions === 1,
         noGarlic: item.no_garlic === 1,
-        spicyLevel: item.spicy_level,
-        specialInstructions: item.special_instructions || ""
+        spicyLevel: item.spicy_level, // Already stored as string
+        specialInstructions: item.special_instructions || "",
+        sides: item.sides || null,
+    dip_sauce: item.dip_sauce || null
       },
       item_price: item.item_price,
       total_price: item.total_price
@@ -466,8 +525,20 @@ app.put("/cart/:cart_id", async (req, res) => {
     noOnions,
     noGarlic,
     spicyLevel,
-    specialInstructions
+    specialInstructions,
+    glutenFree,
+    cookingPreference
   } = req.body;
+
+  // Map numeric spicy levels to string values
+  const spicyLevelMap = {
+    1: "No Spice",
+    2: "Mild",
+    3: "Medium",
+    4: "Hot",
+    5: "Extra Hot"
+  };
+  const spicyLevelString = spicyLevelMap[spicyLevel] || undefined;
 
   try {
     // Build dynamic update query based on provided fields
@@ -504,14 +575,24 @@ app.put("/cart/:cart_id", async (req, res) => {
       queryParams.push(noGarlic ? 1 : 0);
     }
 
-    if (spicyLevel !== undefined) {
+    if (spicyLevelString !== undefined) {
       updateFields.push("spicy_level = ?");
-      queryParams.push(spicyLevel);
+      queryParams.push(spicyLevelString);
     }
 
     if (specialInstructions !== undefined) {
       updateFields.push("special_instructions = ?");
       queryParams.push(specialInstructions);
+    }
+
+    if (glutenFree !== undefined) {
+      updateFields.push("gluten_free = ?");
+      queryParams.push(glutenFree ? 1 : 0);
+    }
+
+    if (cookingPreference !== undefined) {
+      updateFields.push("cooking_preference = ?");
+      queryParams.push(cookingPreference);
     }
 
     if (updateFields.length === 0) {
@@ -525,14 +606,14 @@ app.put("/cart/:cart_id", async (req, res) => {
     queryParams.push(cart_id);
 
     const updateQuery = `UPDATE cart SET ${updateFields.join(", ")} WHERE id = ?`;
-    await queryAsync(updateQuery, queryParams);
+    await db.pool.execute(updateQuery, queryParams);
 
     return res.status(200).json({
       success: true,
       message: "Cart item updated successfully"
     });
   } catch (error) {
-    console.error("Error updating cart item:", error);
+    console.error("Error updating cart item:", error); // Log the error for debugging
     return res.status(500).json({
       success: false,
       message: "Failed to update cart item",
@@ -542,18 +623,20 @@ app.put("/cart/:cart_id", async (req, res) => {
 });
 
 // Remove item from cart
-app.delete("/cart/:id", (req, res) => {
+app.delete("/cart/:id", async (req, res) => {
   const cart_id = req.params.id;
 
   const query = "DELETE FROM cart WHERE id = ?";
-  db.query(query, [cart_id], (err) => {
-    if (err) return res.status(500).json({ message: "Failed to remove item from cart", error: err });
+  try {
+    await db.pool.execute(query, [cart_id]);
     res.status(200).json({ message: "Item removed from cart successfully" });
-  });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to remove item from cart", error: err });
+  }
 });
 
 // Clear cart items for a user
-app.delete("/cart", (req, res) => {
+app.delete("/cart", async (req, res) => {
   const user_id = req.query.user_id;
 
   if (!user_id) {
@@ -561,73 +644,120 @@ app.delete("/cart", (req, res) => {
   }
 
   const query = "DELETE FROM cart WHERE user_id = ?";
-  db.query(query, [user_id], (err) => {
-    if (err) {
-      console.error("Error clearing cart items:", err);
-      return res.status(500).json({ message: "Failed to clear cart items", error: err });
-    }
+  try {
+    await db.pool.execute(query, [user_id]);
     res.status(200).json({ message: "Cart items cleared successfully" });
+  } catch (err) {
+    console.error("Error clearing cart items:", err);
+    res.status(500).json({ message: "Failed to clear cart items", error: err });
+  }
+});
+
+// Move `upload` initialization above its first usage
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
+  
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only video files (MP4, MOV, AVI) are allowed'), false);
+  }
+};
+
+// Ensure `upload` is defined before this line
+const upload = multer({ 
+  storage, 
+  fileFilter,
+  limits: { fileSize: 500 * 1024 * 1024 } // 500MB file size limit
+});
+
+// Ensure `upload` is defined before this line
+app.post("/upload-food", upload.single("image"), (req, res) => {
+  const { foodName, description, details, price, category } = req.body;
+
+  console.log("Received data:", req.body); // Log incoming request data
+  console.log("File data:", req.file); // Log file information
+
+  if (!foodName || !description || !details || !price || !category) {
+    return res.status(400).json({ message: "All fields are required." });
+  }
+
+  const imagePath = req.file ? `/images/${req.file.filename}` : null;
+
+  db.addFoodItem(foodName, description, details, imagePath, price, category, (err) => {
+    if (err) {
+      console.error("Error adding food item:", err); // Log database error
+      return res.status(500).json({ message: "Failed to upload food item." });
+    }
+    res.status(201).json({ message: "Food item uploaded successfully!" });
   });
 });
 
-app.post("/upload-food", upload.single("image"), (req, res) => {
-    const { foodName, description, details, price, category } = req.body;
-  
-    console.log("Received data:", req.body); // Log incoming request data
-    console.log("File data:", req.file); // Log file information
-  
-    if (!foodName || !description || !details || !price || !category) {
-      return res.status(400).json({ message: "All fields are required." });
-    }
-  
-    const imagePath = req.file ? `/images/${req.file.filename}` : null;
-  
-    db.addFoodItem(foodName, description, details, imagePath, price, category, (err) => {
-      if (err) {
-        console.error("Error adding food item:", err); // Log database error
-        return res.status(500).json({ message: "Failed to upload food item." });
-      }
-      res.status(201).json({ message: "Food item uploaded successfully!" });
-    });
-  });
-  
-
 // Fetch featured food items
-app.get("/api/food-items", (req, res) => {
-  db.query("SELECT * FROM food_items ORDER BY RAND() LIMIT 8", (err, rows) => {
-    if (err) {
-      return res.status(500).json({ message: "Internal server error" });
-    }
+app.get("/api/food-items", async (req, res) => {
+  try {
+    const [rows] = await db.pool.execute("SELECT * FROM food_items ORDER BY RAND() LIMIT 8");
     res.json(rows);
-  });
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error" });
+  }
 });
 
 // Fetch all food items with pagination
-app.get("/api/food-items", (req, res) => {
+app.get("/api/food-items", async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   const offset = (page - 1) * limit;
 
-  db.query("SELECT * FROM food_items LIMIT ? OFFSET ?", [parseInt(limit), parseInt(offset)], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ message: "Internal server error" });
-    }
+  try {
+    const [rows] = await db.pool.execute("SELECT * FROM food_items LIMIT ? OFFSET ?", [parseInt(limit), parseInt(offset)]);
     res.json(rows);
-  });
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error" });
+  }
 });
 
-// Fetch recent users
-app.get("/api/recent-users", (req, res) => {
-  const query = "SELECT email, created_at FROM users ORDER BY created_at DESC LIMIT 5";
-  db.query(query, (err, results) => {
-    if (err) {
-      return res.status(500).json({ message: "Failed to fetch recent users", error: err });
-    }
+// Fetch recent customers
+app.get("/api/recent-users", async (req, res) => {
+  const query = `
+    SELECT DISTINCT u.email, u.created_at 
+    FROM users u
+    JOIN orders o ON u.id = o.user_id
+    ORDER BY o.created_at DESC
+    LIMIT 5
+  `;
+  try {
+    const [results] = await db.pool.execute(query);
     res.status(200).json(results);
-  });
+  } catch (err) {
+    console.error("Error fetching recent customers:", err);
+    res.status(500).json({ message: "Failed to fetch recent customers", error: err });
+  }
+});
+
+// Fetch recent orders
+app.get("/api/recent-orders", async (req, res) => {
+  const query = `
+    SELECT 
+      o.id AS order_id, 
+      u.fullName AS customer_name, 
+      o.created_at, 
+      o.total_amount 
+    FROM orders o
+    JOIN users u ON o.user_id = u.id
+    ORDER BY o.created_at DESC
+    LIMIT 5
+  `;
+  try {
+    const [results] = await db.pool.execute(query);
+    res.status(200).json(results);
+  } catch (err) {
+    console.error("Error fetching recent orders:", err);
+    res.status(500).json({ message: "Failed to fetch recent orders", error: err });
+  }
 });
 
 // Add order
-app.post("/orders", (req, res) => {
+app.post("/orders", async (req, res) => {
   const { user_id, items, total } = req.body;
 
   if (!user_id || !items || !total) {
@@ -635,57 +765,193 @@ app.post("/orders", (req, res) => {
   }
 
   const query = "INSERT INTO orders (user_id, total) VALUES (?, ?)";
-  db.query(query, [user_id, total], (err, result) => {
-    if (err) {
-      console.error("Error adding order:", err);
-      return res.status(500).json({ message: "Failed to add order", error: err });
-    }
-
+  try {
+    const [result] = await db.pool.execute(query, [user_id, total]);
     const orderId = result.insertId;
     const orderItems = items.map(item => [orderId, item.food_id, item.quantity, item.price]);
 
     const orderItemsQuery = "INSERT INTO order_items (order_id, food_id, quantity, price) VALUES ?";
-    db.query(orderItemsQuery, [orderItems], (err) => {
+    await db.pool.execute(orderItemsQuery, [orderItems]);
+
+    // Update loyalty points
+    updateLoyaltyPoints(user_id, total, async (err) => {
       if (err) {
-        console.error("Error adding order items:", err);
-        return res.status(500).json({ message: "Failed to add order items", error: err });
+        console.error("Error updating loyalty points:", err);
+        return res.status(500).json({ message: "Failed to update loyalty points", error: err });
       }
 
-      // Update loyalty points
-      updateLoyaltyPoints(user_id, total, (err) => {
-        if (err) {
-          console.error("Error updating loyalty points:", err);
-          return res.status(500).json({ message: "Failed to update loyalty points", error: err });
-        }
+      // Send notification to chef
+      const notificationQuery = "INSERT INTO notifications (message) VALUES (?)";
+      await db.pool.execute(notificationQuery, [`New order #${orderId} has been placed`]);
 
-        // Send notification to chef
-        const notificationQuery = "INSERT INTO notifications (message) VALUES (?)";
-        db.query(notificationQuery, [`New order #${orderId} has been placed`], (err) => {
-          if (err) {
-            console.error("Error sending notification:", err);
-            return res.status(500).json({ message: "Failed to send notification", error: err });
-          }
-
-          res.status(200).json({ message: "Order placed successfully" });
-        });
-      });
+      res.status(200).json({ message: "Order placed successfully" });
     });
-  });
+  } catch (err) {
+    console.error("Error adding order:", err);
+    res.status(500).json({ message: "Failed to add order", error: err });
+  }
 });
 
-app.get("/loyalty-points", (req, res) => {
+app.post("/process-payment", async (req, res) => {
+  const { user_id, total_amount } = req.body;
+
+  if (!user_id || !total_amount) {
+    return res.status(400).json({ message: "User ID and total amount are required." });
+  }
+
+  const connection = await db.pool.getConnection();
+
+  try {
+    // Start a transaction using direct query
+    await connection.query("START TRANSACTION");
+
+    // Insert into orders table
+    const insertOrderQuery = `
+      INSERT INTO orders (user_id, total_amount)
+      VALUES (?, ?)
+    `;
+    const [orderResult] = await connection.execute(insertOrderQuery, [user_id, total_amount]);
+    const orderId = orderResult.insertId;
+
+    // Fetch cart items
+    const fetchCartQuery = `
+      SELECT c.*, f.price AS base_price
+      FROM cart c
+      JOIN food_items f ON c.food_id = f.id
+      WHERE c.user_id = ?
+    `;
+    const [cartItems] = await connection.execute(fetchCartQuery, [user_id]);
+
+    if (cartItems.length === 0) {
+      throw new Error("Cart is empty");
+    }
+
+    // Insert cart items into order_items table
+    const insertOrderItemsQuery = `
+      INSERT INTO order_items (
+        order_id, food_id, quantity, customization, price, 
+        extra_cheese, extra_meat, extra_veggies, no_onions, no_garlic, 
+        spicy_level, special_instructions, gluten_free, cooking_preference, sides, dip_sauce
+      )
+      VALUES ?
+    `;
+    const orderItemsData = cartItems.map((item) => {
+      const customizationPrice =
+        (item.extra_cheese ? 35 : 0) +
+        (item.extra_meat ? 50 : 0) +
+        (item.extra_veggies ? 30 : 0) +
+        (item.gluten_free ? 40 : 0);
+      const itemPrice = item.base_price + customizationPrice;
+
+      return [
+        orderId,
+        item.food_id,
+        item.quantity,
+        JSON.stringify({
+          extraCheese: item.extra_cheese,
+          extraMeat: item.extra_meat,
+          extraVeggies: item.extra_veggies,
+          noOnions: item.no_onions,
+          noGarlic: item.no_garlic,
+          spicyLevel: item.spicy_level,
+          specialInstructions: item.special_instructions,
+          glutenFree: item.gluten_free,
+          cookingPreference: item.cooking_preference,
+          sides: item.sides,
+          dipSauce: item.dip_sauce,
+        }),
+        itemPrice,
+        item.extra_cheese,
+        item.extra_meat,
+        item.extra_veggies,
+        item.no_onions,
+        item.no_garlic,
+        item.spicy_level,
+        item.special_instructions,
+        item.gluten_free,
+        item.cooking_preference,
+        item.sides,
+        item.dip_sauce,
+      ];
+    });
+
+    await connection.query(insertOrderItemsQuery, [orderItemsData]);
+
+    // Clear the cart
+    const clearCartQuery = `
+      DELETE FROM cart WHERE user_id = ?
+    `;
+    await connection.execute(clearCartQuery, [user_id]);
+
+    // Commit the transaction using direct query
+    await connection.query("COMMIT");
+
+    res.status(200).json({ message: "Order placed successfully", orderId });
+  } catch (error) {
+    console.error("Error processing payment:", error);
+
+    // Rollback the transaction using direct query
+    await connection.query("ROLLBACK");
+
+    res.status(500).json({ message: "Failed to process payment", error: error.message });
+  } finally {
+    connection.release();
+  }
+});
+
+app.get("/orders", async (req, res) => {
+  const userId = req.query.user_id;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required." });
+  }
+
+  try {
+    const ordersQuery = `
+      SELECT o.id, o.total_amount, o.created_at
+      FROM orders o
+      WHERE o.user_id = ?
+      ORDER BY o.created_at DESC
+    `;
+    const [orders] = await db.pool.execute(ordersQuery, [userId]);
+
+    const orderDetailsQuery = `
+      SELECT 
+        oi.order_id, oi.food_id, f.name AS food_name, f.image_url, oi.quantity, oi.price,
+        oi.customization
+      FROM order_items oi
+      JOIN food_items f ON oi.food_id = f.id
+      WHERE oi.order_id = ?
+    `;
+
+    for (const order of orders) {
+      const [items] = await db.pool.execute(orderDetailsQuery, [order.id]);
+      order.items = items.map((item) => ({
+        ...item,
+        customization: item.customization ? JSON.parse(item.customization) : null,
+      }));
+    }
+
+    res.status(200).json(orders);
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    res.status(500).json({ message: "Failed to fetch orders", error: error.message });
+  }
+});
+
+app.get("/loyalty-points", async (req, res) => {
   const userId = req.query.user_id;
   if (!userId) {
     return res.status(400).json({ message: "User ID is required" });
   }
-  const query = "SELECT points FROM loyalty_points WHERE user_id = ?";
-  db.query(query, [userId], (err, results) => {
-    if (err) {
-      return res.status(500).json({ message: "Error fetching loyalty points", error: err });
-    }
+  try {
+    const [results] = await db.pool.execute("SELECT points FROM loyalty_points WHERE user_id = ?", [userId]);
     const points = results.length > 0 ? results[0].points : 0;
     res.status(200).json({ points });
-  });
+  } catch (err) {
+    console.error("Error fetching loyalty points:", err);
+    res.status(500).json({ message: "Error fetching loyalty points", error: err });
+  }
 });
 
 app.post("/update-loyalty-points", (req, res) => {
@@ -742,20 +1008,44 @@ app.post("/update-loyalty-points", (req, res) => {
 });
 
 
-// Get orders
-app.get("/orders", (req, res) => {
-  const query = "SELECT * FROM orders";
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error("Error retrieving orders:", err);
-      return res.status(500).json({ message: "Failed to retrieve orders", error: err });
+// Get orders with detailed item information
+app.get("/orders", async (req, res) => {
+  const userId = req.query.user_id;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required." });
+  }
+
+  try {
+    const ordersQuery = `
+      SELECT o.id, o.total_amount, o.created_at
+      FROM orders o
+      WHERE o.user_id = ?
+      ORDER BY o.created_at DESC
+    `;
+    const [orders] = await db.pool.execute(ordersQuery, [userId]);
+
+    const orderDetailsQuery = `
+      SELECT oi.order_id, oi.food_id, f.name AS food_name, f.image_url, oi.quantity, oi.price
+      FROM order_items oi
+      JOIN food_items f ON oi.food_id = f.id
+      WHERE oi.order_id = ?
+    `;
+
+    for (const order of orders) {
+      const [items] = await db.pool.execute(orderDetailsQuery, [order.id]);
+      order.items = items;
     }
-    res.status(200).json(results);
-  });
+
+    res.status(200).json(orders);
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    res.status(500).json({ message: "Failed to fetch orders", error: error.message });
+  }
 });
 
 // Get order details
-app.get("/orders/:id", (req, res) => {
+app.get("/orders/:id", async (req, res) => {
   const orderId = req.params.id;
 
   const query = `
@@ -776,25 +1066,24 @@ app.get("/orders/:id", (req, res) => {
       o.id = ?
   `;
 
-  db.query(query, [orderId], (err, results) => {
-    if (err) {
-      console.error("Error retrieving order details:", err);
-      return res.status(500).json({ message: "Failed to retrieve order details", error: err });
-    }
+  try {
+    const [results] = await db.pool.execute(query, [orderId]);
     res.status(200).json({ id: orderId, items: results });
-  });
+  } catch (err) {
+    console.error("Error retrieving order details:", err);
+    res.status(500).json({ message: "Failed to retrieve order details", error: err });
+  }
 });
 
 // Get notifications
-app.get("/notifications", (req, res) => {
-  const query = "SELECT * FROM notifications";
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error("Error retrieving notifications:", err);
-      return res.status(500).json({ message: "Failed to retrieve notifications", error: err });
-    }
+app.get("/notifications", async (req, res) => {
+  try {
+    const [results] = await db.pool.execute("SELECT * FROM notifications");
     res.status(200).json(results);
-  });
+  } catch (err) {
+    console.error("Error retrieving notifications:", err);
+    res.status(500).json({ message: "Failed to retrieve notifications", error: err });
+  }
 });
 
 // Endpoint to generate eSewa payment URL
@@ -842,6 +1131,407 @@ app.post("/api/esewa/verify", async (req, res) => {
   } catch (error) {
       res.status(500).json({ error: "Error verifying payment" });
   }
+});
+
+// Endpoint to upload cooking tutorial video
+app.post("/api/upload-tutorial", videoUpload.single("video"), async (req, res) => {
+  const { title, description } = req.body;
+
+  if (!title || !description || !req.file) {
+    return res.status(400).json({ message: "All fields are required." });
+  }
+
+  const videoPath = `/videos/${req.file.filename}`;
+
+  try {
+    const query = `
+      INSERT INTO tutorials (title, description, video_url, created_at)
+      VALUES (?, ?, ?, NOW())
+    `;
+    await db.pool.execute(query, [title, description, videoPath]);
+    res.status(201).json({ message: "Tutorial uploaded successfully!" });
+  } catch (error) {
+    console.error("Database insertion error:", error); // Log the error
+    res.status(500).json({ message: "Failed to upload tutorial to the database." });
+  }
+});
+
+// Fetch all cooking tutorial videos
+app.get("/api/tutorials", async (req, res) => {
+  const query = "SELECT * FROM tutorials ORDER BY created_at DESC";
+
+  try {
+    const [results] = await db.pool.execute(query);
+    res.status(200).json(results);
+  } catch (err) {
+    console.error("Error fetching tutorials:", err);
+    res.status(500).json({ message: "Failed to fetch tutorials." });
+  }
+});
+
+// File filter to only accept video files
+// const fileFilter = (req, file, cb) => {
+//   const allowedTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
+  
+//   if (allowedTypes.includes(file.mimetype)) {
+//     cb(null, true);
+//   } else {
+//     cb(new Error('Only video files (MP4, MOV, AVI) are allowed'), false);
+//   }
+// };
+
+// Update `upload` to handle both images and videos
+// const upload = multer({ 
+//   storage, 
+//   fileFilter,
+//   limits: { fileSize: 500 * 1024 * 1024 } // 500MB file size limit
+// });
+
+// Routes
+app.post('/api/upload-tutorial', upload.single('video'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No video file uploaded' });
+    }
+
+    const {
+      title,
+      description,
+      category,
+      difficultyLevel,
+      duration,
+      ingredients,
+      createdAt
+    } = req.body;
+
+    // Parse ingredients from JSON string to array
+    const parsedIngredients = JSON.parse(ingredients);
+
+    // Create new tutorial record in database
+    const tutorial = {
+      title,
+      description,
+      category,
+      difficultyLevel,
+      duration: parseInt(duration) || 0,
+      ingredients: parsedIngredients,
+      videoUrl: `/uploads/${req.file.filename}`,
+      fileSize: req.file.size,
+      fileType: req.file.mimetype,
+      createdAt: createdAt || new Date().toISOString()
+    };
+
+    const result = await db.insertTutorial(tutorial);
+    
+    res.status(201).json({
+      message: 'Tutorial uploaded successfully',
+      tutorialId: result.id
+    });
+  } catch (error) {
+    console.error('Error uploading tutorial:', error);
+    res.status(500).json({
+      message: 'Failed to upload tutorial',
+      error: error.message
+    });
+  }
+});
+
+// Get all tutorials
+app.get('/api/tutorials', async (req, res) => {
+  try {
+    const tutorials = await db.getAllTutorials();
+    
+    // Transform snake_case db column names to camelCase for frontend
+    const formattedTutorials = tutorials.map(tutorial => {
+      return {
+        id: tutorial.id,
+        title: tutorial.title,
+        description: tutorial.description,
+        category: tutorial.category,
+        difficultyLevel: tutorial.difficulty_level,
+        duration: tutorial.duration,
+        videoUrl: tutorial.video_url,
+        fileSize: tutorial.file_size,
+        fileType: tutorial.file_type,
+        createdAt: tutorial.created_at,
+        views: tutorial.views,
+        likes: tutorial.likes,
+        ingredients: tutorial.ingredients
+      };
+    });
+    
+    res.json(formattedTutorials);
+  } catch (error) {
+    console.error('Error fetching tutorials:', error);
+    res.status(500).json({ message: 'Failed to fetch tutorials' });
+  }
+});
+
+// Get tutorial by ID
+app.get('/api/tutorials/:id', async (req, res) => {
+  try {
+    const tutorial = await db.getTutorialById(req.params.id);
+    
+    if (!tutorial) {
+      return res.status(404).json({ message: 'Tutorial not found' });
+    }
+    
+    // Transform snake_case db column names to camelCase for frontend
+    const formattedTutorial = {
+      id: tutorial.id,
+      title: tutorial.title,
+      description: tutorial.description,
+      category: tutorial.category,
+      difficultyLevel: tutorial.difficulty_level,
+      duration: tutorial.duration,
+      videoUrl: tutorial.video_url,
+      fileSize: tutorial.file_size,
+      fileType: tutorial.file_type,
+      createdAt: tutorial.created_at,
+      views: tutorial.views,
+      likes: tutorial.likes,
+      ingredients: tutorial.ingredients
+    };
+    
+    res.json(formattedTutorial);
+  } catch (error) {
+    console.error('Error fetching tutorial:', error);
+    res.status(500).json({ message: 'Failed to fetch tutorial' });
+  }
+});
+
+// Get tutorials by category
+app.get('/api/tutorials/category/:category', async (req, res) => {
+  try {
+    const tutorials = await db.getTutorialsByCategory(req.params.category);
+    
+    // Transform snake_case db column names to camelCase for frontend
+    const formattedTutorials = tutorials.map(tutorial => {
+      return {
+        id: tutorial.id,
+        title: tutorial.title,
+        description: tutorial.description,
+        category: tutorial.category,
+        difficultyLevel: tutorial.difficulty_level,
+        duration: tutorial.duration,
+        videoUrl: tutorial.video_url,
+        fileSize: tutorial.file_size,
+        fileType: tutorial.file_type,
+        createdAt: tutorial.created_at,
+        views: tutorial.views,
+        likes: tutorial.likes,
+        ingredients: tutorial.ingredients
+      };
+    });
+    
+    res.json(formattedTutorials);
+  } catch (error) {
+    console.error('Error fetching tutorials by category:', error);
+    res.status(500).json({ message: 'Failed to fetch tutorials' });
+  }
+});
+
+// Search tutorials
+app.get('/api/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q) {
+      return res.status(400).json({ message: 'Search query is required' });
+    }
+    
+    const tutorials = await db.searchTutorials(q);
+    
+    // Transform snake_case db column names to camelCase for frontend
+    const formattedTutorials = tutorials.map(tutorial => {
+      return {
+        id: tutorial.id,
+        title: tutorial.title,
+        description: tutorial.description,
+        category: tutorial.category,
+        difficultyLevel: tutorial.difficulty_level,
+        duration: tutorial.duration,
+        videoUrl: tutorial.video_url,
+        fileSize: tutorial.file_size,
+        fileType: tutorial.file_type,
+        createdAt: tutorial.created_at,
+        views: tutorial.views,
+        likes: tutorial.likes,
+        ingredients: tutorial.ingredients
+      };
+    });
+    
+    res.json(formattedTutorials);
+  } catch (error) {
+    console.error('Error searching tutorials:', error);
+    res.status(500).json({ message: 'Failed to search tutorials' });
+  }
+});
+
+// Track tutorial view
+app.post('/api/tutorials/:id/view', async (req, res) => {
+  try {
+    await db.incrementViews(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error tracking view:', error);
+    res.status(500).json({ message: 'Failed to track view' });
+  }
+});
+
+// Like tutorial
+app.post('/api/tutorials/:id/like', async (req, res) => {
+  try {
+    await db.toggleLike(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error liking tutorial:', error);
+    res.status(500).json({ message: 'Failed to like tutorial' });
+  }
+});
+
+// Delete tutorial
+app.delete('/api/tutorials/:id', async (req, res) => {
+  try {
+    // Get tutorial details to delete the video file
+    const tutorial = await db.getTutorialById(req.params.id);
+    
+    if (!tutorial) {
+      return res.status(404).json({ message: 'Tutorial not found' });
+    }
+    
+    // Delete the video file
+    const videoPath = path.join(__dirname, tutorial.video_url);
+    if (fs.existsSync(videoPath)) {
+      fs.unlinkSync(videoPath);
+    }
+    
+    // Delete from database
+    await db.deleteTutorial(req.params.id);
+    
+    res.json({ message: 'Tutorial deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting tutorial:', error);
+    res.status(500).json({ message: 'Failed to delete tutorial' });
+  }
+});
+
+app.post("/save-user-info", async (req, res) => {
+  const { user_id, additionalFields } = req.body;
+
+  if (!user_id || !additionalFields || !Array.isArray(additionalFields)) {
+    return res.status(400).json({ message: "User ID and additional fields are required." });
+  }
+
+  try {
+    // Fetch user details from the `users` table
+    const [userResult] = await db.pool.execute(
+      "SELECT fullName, phone, address FROM users WHERE id = ?",
+      [user_id]
+    );
+
+    if (userResult.length === 0) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const user = userResult[0];
+    const [firstName, lastName] = user.fullName.split(" ");
+
+    // Save additional fields into `user_additional_info` table
+    const additionalInfoData = additionalFields.map((field) => [
+      user_id,
+      field.name,
+      field.value,
+    ]);
+
+    const insertQuery = `
+      INSERT INTO user_additional_info (user_id, field_name, field_value)
+      VALUES ?
+    `;
+    await db.pool.execute(insertQuery, [additionalInfoData]);
+
+    res.status(201).json({
+      message: "User info saved successfully",
+      user: {
+        firstName,
+        lastName,
+        phone: user.phone,
+        address: user.address,
+      },
+    });
+  } catch (error) {
+    console.error("Error saving user info:", error);
+    res.status(500).json({ message: "Failed to save user info", error: error.message });
+  }
+});
+
+// Get all orders for the chef
+app.get("/chef/orders", async (req, res) => {
+  try {
+    const ordersQuery = `
+      SELECT o.id, o.total_amount, o.created_at, u.fullName AS customer_name
+      FROM orders o
+      JOIN users u ON o.user_id = u.id
+      ORDER BY o.created_at DESC
+    `;
+    const [orders] = await db.pool.execute(ordersQuery);
+
+    const orderDetailsQuery = `
+      SELECT 
+        oi.order_id, oi.food_id, f.name AS food_name, f.image_url, oi.quantity, oi.price,
+        oi.customization
+      FROM order_items oi
+      JOIN food_items f ON oi.food_id = f.id
+      WHERE oi.order_id = ?
+    `;
+
+    for (const order of orders) {
+      const [items] = await db.pool.execute(orderDetailsQuery, [order.id]);
+      order.items = items.map((item) => ({
+        ...item,
+        customization: item.customization ? JSON.parse(item.customization) : null,
+      }));
+    }
+
+    res.status(200).json(orders);
+  } catch (error) {
+    console.error("Error fetching chef orders:", error);
+    res.status(500).json({ message: "Failed to fetch chef orders", error: error.message });
+  }
+});
+
+// Fetch all users
+app.get("/api/users", async (req, res) => {
+  try {
+    const query = "SELECT id, fullName, email, phone, address, created_at FROM users ORDER BY created_at DESC";
+    const [results] = await db.pool.execute(query);
+    res.status(200).json(results);
+  } catch (err) {
+    console.error("Error fetching users:", err);
+    res.status(500).json({ message: "Failed to fetch users", error: err });
+  }
+});
+
+// Delete a user
+app.delete("/api/users/:id", async (req, res) => {
+  const userId = req.params.id;
+  try {
+    const query = "DELETE FROM users WHERE id = ?";
+    await db.pool.execute(query, [userId]);
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting user:", err);
+    res.status(500).json({ message: "Failed to delete user", error: err });
+  }
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({
+    message: 'Server error',
+    error: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message
+  });
 });
 
 // Start server
