@@ -14,10 +14,38 @@ const { updateLoyaltyPoints } = require("./db"); // Import the function
 const { Client } = require('@elastic/elasticsearch');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-
+const { addNotification } = require('./db');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
-app.use(cors());
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3000", // Allow requests from the client
+    methods: ["GET", "POST"],
+  },
+  path: "/socket.io/", // Ensure the path matches the client configuration
+});
+
+app.use(cors({
+  origin: "http://localhost:3000", // Allow requests from the client
+  credentials: true,
+}));
+app.use(bodyParser.json());
+
+let activeConnections = 0;
+
+io.on('connection', (socket) => {
+  activeConnections++;
+  console.log(`Chef connected: ${socket.id}. Active connections: ${activeConnections}`);
+
+  socket.on('disconnect', () => {
+    activeConnections--;
+    console.log(`Chef disconnected: ${socket.id}. Active connections: ${activeConnections}`);
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 const { OAuth2Client } = require('google-auth-library');
 
@@ -37,7 +65,7 @@ router.post('/google-login', async (req, res) => {
 
     const payload = ticket.getPayload();
     const email = payload.email;
-    const user = await db.query("SELECT * FROM users WHERE email = ?", [email]);
+    const user = await db.pool.execute("SELECT * FROM users WHERE email = ?", [email]);
 
     // If the user doesn't exist, create a new one
     if (user.length === 0) {
@@ -46,7 +74,7 @@ router.post('/google-login', async (req, res) => {
         name: payload.name,
         // Add other fields as necessary
       };
-      await db.query("INSERT INTO users SET ?", newUser);
+      await db.pool.execute("INSERT INTO users SET ?", newUser);
     }
 
     // Create JWT and send it back
@@ -66,6 +94,10 @@ app.use(cors({
 app.use(bodyParser.json());
 app.use("/images", express.static(path.join(__dirname, "../client/public/images")));
 app.use("/videos", express.static(path.join(__dirname, "../client/public/videos")));
+
+// Tutorial routes
+const tutorialRoutes = require('./routes/tutorials');
+app.use('/api/tutorials', tutorialRoutes);
 
 // Multer for image uploads
 const storage = multer.diskStorage({
@@ -176,7 +208,7 @@ app.post(
   (req, res) => {
     const { email } = req.body;
 
-    db.query("SELECT * FROM users WHERE email = ?", [email], (err, result) => {
+    db.pool.execute("SELECT * FROM users WHERE email = ?", [email], (err, result) => {
       if (err || result.length === 0) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -192,7 +224,7 @@ app.post(
       const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
       const resetTokenExpiry = Date.now() + 15 * 60 * 1000;
 
-      db.query(
+      db.pool.execute(
         "UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?",
         [hashedToken, resetTokenExpiry, email],
         (err) => {
@@ -229,7 +261,7 @@ app.post("/reset-password", (req, res) => {
 
   const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
-  db.query(
+  db.pool.execute(
     "SELECT * FROM users WHERE email = ? AND reset_token = ? AND reset_token_expiry > ?",
     [email, hashedToken, Date.now()],
     (err, result) => {
@@ -242,7 +274,7 @@ app.post("/reset-password", (req, res) => {
           return res.status(500).json({ message: "Failed to hash password" });
         }
 
-        db.query(
+        db.pool.execute(
           "UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE email = ?",
           [hashedPassword, email],
           (err) => {
@@ -671,6 +703,82 @@ const upload = multer({
   limits: { fileSize: 500 * 1024 * 1024 } // 500MB file size limit
 });
 
+// Tutorial upload endpoint
+app.post('/api/upload-tutorial', videoUpload.single('video'), async (req, res) => {
+  try {
+    console.log('Received tutorial upload request:', req.body);
+    console.log('File details:', req.file);
+
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'No video file uploaded' 
+      });
+    }
+
+    const { 
+      title,
+      description,
+      category,
+      difficultyLevel,
+      duration,
+      ingredients
+    } = req.body;
+
+    // Validate required fields
+    if (!title || !description || !category || !difficultyLevel || !duration) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    let parsedIngredients = [];
+    try {
+      parsedIngredients = ingredients ? JSON.parse(ingredients) : [];
+      if (!Array.isArray(parsedIngredients)) {
+        throw new Error('Ingredients must be an array');
+      }
+    } catch (error) {
+      console.error('Error parsing ingredients:', error);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid ingredients format'
+      });
+    }
+
+    const tutorial = {
+      title,
+      description,
+      category,
+      difficultyLevel,
+      duration: parseInt(duration),
+      videoUrl: `/videos/${req.file.filename}`,
+      fileSize: req.file.size,
+      fileType: req.file.mimetype,
+      ingredients: parsedIngredients
+    };
+
+    console.log('Attempting to insert tutorial:', tutorial);
+    const result = await db.insertTutorial(tutorial);
+    console.log('Tutorial inserted successfully:', result);
+
+    res.status(201).json({
+      success: true,
+      message: 'Tutorial uploaded successfully',
+      tutorial: result
+    });
+
+  } catch (error) {
+    console.error('Error uploading tutorial:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload tutorial',
+      error: error.message
+    });
+  }
+});
+
 // Ensure `upload` is defined before this line
 app.post("/upload-food", upload.single("image"), (req, res) => {
   const { foodName, description, details, price, category } = req.body;
@@ -802,7 +910,7 @@ app.post("/process-payment", async (req, res) => {
   const connection = await db.pool.getConnection();
 
   try {
-    // Start a transaction using direct query
+    // Start a transaction
     await connection.query("START TRANSACTION");
 
     // Insert into orders table
@@ -883,14 +991,21 @@ app.post("/process-payment", async (req, res) => {
     `;
     await connection.execute(clearCartQuery, [user_id]);
 
-    // Commit the transaction using direct query
+    // Update loyalty points
+    await db.updateLoyaltyPoints(user_id, total_amount, 0);
+
+    // Commit the transaction
     await connection.query("COMMIT");
+
+    // Send notification after payment is processed
+    await addNotification(user_id, orderId, `New order #${orderId} placed!`);
+    io.emit('new-order', { orderId, message: `New order #${orderId} placed!` });
 
     res.status(200).json({ message: "Order placed successfully", orderId });
   } catch (error) {
     console.error("Error processing payment:", error);
 
-    // Rollback the transaction using direct query
+    // Rollback the transaction
     await connection.query("ROLLBACK");
 
     res.status(500).json({ message: "Failed to process payment", error: error.message });
@@ -908,7 +1023,7 @@ app.get("/orders", async (req, res) => {
 
   try {
     const ordersQuery = `
-      SELECT o.id, o.total_amount, o.created_at
+      SELECT o.id, o.total_amount, o.status, o.created_at -- Include status field
       FROM orders o
       WHERE o.user_id = ?
       ORDER BY o.created_at DESC
@@ -939,6 +1054,38 @@ app.get("/orders", async (req, res) => {
   }
 });
 
+// Endpoint to update order status
+app.put("/orders/:id/status", async (req, res) => {
+  const orderId = req.params.id;
+  const { status } = req.body;
+
+  const validStatuses = [
+    "Order Placed",
+    "Cooking",
+    "Prepared for Delivery",
+    "Off for Delivery",
+    "Delivered",
+  ];
+
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ message: "Invalid status value." });
+  }
+
+  try {
+    const updateQuery = `
+      UPDATE orders
+      SET status = ?
+      WHERE id = ?
+    `;
+    await db.pool.execute(updateQuery, [status, orderId]);
+
+    res.status(200).json({ message: "Order status updated successfully." });
+  } catch (error) {
+    console.error("Error updating order status:", error);
+    res.status(500).json({ message: "Failed to update order status", error: error.message });
+  }
+});
+
 app.get("/loyalty-points", async (req, res) => {
   const userId = req.query.user_id;
   if (!userId) {
@@ -954,59 +1101,42 @@ app.get("/loyalty-points", async (req, res) => {
   }
 });
 
-app.post("/update-loyalty-points", (req, res) => {
+app.post("/update-loyalty-points", async (req, res) => {
   const { user_id, total_amount, used_points } = req.body;
 
   if (!user_id || total_amount === undefined || used_points === undefined) {
     return res.status(400).json({ message: "User ID, total amount, and used points are required." });
   }
 
-  const earned_points = Math.floor(total_amount / 1000); // Correctly calculate from total_amount
+  const earned_points = Math.floor(total_amount / 1000); // Calculate points earned from total_amount
 
-  const checkUserQuery = "SELECT points FROM loyalty_points WHERE user_id = ?";
+  try {
+    // Check if the user already has loyalty points
+    const [result] = await db.pool.execute(
+      "SELECT points FROM loyalty_points WHERE user_id = ?",
+      [user_id]
+    );
 
-  db.query(checkUserQuery, [user_id], async (err, result) => {
-    if (err) {
-      console.error("Error checking user loyalty points:", err);
-      return res.status(500).json({ message: "Failed to check loyalty points", error: err });
-    }
+    if (result.length > 0) {
+      // Update existing points
+      const current_points = result[0].points;
+      const new_points = Math.max(current_points - used_points, 0) + earned_points;
 
-    let current_points = result.length === 0 ? 0 : result[0].points;
-
-    // Deduct points if used_points are provided
-    if (used_points > 0) {
-      const new_points = Math.max(current_points - used_points, 0); // Prevent going below 0
-      const deductPointsQuery = "UPDATE loyalty_points SET points = ? WHERE user_id = ?";
-      db.query(deductPointsQuery, [new_points, user_id], (err, result) => {
-        if (err) {
-          console.error("Error deducting points:", err);
-          return res.status(500).json({ message: "Failed to deduct points", error: err });
-        }
-      });
-      current_points = new_points; // Update current points after deduction
-    }
-
-    // Add earned points if total amount is greater than 0
-    if (earned_points > 0) {
-      const new_points = current_points + earned_points;
-      const addPointsQuery = "UPDATE loyalty_points SET points = ? WHERE user_id = ?";
-      db.query(addPointsQuery, [new_points, user_id], (err, result) => {
-        if (err) {
-          console.error("Error adding points:", err);
-          return res.status(500).json({ message: "Failed to add points", error: err });
-        }
-
-        return res.status(200).json({ message: "Loyalty points updated successfully" });
-      });
+      await db.pool.execute(
+        "UPDATE loyalty_points SET points = ? WHERE user_id = ?",
+        [new_points, user_id]
+      );
     } else {
-      // If no earned points to add, just send the response after deduction (if applicable)
-      if (used_points > 0) {
-        return res.status(200).json({ message: "Loyalty points updated successfully" });
-      }
+      // If no existing row, log a message and skip the insert
+      console.log(`No loyalty points record found for user_id: ${user_id}. Skipping update.`);
     }
-  });
-});
 
+    return res.status(200).json({ message: "Loyalty points updated successfully" });
+  } catch (err) {
+    console.error("Error updating loyalty points:", err);
+    return res.status(500).json({ message: "Failed to update loyalty points", error: err });
+  }
+});
 
 // Get orders with detailed item information
 app.get("/orders", async (req, res) => {
@@ -1018,7 +1148,7 @@ app.get("/orders", async (req, res) => {
 
   try {
     const ordersQuery = `
-      SELECT o.id, o.total_amount, o.created_at
+      SELECT o.id, o.total_amount, o.created_at, o.status,
       FROM orders o
       WHERE o.user_id = ?
       ORDER BY o.created_at DESC
@@ -1051,7 +1181,7 @@ app.get("/orders/:id", async (req, res) => {
   const query = `
     SELECT 
       o.id AS order_id, 
-      o.total, 
+      o.total,
       oi.food_id, 
       f.name AS food_name, 
       oi.quantity, 
@@ -1083,6 +1213,19 @@ app.get("/notifications", async (req, res) => {
   } catch (err) {
     console.error("Error retrieving notifications:", err);
     res.status(500).json({ message: "Failed to retrieve notifications", error: err });
+  }
+});
+
+// Mark notification as read
+app.post("/notifications/:id/read", async (req, res) => {
+  const notificationId = req.params.id;
+
+  try {
+    await db.markNotificationAsRead(notificationId);
+    res.status(200).json({ message: "Notification marked as read" });
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+    res.status(500).json({ message: "Failed to mark notification as read", error: error.message });
   }
 });
 
@@ -1134,27 +1277,7 @@ app.post("/api/esewa/verify", async (req, res) => {
 });
 
 // Endpoint to upload cooking tutorial video
-app.post("/api/upload-tutorial", videoUpload.single("video"), async (req, res) => {
-  const { title, description } = req.body;
 
-  if (!title || !description || !req.file) {
-    return res.status(400).json({ message: "All fields are required." });
-  }
-
-  const videoPath = `/videos/${req.file.filename}`;
-
-  try {
-    const query = `
-      INSERT INTO tutorials (title, description, video_url, created_at)
-      VALUES (?, ?, ?, NOW())
-    `;
-    await db.pool.execute(query, [title, description, videoPath]);
-    res.status(201).json({ message: "Tutorial uploaded successfully!" });
-  } catch (error) {
-    console.error("Database insertion error:", error); // Log the error
-    res.status(500).json({ message: "Failed to upload tutorial to the database." });
-  }
-});
 
 // Fetch all cooking tutorial videos
 app.get("/api/tutorials", async (req, res) => {
@@ -1188,7 +1311,7 @@ app.get("/api/tutorials", async (req, res) => {
 // });
 
 // Routes
-app.post('/api/upload-tutorial', upload.single('video'), async (req, res) => {
+app.post('/api/upload-tutorial', videoUpload.single('video'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No video file uploaded' });
@@ -1200,12 +1323,16 @@ app.post('/api/upload-tutorial', upload.single('video'), async (req, res) => {
       category,
       difficultyLevel,
       duration,
-      ingredients,
-      createdAt
+      ingredients
     } = req.body;
 
-    // Parse ingredients from JSON string to array
-    const parsedIngredients = JSON.parse(ingredients);
+    // Validate required fields
+    if (!title || !description || !category || !difficultyLevel) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Parse ingredients from JSON string to array if present
+    const parsedIngredients = ingredients ? JSON.parse(ingredients) : [];
 
     // Create new tutorial record in database
     const tutorial = {
@@ -1215,17 +1342,18 @@ app.post('/api/upload-tutorial', upload.single('video'), async (req, res) => {
       difficultyLevel,
       duration: parseInt(duration) || 0,
       ingredients: parsedIngredients,
-      videoUrl: `/uploads/${req.file.filename}`,
+      videoUrl: `/videos/${req.file.filename}`, // Updated to match video storage path
       fileSize: req.file.size,
       fileType: req.file.mimetype,
-      createdAt: createdAt || new Date().toISOString()
+      createdAt: new Date().toISOString()
     };
 
     const result = await db.insertTutorial(tutorial);
     
     res.status(201).json({
       message: 'Tutorial uploaded successfully',
-      tutorialId: result.id
+      tutorialId: result.id,
+      tutorial: result
     });
   } catch (error) {
     console.error('Error uploading tutorial:', error);
@@ -1469,7 +1597,7 @@ app.post("/save-user-info", async (req, res) => {
 app.get("/chef/orders", async (req, res) => {
   try {
     const ordersQuery = `
-      SELECT o.id, o.total_amount, o.created_at, u.fullName AS customer_name
+      SELECT o.id, o.total_amount, o.created_at, o.status, u.fullName AS customer_name
       FROM orders o
       JOIN users u ON o.user_id = u.id
       ORDER BY o.created_at DESC
@@ -1525,6 +1653,83 @@ app.delete("/api/users/:id", async (req, res) => {
   }
 });
 
+app.get("/api/orders/stats", async (req, res) => {
+  const userId = req.query.user_id;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required." });
+  }
+
+  try {
+    console.log("Fetching stats for user ID:", userId); // Log user ID
+
+    const statsQuery = `
+      SELECT 
+        COUNT(id) AS totalOrders, 
+        IFNULL(SUM(total_amount), 0) AS totalSpent 
+      FROM orders 
+      WHERE user_id = ?
+    `;
+    const [stats] = await db.pool.execute(statsQuery, [userId]);
+
+    console.log("Query Result:", stats); // Log query result
+
+    res.status(200).json({
+      totalOrders: stats[0].totalOrders || 0,
+      totalSpent: stats[0].totalSpent || 0
+    });
+  } catch (error) {
+    console.error("Error fetching order stats:", error);
+    res.status(500).json({ message: "Failed to fetch order stats", error: error.message });
+  }
+});
+
+// Route to fetch active orders for the chef
+app.get("/chef/orders", async (req, res) => {
+  const { status } = req.query;
+
+  try {
+    let query = `
+      SELECT o.id, o.total_amount, o.created_at, o.status, u.fullName AS customer_name
+      FROM orders o
+      JOIN users u ON o.user_id = u.id
+    `;
+
+    if (status === "active") {
+      query += " WHERE o.status IN ('Cooking', 'Prepared for Delivery', 'Off for Delivery')";
+    } else if (status === "recent") {
+      query += " WHERE o.status = 'Delivered'";
+    }
+
+    query += " ORDER BY o.created_at DESC";
+
+    const [orders] = await db.pool.execute(query);
+    res.status(200).json(orders);
+  } catch (error) {
+    console.error("Error fetching chef orders:", error);
+    res.status(500).json({ message: "Failed to fetch chef orders", error: error.message });
+  }
+});
+
+// Route to fetch performance stats for the chef
+app.get("/chef/orders/stats", async (req, res) => {
+  try {
+    const statsQuery = `
+      SELECT 
+        COUNT(*) AS totalOrders, 
+        IFNULL(SUM(total_amount), 0) AS totalEarnings 
+      FROM orders
+      WHERE status IN ('Delivered', 'Cooking', 'Prepared for Delivery', 'Off for Delivery')
+    `;
+
+    const [stats] = await db.pool.execute(statsQuery);
+    res.status(200).json(stats[0]);
+  } catch (error) {
+    console.error("Error fetching chef stats:", error);
+    res.status(500).json({ message: "Failed to fetch chef stats", error: error.message });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
@@ -1534,7 +1739,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
+// Ensure the server listens on the correct port
+server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

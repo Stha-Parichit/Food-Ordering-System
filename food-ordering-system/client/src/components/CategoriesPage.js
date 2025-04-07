@@ -7,6 +7,8 @@ import {
   Pagination, Tabs, Tab, Snackbar, Alert, FormControl, Select, InputLabel, Tooltip, Paper,
   LinearProgress, SwipeableDrawer, Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
+import InputAdornment from '@mui/material/InputAdornment';
+import Autocomplete from '@mui/material/Autocomplete';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -29,6 +31,7 @@ const CategoriesPage = () => {
   const [items, setItems] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchOptions, setSearchOptions] = useState([]);
   const [cart, setCart] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -56,6 +59,7 @@ const CategoriesPage = () => {
   const [openCustomizePopup, setOpenCustomizePopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [openPopup, setOpenPopup] = useState(false);
+  const [cartItems, setCartItems] = useState([]); // State to store cart items from API
 
   
   const userEmail = localStorage.getItem('userEmail');
@@ -72,13 +76,13 @@ const CategoriesPage = () => {
         const uniqueCategories = [...new Set(response.data.map(item => item.category))];
         setCategories(uniqueCategories);
         
+        // Populate search options with item names
+        const itemNames = response.data.map(item => item.name);
+        setSearchOptions(itemNames);
+        
         // Set featured items (top rated or most popular)
         const featured = response.data
           .filter(item => item.rating >= 4.5)
-          .sort((a, b) => b.rating - a.rating)
-          .slice(0, 4);
-        setFeaturedItems(featured);
-        
         // Load cart from localStorage
         const savedCart = localStorage.getItem('cart');
         if (savedCart) {
@@ -135,6 +139,25 @@ const CategoriesPage = () => {
   useEffect(() => {
     console.log('Fetched items:', items);
   }, [items]);
+
+  // Fetch cart items from API
+  useEffect(() => {
+    const fetchCartItems = async () => {
+      const userId = localStorage.getItem("user_id");
+      if (!userId) return;
+  
+      try {
+        const response = await axios.get(`http://localhost:5000/cart?user_id=${userId}`);
+        if (response.data.success) {
+          setCartItems(response.data.items);
+        }
+      } catch (error) {
+        console.error("Error fetching cart items:", error);
+      }
+    };
+  
+    fetchCartItems();
+  }, [cartDrawerOpen]); // Refetch cart items when the drawer is toggled
 
   // Item Handling
   const handleCategoryChange = (category) => {
@@ -530,7 +553,7 @@ const CategoriesPage = () => {
             onClick={() => toggleFavorite(item.id)}
           >
             {isFavorite(item.id) ? 
-              <FavoriteIcon sx={{ color: '#FF6384' }} /> : 
+              <FavoriteIcon sx={{ color: '#ff9800' }} /> : 
               <FavoriteBorderIcon sx={{ color: '#888' }} />
             }
           </IconButton>
@@ -542,7 +565,7 @@ const CategoriesPage = () => {
                 position: 'absolute', 
                 top: 8, 
                 left: 8, 
-                bgcolor: '#FF6384', 
+                bgcolor: '#ff9800', 
                 color: 'white',
                 fontWeight: 'bold'
               }} 
@@ -571,7 +594,7 @@ const CategoriesPage = () => {
             sx={{ 
               fontWeight: 'bold',
               cursor: 'pointer',
-              '&:hover': { color: '#FF6384' }
+              '&:hover': { color: '#ff9800' }
             }}
             onClick={() => openItemDetails(item)}
           >
@@ -607,8 +630,8 @@ const CategoriesPage = () => {
             ))}
           </Box>
           <Box sx={{ mt: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" sx={{ fontWeight: 'bold', color: item.discount > 0 ? '#FF6384' : 'inherit' }}>
-              ${item.discount > 0 
+            <Typography variant="h6" sx={{ fontWeight: 'bold', color: item.discount > 0 ? '#ff9800' : 'inherit' }}>
+              Rs. {item.discount > 0 
                 ? (price * (1 - item.discount / 100)).toFixed(2) 
                 : price.toFixed(2)}
               {item.discount > 0 && (
@@ -629,7 +652,7 @@ const CategoriesPage = () => {
               variant="contained"
               onClick={() => handleAddToCart(item)}
               sx={{ 
-                backgroundColor: '#FF6384',
+                backgroundColor: '#ff9800',
                 '&:hover': { backgroundColor: '#f55c7a' },
                 borderRadius: 8,
                 textTransform: 'none'
@@ -709,7 +732,7 @@ const CategoriesPage = () => {
                   sx={{ 
                     fontWeight: 'bold',
                     cursor: 'pointer',
-                    '&:hover': { color: '#FF6384' }
+                    '&:hover': { color: '#ff9800' }
                   }}
                   onClick={() => openItemDetails(item)}
                 >
@@ -721,7 +744,7 @@ const CategoriesPage = () => {
                   sx={{ ml: 1 }}
                 >
                   {isFavorite(item.id) ? 
-                    <FavoriteIcon fontSize="small" sx={{ color: '#FF6384' }} /> : 
+                    <FavoriteIcon fontSize="small" sx={{ color: '#ff9800' }} /> : 
                     <FavoriteBorderIcon fontSize="small" sx={{ color: '#888' }} />
                   }
                 </IconButton>
@@ -746,7 +769,7 @@ const CategoriesPage = () => {
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 'bold', color: item.discount > 0 ? '#FF6384' : 'inherit' }}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color: item.discount > 0 ? '#ff9800' : 'inherit' }}>
                 ${item.discount > 0 
                   ? (price * (1 - item.discount / 100)).toFixed(2) 
                   : price.toFixed(2)}
@@ -769,7 +792,7 @@ const CategoriesPage = () => {
                 size="small"
                 onClick={() => handleAddToCart(item)}
                 sx={{ 
-                  backgroundColor: '#FF6384',
+                  backgroundColor: '#ff9800',
                   '&:hover': { backgroundColor: '#f55c7a' },
                   borderRadius: 8,
                   textTransform: 'none'
@@ -848,7 +871,7 @@ const CategoriesPage = () => {
               </Badge>
             </IconButton>
             <IconButton onClick={handleUserMenuOpen}>
-              <Avatar sx={{ width: 30, height: 30, bgcolor: '#FF6384' }}>
+              <Avatar sx={{ width: 30, height: 30, bgcolor: '#ff9800' }}>
                 {userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
               </Avatar>
             </IconButton>
@@ -875,8 +898,8 @@ const CategoriesPage = () => {
               startIcon={<FaFilter />}
               onClick={toggleFilterDrawer(true)}
               sx={{ 
-                borderColor: '#FF6384',
-                color: '#FF6384',
+                borderColor: '#ff9800',
+                color: '#ff9800',
                 '&:hover': { borderColor: '#f55c7a', bgcolor: 'rgba(255,99,132,0.1)' }
               }}
             >
@@ -887,8 +910,8 @@ const CategoriesPage = () => {
               startIcon={<SortIcon />}
               onClick={openSortMenu}
               sx={{ 
-                borderColor: '#FF6384',
-                color: '#FF6384',
+                borderColor: '#ff9800',
+                color: '#ff9800',
                 '&:hover': { borderColor: '#f55c7a', bgcolor: 'rgba(255,99,132,0.1)' }
               }}
             >
@@ -900,7 +923,7 @@ const CategoriesPage = () => {
                 onClick={() => toggleView('grid')}
                 sx={{ 
                   bgcolor: currentView === 'grid' ? 'rgba(255,99,132,0.1)' : 'transparent',
-                  color: currentView === 'grid' ? '#FF6384' : 'inherit'
+                  color: currentView === 'grid' ? '#ff9800' : 'inherit'
                 }}
               >
                 <FaThList style={{ transform: 'rotate(90deg)' }} />
@@ -910,7 +933,7 @@ const CategoriesPage = () => {
                 onClick={() => toggleView('list')}
                 sx={{ 
                   bgcolor: currentView === 'list' ? 'rgba(255,99,132,0.1)' : 'transparent',
-                  color: currentView === 'list' ? '#FF6384' : 'inherit'
+                  color: currentView === 'list' ? '#ff9800' : 'inherit'
                 }}
               >
                 <FaThList />
@@ -929,39 +952,58 @@ const CategoriesPage = () => {
           boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
           marginBottom: 3
         }}>
-          <TextField
-            fullWidth
-            value={searchQuery}
-            onChange={handleSearchChange}
-            placeholder="Search for food items..."
-            variant="outlined"
-            InputProps={{
-              startAdornment: <SearchIcon sx={{ mr: 1, color: '#777' }} />,
-              endAdornment: searchQuery && (
-                <IconButton size="small" onClick={() => setSearchQuery('')}>
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-              )
-            }}
-            sx={{ 
-              '& .MuiOutlinedInput-root': {
-                '& fieldset': { border: 'none' }
-              }
-            }}
+          <Autocomplete
+            freeSolo
+            options={searchQuery.length > 0 ? items.filter(item => 
+              item.name.toLowerCase().includes(searchQuery.toLowerCase())
+            ) : []}
+            getOptionLabel={(option) => option.name}
+            renderOption={(props, option) => (
+              <Box component="li" {...props} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <img 
+                  src={option.image_url} 
+                  alt={option.name} 
+                  style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} 
+                />
+                {option.name}
+              </Box>
+            )}
+            inputValue={searchQuery}
+            onInputChange={(event, value) => setSearchQuery(value)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Search for food items..."
+                variant="outlined"
+                size="small"
+                fullWidth // Ensures the search bar takes the full width
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      border: 'none', // Removes the border
+                    },
+                  },
+                }}
+              />
+            )}
+            sx={{ flexGrow: 1 }} // Allows the search bar to grow and fill available space
           />
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', ml: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
             <IconButton onClick={toggleCartDrawer(true)}>
-              <Badge badgeContent={cart.length} color="error">
+              <Badge badgeContent={cartItems.length} color="error">
                 <FaShoppingCart />
               </Badge>
             </IconButton>
-            <IconButton sx={{ ml: 1 }}>
-              <Badge badgeContent={notifications?.length || 0} color="primary">
-                <FaBell />
-              </Badge>
-            </IconButton>
             <IconButton sx={{ ml: 1 }} onClick={handleUserMenuOpen}>
-              <Avatar sx={{ bgcolor: '#FF6384' }}>
+              <Avatar sx={{ bgcolor: '#ff9800' }}>
                 {userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
               </Avatar>
             </IconButton>
@@ -982,8 +1024,8 @@ const CategoriesPage = () => {
             onClick={toggleFilterDrawer(true)}
             size="small"
             sx={{ 
-              borderColor: '#FF6384',
-              color: '#FF6384',
+              borderColor: '#ff9800',
+              color: '#ff9800',
               '&:hover': { borderColor: '#f55c7a', bgcolor: 'rgba(255,99,132,0.1)' }
             }}
           >
@@ -996,8 +1038,8 @@ const CategoriesPage = () => {
             onClick={openSortMenu}
             size="small"
             sx={{ 
-              borderColor: '#FF6384',
-              color: '#FF6384',
+              borderColor: '#ff9800',
+              color: '#ff9800',
               '&:hover': { borderColor: '#f55c7a', bgcolor: 'rgba(255,99,132,0.1)' }
             }}
           >
@@ -1014,7 +1056,7 @@ const CategoriesPage = () => {
               onClick={() => toggleView('grid')}
               sx={{ 
                 bgcolor: currentView === 'grid' ? 'rgba(255,99,132,0.1)' : 'transparent',
-                color: currentView === 'grid' ? '#FF6384' : 'inherit',
+                color: currentView === 'grid' ? '#ff9800' : 'inherit',
                 borderRadius: 0
               }}
             >
@@ -1025,7 +1067,7 @@ const CategoriesPage = () => {
               onClick={() => toggleView('list')}
               sx={{ 
                 bgcolor: currentView === 'list' ? 'rgba(255,99,132,0.1)' : 'transparent',
-                color: currentView === 'list' ? '#FF6384' : 'inherit',
+                color: currentView === 'list' ? '#ff9800' : 'inherit',
                 borderRadius: 0
               }}
             >
@@ -1043,9 +1085,9 @@ const CategoriesPage = () => {
               onClick={() => handleCategoryChange(category)}
               variant={selectedCategory === category ? "filled" : "outlined"}
               sx={{
-                bgcolor: selectedCategory === category ? '#FF6384' : 'white',
+                bgcolor: selectedCategory === category ? '#ff9800' : 'white',
                 color: selectedCategory === category ? 'white' : 'inherit',
-                borderColor: '#FF6384',
+                borderColor: '#ff9800',
                 '&:hover': { bgcolor: selectedCategory === category ? '#f55c7a' : 'rgba(255,99,132,0.1)' },
                 transition: 'all 0.2s',
                 fontWeight: selectedCategory === category ? 'bold' : 'normal'
@@ -1153,7 +1195,7 @@ const CategoriesPage = () => {
                     resetFilters();
                   }}
                   sx={{ 
-                    bgcolor: '#FF6384',
+                    bgcolor: '#ff9800',
                     '&:hover': { bgcolor: '#f55c7a' }
                   }}
                 >
@@ -1190,7 +1232,7 @@ const CategoriesPage = () => {
                   shape="rounded"
                   sx={{
                     '& .MuiPaginationItem-root.Mui-selected': {
-                      backgroundColor: '#FF6384',
+                      backgroundColor: '#ff9800',
                       color: 'white'
                     }
                   }}
@@ -1270,7 +1312,7 @@ const CategoriesPage = () => {
                     onClick={() => toggleFavorite(selectedItem.id)}
                   >
                     {isFavorite(selectedItem.id) ? 
-                      <FavoriteIcon sx={{ color: '#FF6384' }} /> : 
+                      <FavoriteIcon sx={{ color: '#ff9800' }} /> : 
                       <FavoriteBorderIcon sx={{ color: '#888' }} />
                     }
                   </IconButton>
@@ -1289,7 +1331,7 @@ const CategoriesPage = () => {
                   <Typography variant="body1" sx={{ mb: 2 }}>
                     {selectedItem.description || `Delicious ${selectedItem.name.toLowerCase()} prepared with fresh ingredients.`}
                   </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, color: selectedItem.discount > 0 ? '#FF6384' : 'inherit' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, color: selectedItem.discount > 0 ? '#ff9800' : 'inherit' }}>
                     ${selectedItem.discount > 0 
                       ? (parseFloat(selectedItem.price || 0) * (1 - selectedItem.discount / 100)).toFixed(2) 
                       : parseFloat(selectedItem.price || 0).toFixed(2)}
@@ -1331,7 +1373,7 @@ const CategoriesPage = () => {
                       variant="contained"
                       onClick={() => handleAddToCart(selectedItem)}
                       sx={{ 
-                        backgroundColor: '#FF6384',
+                        backgroundColor: '#ff9800',
                         '&:hover': { backgroundColor: '#f55c7a' },
                         borderRadius: 8,
                         textTransform: 'none',
@@ -1344,8 +1386,8 @@ const CategoriesPage = () => {
                       variant="outlined"
                       onClick={() => toggleFavorite(selectedItem.id)}
                       sx={{ 
-                        borderColor: '#FF6384',
-                        color: isFavorite(selectedItem.id) ? '#FF6384' : 'inherit',
+                        borderColor: '#ff9800',
+                        color: isFavorite(selectedItem.id) ? '#ff9800' : 'inherit',
                         '&:hover': { borderColor: '#f55c7a', bgcolor: 'rgba(255,99,132,0.1)' },
                         borderRadius: 8,
                         textTransform: 'none'
@@ -1371,182 +1413,52 @@ const CategoriesPage = () => {
         <Box sx={{ width: 350, maxWidth: '100vw', p: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-              Shopping Cart ({cart.length})
+              Shopping Cart ({cartItems.length})
             </Typography>
             <IconButton onClick={toggleCartDrawer(false)}>
               <CloseIcon />
             </IconButton>
           </Box>
           
-          {cart.length === 0 ? (
-            <Box sx={{ 
-              textAlign: 'center', 
-              py: 6,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center' 
-            }}>
-              <FaShoppingCart style={{ fontSize: 48, color: '#ddd', marginBottom: 16 }} />
+          {cartItems.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 6 }}>
               <Typography variant="h6" sx={{ mb: 1, color: '#666' }}>
                 Your cart is empty
               </Typography>
               <Typography variant="body2" sx={{ mb: 3, color: '#888' }}>
                 Add some items to get started
               </Typography>
-              <Button
-                variant="contained"
-                onClick={toggleCartDrawer(false)}
-                sx={{ 
-                  bgcolor: '#FF6384',
-                  '&:hover': { bgcolor: '#f55c7a' }
-                }}
-              >
-                Browse Menu
-              </Button>
             </Box>
           ) : (
-            <>
-              <List sx={{ mb: 3 }}>
-                {cart.map((item) => (
-                  <React.Fragment key={item.id}>
-                    <ListItem disablePadding sx={{ py: 1 }}>
-                      <Box sx={{ 
-                        display: 'flex', 
-                        width: '100%', 
-                        alignItems: 'center',
-                        overflow: 'hidden'
-                      }}>
-                        <Box sx={{ 
-                          width: 60, 
-                          height: 60, 
-                          borderRadius: 1,
-                          overflow: 'hidden',
-                          flexShrink: 0
-                        }}>
-                          <img 
-                            src={item.image_url} 
-                            alt={item.name} 
-                            style={{ 
-                              width: '100%', 
-                              height: '100%', 
-                              objectFit: 'cover' 
-                            }} 
-                          />
-                        </Box>
-                        <Box sx={{ ml: 2, overflow: 'hidden', flexGrow: 1 }}>
-                          <Typography 
-                            variant="subtitle2" 
-                            sx={{ 
-                              fontWeight: 'bold',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis'
-                            }}
-                          >
-                            {item.name}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            ${parseFloat(item.price)} × {item.quantity}
-                          </Typography>
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            mt: 0.5 
-                          }}>
-                            <IconButton 
-                              size="small" 
-                              onClick={() => updateCartItemQuantity(item.id, item.quantity - 1)}
-                              sx={{ p: 0.5 }}
-                            >
-                              <RemoveIcon fontSize="small" />
-                            </IconButton>
-                            <Typography sx={{ mx: 1 }}>
-                              {item.quantity}
-                            </Typography>
-                            <IconButton 
-                              size="small" 
-                              onClick={() => updateCartItemQuantity(item.id, item.quantity + 1)}
-                              sx={{ p: 0.5 }}
-                            >
-                              <AddIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        </Box>
-                        <Box sx={{ ml: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                            ${(parseFloat(item.price) * item.quantity)}
-                          </Typography>
-                          <IconButton 
-                            size="small" 
-                            onClick={() => removeFromCart(item.id)}
-                            sx={{ 
-                              p: 0.5, 
-                              color: '#999',
-                              '&:hover': { color: '#FF6384' }
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
+            <List>
+              {cartItems.map((item) => (
+                <React.Fragment key={item.cart_id}>
+                  <ListItem disablePadding sx={{ py: 1 }}>
+                    <Box sx={{ display: 'flex', width: '100%', alignItems: 'center' }}>
+                      <Box sx={{ width: 60, height: 60, borderRadius: 1, overflow: 'hidden' }}>
+                        <img
+                          src={item.image_url}
+                          alt={item.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
                       </Box>
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
-                ))}
-              </List>
-              
-              <Box sx={{ 
-                bgcolor: '#f8f8f8', 
-                p: 2, 
-                borderRadius: 2,
-                mb: 3
-              }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2">Subtotal:</Typography>
-                  <Typography variant="body2">${getCartTotal()}</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2">Delivery:</Typography>
-                  <Typography variant="body2">${cart.length > 0 ? '2.99' : '0.00'}</Typography>
-                </Box>
-                <Divider sx={{ my: 1 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Total:</Typography>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                    ${cart.length > 0 ? (parseFloat(getCartTotal()) + 2.99).toFixed(2) : '0.00'}
-                  </Typography>
-                </Box>
-              </Box>
-              
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  onClick={proceedToCheckout}
-                  sx={{ 
-                    bgcolor: '#FF6384',
-                    '&:hover': { bgcolor: '#f55c7a' },
-                    borderRadius: 8,
-                    py: 1
-                  }}
-                >
-                  Proceed to Checkout
-                </Button>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={clearCart}
-                  sx={{ 
-                    borderColor: '#ddd',
-                    color: '#666',
-                    '&:hover': { bgcolor: '#f5f5f5' },
-                    borderRadius: 8
-                  }}
-                >
-                  Clear Cart
-                </Button>
-              </Box>
-            </>
+                      <Box sx={{ ml: 2, flexGrow: 1 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                          {item.name}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          ${item.item_price} × {item.quantity}
+                        </Typography>
+                      </Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                        ${item.total_price}
+                      </Typography>
+                    </Box>
+                  </ListItem>
+                  <Divider />
+                </React.Fragment>
+              ))}
+            </List>
           )}
         </Box>
       </SwipeableDrawer>
@@ -1641,7 +1553,7 @@ const CategoriesPage = () => {
               fullWidth
               onClick={applyFilters}
               sx={{ 
-                bgcolor: '#FF6384',
+                bgcolor: '#ff9800',
                 '&:hover': { bgcolor: '#f55c7a' }
               }}
             >

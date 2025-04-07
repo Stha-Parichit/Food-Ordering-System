@@ -129,37 +129,6 @@ const EsewaPayment = () => {
     setFormData({ ...formData, [name]: value });
   };
   
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-//     setLoading(true);
-//     setError("");
-    
-//     try {
-//       // Simulated payment processing
-//       await new Promise(resolve => setTimeout(resolve, 2000));
-      
-//       // Clear cart after successful payment
-//       const userId = localStorage.getItem("user_id");
-//       await axios.delete(`${apiUrl}/cart`, {
-//         params: { user_id: userId }
-//       });
-  
-//       // Update state and local storage
-//       setSuccess(true);
-//       localStorage.setItem("transactionId", `ESEWA-${Date.now()}`);
-//       localStorage.setItem("paymentAmount", formData.amount);
-//       localStorage.setItem("paymentMethod", "eSewa");
-  
-//       setTimeout(() => {
-//         navigate("/order-confirmation");
-//       }, 2000);
-//     } catch (error) {
-//       console.error("Payment processing error:", error);
-//       setError("Payment processing failed. Please try again.");
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
 useEffect(() => {
     const fetchLoyaltyPoints = async () => {
       try {
@@ -424,47 +393,6 @@ useEffect(() => {
     doc.save("YOO-Order-Receipt.pdf");
   };
   
-  // const updateLoyaltyPoints = async () => {
-  //   try {
-  //     // Declare userId at the beginning of the function
-  //     const userId = localStorage.getItem("user_id");
-  //     if (!userId || isNaN(userId)) {
-  //       throw new Error("Invalid user ID");
-  //     }
-  
-  //     const earnedPoints = Math.floor(orderDetails.total / 1000);
-  //     const usedPoints = selectedDiscount?.requiredPoints || 0;
-  
-  //     // Attempt to update the loyalty points
-  //     let response = await axios.put(`${apiUrl}/api/loyalty-points`, {
-  //       user_id: parseInt(userId),
-  //       earnedPoints: parseInt(earnedPoints),
-  //       usedPoints: parseInt(usedPoints),
-  //     });
-  
-  //     setLoyaltyPoints(response.data.newPoints);
-  //   } catch (error) {
-  //     if (error.response?.status === 404) {
-  //       // If user ID does not exist, insert a new row
-  //       try {
-  //         const userId = localStorage.getItem("user_id"); // Ensure userId is declared here too
-  //         const response = await axios.post(`${apiUrl}/api/loyalty-points`, {
-  //           user_id: parseInt(userId),
-  //           totalPoints: parseInt(orderDetails.total / 1000), // Initialize with earned points
-  //         });
-  
-  //         setLoyaltyPoints(response.data.newPoints);
-  //       } catch (insertError) {
-  //         console.error("Loyalty Points Insert Error:", insertError.response?.data || insertError.message);
-  //         setError(insertError.response?.data?.detail || "Failed to insert loyalty points");
-  //       }
-  //     } else {
-  //       console.error("Loyalty Points Error:", error.response?.data || error.message);
-  //       setError(error.response?.data?.detail || "Failed to update loyalty points");
-  //     }
-  //   }
-  // };
-  
   // Modify handleSubmit to include loyalty points and receipt
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -479,6 +407,22 @@ useEffect(() => {
       });
   
       if (response.data.message === "Order placed successfully") {
+        // Update loyalty points
+        const earnedPoints = Math.floor(orderDetails.total / 1000);
+        const usedPoints = selectedDiscount?.requiredPoints || 0;
+  
+        await axios.post(`${apiUrl}/update-loyalty-points`, {
+          user_id: userId,
+          total_amount: orderDetails.total,
+          used_points: usedPoints,
+        });
+  
+        // Fetch updated loyalty points
+        const loyaltyResponse = await axios.get(`${apiUrl}/loyalty-points`, {
+          params: { user_id: userId },
+        });
+        setLoyaltyPoints(loyaltyResponse.data.points || 0);
+  
         // Clear local storage
         localStorage.removeItem("deliveryAddress");
         localStorage.removeItem("selectedDiscount");

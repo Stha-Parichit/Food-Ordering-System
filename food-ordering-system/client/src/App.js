@@ -17,6 +17,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import PaymentPage from './components/PaymentPage';
 import OrderConfirmation from './components/OrderConfirmation';
 import ChefOrders from './components/ChefOrders';
+import AdminOrders from './pages/AdminOrders';
 import OrderDetails from './components/OrderDetails';
 import EsewaPayment from './components/EsewaPayment';
 import PaymentStatus from './components/PaymentStatus';
@@ -30,11 +31,14 @@ import UploadFood from './components/UploadFood';
 import AdminDashboard from './components/AdminDashboard';
 import RegisteredUser from './components/RegisteredUsers';
 import FoodItemDetails from './components/FoodItemDetails';
-import UploadTutorial from './pages/UploadTutorial';
 import ViewTutorials from './pages/ViewTutorials';
 import Orders from './pages/Orders';
 import AllUsers from "./components/AllUsers";
 import { logout } from './utils/auth';
+import ChefPage from './components/ChefPage';
+import ChefDashboard from './components/ChefDashboard';
+import TutorialUpload from './components/TutorialUpload';
+import TutorialDetail from './components/TutorialDetail';
 const theme = createTheme(); // Ensure a theme is provided
 
 const PageTitleUpdater = () => {
@@ -59,10 +63,10 @@ const PageTitleUpdater = () => {
       '/login': 'Login',
       '/forgot-password': 'Forgot Password',
       '/reset-password': 'Reset Password',
-      '/upload-tutorial': 'Upload Tutorial',
       '/view-tutorials': 'View Tutorials',
       '/order-confirmation': 'Order Confirmation',
       '/chef-orders': 'Chef Orders',
+      '/admin-orders': 'Admin Orders',
       '/payment-success': 'Payment Success',
       '/payment-failed': 'Payment Failed',
       '/order-details': 'Order Details',
@@ -72,6 +76,9 @@ const PageTitleUpdater = () => {
       '/e-pay': 'Esewa Payment',
       '/success': 'Payment Success',
       '/failure': 'Payment Failed',
+      '/chef': 'Chef Page',
+      '/chef-dashboard': 'Chef Dashboard',
+      '/tutorial-upload': 'Tutorial Upload Page',
     };
     const pageTitle = pageTitles[location.pathname] || 'Page';
     document.title = `${pageTitle} - YOO!!!`;
@@ -102,6 +109,7 @@ const App = () => {
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/order-confirmation" element={<OrderConfirmation />} />
             <Route path="/chef-orders" element={<ChefOrders />} />
+            <Route path="/admin-orders" element={<AdminOrders />} />
             <Route path="/order-details/:orderId" element={<OrderDetails />} />
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
@@ -116,10 +124,14 @@ const App = () => {
             <Route path="/success" element={<PaymentStatus />} />
             <Route path="/failure" element={<PaymentStatus />} />
             <Route path="/food/:id" element={<FoodItemDetails />} />
-            <Route path="/upload-tutorial" element={<UploadTutorial />} />
+            <Route path="/tutorial-upload" element={<TutorialUpload />} />
+            <Route path="/tutorial/:id" element={<TutorialDetail />} />
             <Route path="/view-tutorials" element={<ViewTutorials />} />    
             <Route path="/orders" element={<Orders />} />      
             <Route path="/users-list" element={<AllUsers />} />
+            <Route path="/admin-dashboard" element={<AdminDashboard />} />
+            <Route path="/chef" element={<ChefPage />} />
+            <Route path="/chef-dashboard" element={<ChefDashboard />} />
           </Routes>
           {/* Example usage of logout */}
           {/* <button onClick={logout}>Logout</button> */}

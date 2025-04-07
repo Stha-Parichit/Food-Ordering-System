@@ -652,7 +652,7 @@ const LandingPage = () => {
                 }}
               >
                 <img 
-                  src="/api/placeholder/600/400"
+                  src="./images/delivery.jpg?text=Food+Delivery"
                   alt="Food delivery" 
                   style={{ 
                     maxWidth: '100%', 
@@ -886,21 +886,21 @@ const LandingPage = () => {
               role: "Food Enthusiast",
               quote: "YOO!!! has changed the way I order food. The quality is excellent and delivery is always on time!",
               rating: 5,
-              image: "/api/placeholder/100/100?text=Alex"
+              image: "./images/user1.jpg?text=Alex"
             },
             {
               name: "Sarah Williams",
               role: "Busy Professional",
               quote: "As someone with a hectic schedule, YOO!!! saves me so much time. The app is intuitive and the food is delicious.",
               rating: 4.5,
-              image: "/api/placeholder/100/100?text=Sarah"
+              image: "./images/user2.jpg?text=Sarah"
             },
             {
               name: "Mike Chen",
               role: "Foodie",
               quote: "I've tried many food delivery services, but YOO!!! stands out with its quality ingredients and excellent customer service.",
               rating: 5,
-              image: "/api/placeholder/100/100?text=Mike"
+              image: "./images/user3.jpg?text=Mike"
             }
           ].map((testimonial, index) => (
             <Grid item key={index} xs={12} md={4}>
@@ -1024,7 +1024,7 @@ const LandingPage = () => {
             <Grid item xs={12} md={5}>
               <Box 
                 component="img"
-                src="/api/placeholder/300/600"
+                src="./images/logo1.png?text=Mobile+App"
                 alt="Mobile App"
                 sx={{
                   maxWidth: '100%',

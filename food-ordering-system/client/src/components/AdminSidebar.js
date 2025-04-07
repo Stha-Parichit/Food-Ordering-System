@@ -63,7 +63,7 @@ const AdminSidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
         { text: 'Payment Methods', icon: <FaWallet size={16} />, link: '/payment-methods' },
       ]
     },
-    { text: 'My Orders', icon: <FaHistory size={20} />, link: '/admin-orders' },
+    { text: 'Orders List', icon: <FaHistory size={20} />, link: '/admin-orders' },
     { text: 'Offers & Promos', icon: <FaTicketAlt size={20} />, link: '/offers' },
   ];
   

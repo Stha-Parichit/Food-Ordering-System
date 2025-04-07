@@ -330,7 +330,7 @@ const AdminDashboard = () => {
               <Box sx={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, borderRadius: '0 0 0 100%', backgroundColor: 'rgba(54, 162, 235, 0.1)' }} />
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>Revenue</Typography>
-                <Typography variant="h4" fontWeight="bold">₹24,500</Typography>
+                <Typography variant="h4" fontWeight="bold">Rs.24,500</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                   <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
                     +8%
@@ -360,7 +360,7 @@ const AdminDashboard = () => {
               <Box sx={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, borderRadius: '0 0 0 100%', backgroundColor: 'rgba(75, 192, 192, 0.1)' }} />
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>Avg. Order Value</Typography>
-                <Typography variant="h4" fontWeight="bold">₹230</Typography>
+                <Typography variant="h4" fontWeight="bold">Rs.230</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                   <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
                     +5%
@@ -423,10 +423,10 @@ const AdminDashboard = () => {
                 </Box>
                 <List disablePadding>
                   {[
-                    { name: "Butter Chicken", orders: 125, price: "₹320" },
-                    { name: "Veg Biryani", orders: 98, price: "₹280" },
-                    { name: "Masala Dosa", orders: 87, price: "₹150" },
-                    { name: "Paneer Tikka", orders: 76, price: "₹220" },
+                    { name: "Butter Chicken", orders: 125, price: "Rs.320" },
+                    { name: "Veg Biryani", orders: 98, price: "Rs.280" },
+                    { name: "Masala Dosa", orders: 87, price: "Rs.150" },
+                    { name: "Paneer Tikka", orders: 76, price: "Rs.220" },
                   ].map((item, index) => (
                     <ListItem 
                       key={index} 
@@ -488,7 +488,7 @@ const AdminDashboard = () => {
                         <TableCell>{`#ORD-${order.order_id}`}</TableCell>
                         <TableCell>{order.customer_name}</TableCell>
                         <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell>{`₹${order.total_amount}`}</TableCell>
+                        <TableCell>{`Rs.${order.total_amount}`}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
