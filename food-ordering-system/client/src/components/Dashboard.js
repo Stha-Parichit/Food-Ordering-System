@@ -34,6 +34,10 @@ const Dashboard = () => {
   const [activeDelivery, setActiveDelivery] = useState(null);
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
   const [deliveryAddressAnchorEl, setDeliveryAddressAnchorEl] = useState(null);
+  const [cartCount, setCartCount] = useState(0);
+  const [totalSpent, setTotalSpent] = useState(0);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
 
   // Food categories
   const categories = [
@@ -61,7 +65,7 @@ const Dashboard = () => {
     const fetchRecentOrders = async () => {
       try {
         const response = await axios.get(`/api/recent-orders`, {
-          params: { user_id: localStorage.getItem("userId") }
+          params: { userId: localStorage.getItem("user_Id") }
         });
         setRecentOrders(response.data);
       } catch (error) {
@@ -69,7 +73,26 @@ const Dashboard = () => {
       }
     };
 
+    const fetchDashboardStats = async () => {
+      try {
+        const userId = localStorage.getItem("user_Id");
+        if (!userId) return;
+
+        const [ordersResponse, loyaltyResponse] = await Promise.all([
+          axios.get(`/api/orders/stats`, { params: { user_id: userId } }),
+          axios.get(`/loyalty-points`, { params: { user_id: userId } })
+        ]);
+
+        setTotalSpent(ordersResponse.data.totalSpent || 0);
+        setTotalOrders(ordersResponse.data.totalOrders || 0);
+        setLoyaltyPoints(loyaltyResponse.data.points || 0);
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+      }
+    };
+
     fetchRecentOrders();
+    fetchDashboardStats();
 
     // Simulated data for other states
     setFavoriteItems([
@@ -87,6 +110,25 @@ const Dashboard = () => {
       driverName: "Alex",
       driverPhone: "+91 9876543210"
     });
+
+    const fetchCartCount = async () => {
+      try {
+        const userId = localStorage.getItem("user_id");
+        if (!userId) return;
+
+        const response = await axios.get(`http://localhost:5000/cart?user_id=${userId}`);
+        if (response.data.success && response.data.items) {
+          setCartCount(response.data.items.reduce((sum, item) => sum + item.quantity, 0)); // Sum up quantities
+        } else {
+          setCartCount(0); // Fallback to 0 if no items
+        }
+      } catch (error) {
+        console.error("Error fetching cart count:", error);
+        setCartCount(0); // Fallback to 0 on error
+      }
+    };
+
+    fetchCartCount();
   }, []);
 
   const handleProfileClick = (event) => {
@@ -194,7 +236,7 @@ const Dashboard = () => {
           </Box>
           
           {/* Search bar */}
-          <Box component="form" onSubmit={handleSearch} sx={{ 
+          {/* <Box component="form" onSubmit={handleSearch} sx={{ 
             display: 'flex',
             width: { xs: '100%', md: '40%' },
             position: 'relative',
@@ -218,7 +260,7 @@ const Dashboard = () => {
                 sx: { borderRadius: 2 }
               }}
             />
-          </Box>
+          </Box> */}
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={handleAddressClick}>
@@ -235,7 +277,7 @@ const Dashboard = () => {
             </IconButton>
             
             <IconButton onClick={() => navigate("/cart")}>
-              <Badge badgeContent={2} color="error">
+              <Badge badgeContent={cartCount} color="error">
                 <ShoppingCartIcon />
               </Badge>
             </IconButton>
@@ -250,7 +292,7 @@ const Dashboard = () => {
             }}
             onClick={handleProfileClick}
             >
-              <Avatar sx={{ backgroundColor: '#ff6384', width: 32, height: 32 }}>
+              <Avatar sx={{ backgroundColor: '#ff9800', width: 32, height: 32 }}>
                 {userEmail?.charAt(0).toUpperCase() || 'U'}
               </Avatar>
               <Typography variant="body2" sx={{ ml: 1, mr: 1, display: { xs: 'none', sm: 'block' } }}>
@@ -368,10 +410,10 @@ const Dashboard = () => {
         {/* Stats cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', height: '100%', background: 'linear-gradient(135deg, #FF6384 0%, #FF8E53 100%)' }}>
+            <Card sx={{ borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', height: '100%', background: 'linear-gradient(135deg,rgb(255, 161, 99) 0%, #FF8E53 100%)' }}>
               <CardContent sx={{ p: 3, color: 'white' }}>
                 <Typography variant="h6" gutterBottom>Total Spent</Typography>
-                <Typography variant="h4" fontWeight="bold">₹ 12,580</Typography>
+                <Typography variant="h4" fontWeight="bold">Rs. {totalSpent}</Typography>
                 <Typography variant="body2" sx={{ opacity: 0.8 }}>+18% from last month</Typography>
               </CardContent>
             </Card>
@@ -380,7 +422,7 @@ const Dashboard = () => {
             <Card sx={{ borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', height: '100%' }}>
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="h6" gutterBottom color="textSecondary">Total Orders</Typography>
-                <Typography variant="h4" fontWeight="bold">37</Typography>
+                <Typography variant="h4" fontWeight="bold">{totalOrders}</Typography>
                 <Typography variant="body2" color="success.main">+12% from last month</Typography>
               </CardContent>
             </Card>
@@ -392,12 +434,12 @@ const Dashboard = () => {
                   <Typography variant="h6" gutterBottom color="textSecondary">Loyalty Points</Typography>
                   <FavoriteIcon color="error" />
                 </Box>
-                <Typography variant="h4" fontWeight="bold">130</Typography>
+                <Typography variant="h4" fontWeight="bold">{loyaltyPoints}</Typography>
                 <Typography variant="body2">
                   {pointsToNextReward} more for 10% discount
                 </Typography>
                 <Box sx={{ mt: 1, width: '100%', height: 4, bgcolor: '#f0f0f0', borderRadius: 2 }}>
-                  <Box sx={{ width: `${(130/250)*100}%`, height: '100%', bgcolor: '#FF6384', borderRadius: 2 }} />
+                  <Box sx={{ width: `${(loyaltyPoints / 250) * 100}%`, height: '100%', bgcolor: '#FF6384', borderRadius: 2 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -509,7 +551,7 @@ const Dashboard = () => {
                         <TableCell>{order.order_id}</TableCell>
                         <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
                         {/* <TableCell>{order.restaurant_name || "N/A"}</TableCell> */}
-                        <TableCell>₹ {order.total_amount}</TableCell>
+                        <TableCell>Rs. {order.total_amount}</TableCell>
                         <TableCell>
                           <Rating value={order.rating || 0} size="small" readOnly />
                         </TableCell>
@@ -556,7 +598,7 @@ const Dashboard = () => {
                           <Typography variant="body2" color="textSecondary">{item.restaurant}</Typography>
                         </Box>
                         <Box>
-                          <Typography variant="body1" fontWeight="bold">₹ {item.price}</Typography>
+                          <Typography variant="body1" fontWeight="bold">Rs. {item.price}</Typography>
                           <Button 
                             size="small" 
                             variant="contained" 
@@ -614,7 +656,7 @@ const Dashboard = () => {
         </Box>
 
         {/* Footer */}
-        {/* <Box sx={{ mt: 6, p: 3, textAlign: 'center', bgcolor: '#f5f5f5', borderRadius: 2 }}>
+        {/* <Box sx={{ mt: 6, p: 3, textAlign: 'center', bgcolor: '#f5f5f5', borderRadius: 2 }}></Box>
           <Typography variant="body2" color="textSecondary">© 2025 YOO!!! Food Delivery. All Rights Reserved</Typography>
           <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
             24/7 Customer Support: +91 1800-123-4567 | help@yoofood.com

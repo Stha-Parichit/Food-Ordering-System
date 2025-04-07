@@ -48,7 +48,7 @@ const Sidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
   
   const mainMenuItems = [
     { text: 'Home', icon: <FaHome size={20} />, link: '/home' },
-    { text: 'Tutorials', icon: <FaUtensils size={20} />, link: '/view-tutorials' },
+    { text: 'Upload Tutorials', icon: <FaUtensils size={20} />, link: '/tutorial-upload' },
     { text: 'Categories', icon: <FaThList size={20} />, link: '/categories' },
     { text: 'Dashboard', icon: <FaChartBar size={20} />, link: '/dashboard' },
   ];
@@ -93,7 +93,7 @@ const Sidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
     },
     ...(location.pathname === itemLink && {
       backgroundColor: 'rgba(255,99,132,0.15)',
-      borderLeft: '4px solid #FF6384',
+      borderLeft: '4px solid #ff9800',
       paddingLeft: '12px',
     })
   });
@@ -124,7 +124,7 @@ const Sidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
           </Typography> */}
         </Box>
         {mobile && (
-          <IconButton onClick={toggleSidebar} sx={{ color: '#fff' }}>
+          <IconButton onClick={toggleSidebar} sx={{ color: '#ff9800' }}>
             <CloseIcon />
           </IconButton>
         )}
@@ -142,7 +142,7 @@ const Sidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
         position: 'relative'
       }}>
         <Avatar sx={{ 
-          bgcolor: '#FF6384', 
+          bgcolor: '#ff9800', 
           width: 44, 
           height: 44,
           border: '2px solid rgba(255,255,255,0.2)'
@@ -188,7 +188,7 @@ const Sidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
             onClick={mobile ? toggleSidebar : undefined}
             sx={listItemStyle(item.link)}
           >
-            <ListItemIcon sx={{ color: '#FF6384', minWidth: 40 }}>
+            <ListItemIcon sx={{ color: '#ff9800', minWidth: 40 }}>
               {item.icon}
             </ListItemIcon>
             <ListItemText primary={item.text} />
@@ -212,7 +212,7 @@ const Sidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
               onClick={item.submenu ? () => toggleSubMenu(item.text) : mobile ? toggleSidebar : undefined}
               sx={listItemStyle(item.link)}
             >
-              <ListItemIcon sx={{ color: '#FF6384', minWidth: 40 }}>
+              <ListItemIcon sx={{ color: '#ff9800', minWidth: 40 }}>
                 {item.icon}
               </ListItemIcon>
               <ListItemText primary={item.text} />
@@ -239,7 +239,7 @@ const Sidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
                       }}
                     >
                       {subItem.icon && (
-                        <ListItemIcon sx={{ color: 'rgba(255,99,132,0.7)', minWidth: 32 }}>
+                        <ListItemIcon sx={{ color: '#ff9800', minWidth: 32 }}>
                           {subItem.icon}
                         </ListItemIcon>
                       )}
@@ -275,7 +275,7 @@ const Sidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
             onClick={mobile ? toggleSidebar : undefined}
             sx={listItemStyle(item.link)}
           >
-            <ListItemIcon sx={{ color: '#FF6384', minWidth: 40 }}>
+            <ListItemIcon sx={{ color: '#ff9800', minWidth: 40 }}>
               {item.icon}
             </ListItemIcon>
             <ListItemText primary={item.text} />
@@ -287,7 +287,7 @@ const Sidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
         margin: '16px 16px 24px 16px', 
         padding: '16px', 
         borderRadius: '12px',
-        background: 'linear-gradient(45deg, rgba(255,99,132,0.8) 0%, rgba(255,99,132,0.4) 100%)',
+        background: 'linear-gradient(45deg, rgba(255, 179, 39, 0.8) 0%, rgba(255, 77, 0, 0.4) 100%)',
         boxShadow: '0 4px 12px rgba(255,99,132,0.3)',
         textAlign: 'center'
       }}>

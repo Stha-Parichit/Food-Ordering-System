@@ -6,16 +6,16 @@ const mysql = require('mysql2/promise');
 
 // Create a connection pool
 const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME || 'food_ordering',
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "food_ordering_system",
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
 });
 
-module.exports = pool;
+module.exports = { pool };
 
 // Initialize database tables
 async function initializeDatabase() {
@@ -30,8 +30,6 @@ async function initializeDatabase() {
         difficulty_level VARCHAR(20) NOT NULL,
         duration INT NOT NULL,
         video_url VARCHAR(255) NOT NULL,
-        file_size BIGINT NOT NULL,
-        file_type VARCHAR(50) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         views INT DEFAULT 0,
         likes INT DEFAULT 0
@@ -66,7 +64,7 @@ async function insertTutorial(tutorial) {
       // Insert tutorial record
       const [result] = await connection.execute(
         `INSERT INTO tutorials 
-        (title, description, category, difficulty_level, duration, video_url, file_size, file_type, created_at)
+        (title, description, category, difficulty_level, duration, video_url, created_at, views, likes)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           tutorial.title,
@@ -75,9 +73,9 @@ async function insertTutorial(tutorial) {
           tutorial.difficultyLevel,
           tutorial.duration,
           tutorial.videoUrl,
-          tutorial.fileSize,
-          tutorial.fileType,
-          tutorial.createdAt || new Date().toISOString()
+          new Date().toISOString(),
+          0, // Initial views count
+          0  // Initial likes count
         ]
       );
       
@@ -95,7 +93,20 @@ async function insertTutorial(tutorial) {
       
       await connection.commit();
       
-      return { id: tutorialId, ...tutorial };
+      // Return the complete tutorial object with all fields
+      return {
+        id: tutorialId,
+        title: tutorial.title,
+        description: tutorial.description,
+        category: tutorial.category,
+        difficulty_level: tutorial.difficultyLevel,
+        duration: tutorial.duration,
+        video_url: tutorial.videoUrl,
+        created_at: new Date().toISOString(),
+        views: 0,
+        likes: 0,
+        ingredients: tutorial.ingredients || []
+      };
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -405,6 +416,7 @@ initializeDatabase().catch(console.error);
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
         total_amount DECIMAL(10, 2) NOT NULL,
+        status VARCHAR(50) DEFAULT 'Order Placed', -- New field for order status
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
@@ -443,8 +455,13 @@ initializeDatabase().catch(console.error);
         id INT AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
         description TEXT NOT NULL,
+        category VARCHAR(50) NOT NULL,
+        difficulty_level VARCHAR(20) NOT NULL,
+        duration INT NOT NULL,
         video_url VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        views INT DEFAULT 0,
+        likes INT DEFAULT 0
       )
     `;
     await pool.execute(createTutorialsTableQuery);
@@ -462,6 +479,21 @@ initializeDatabase().catch(console.error);
     `;
     await pool.execute(createUserAdditionalInfoTableQuery);
     console.log("User additional info table ensured");
+
+    const createNotificationsTableQuery = `
+      CREATE TABLE IF NOT EXISTS notifications (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        order_id INT NOT NULL,
+        message TEXT NOT NULL,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+      )
+    `;
+    await pool.execute(createNotificationsTableQuery);
+    console.log("Notifications table ensured");
   } catch (error) {
     console.error("Error during database initialization:", error);
   }
@@ -519,6 +551,88 @@ const addFoodItem = async (foodName, description, details, imagePath, price, cat
   }
 };
 
+async function updateLoyaltyPoints(user_id, total_amount, used_points) {
+  const earned_points = Math.floor(total_amount / 1000); // Calculate points earned from total_amount
+
+  try {
+    // Check if the user already has loyalty points
+    const [existingPoints] = await pool.execute(
+      "SELECT points FROM loyalty_points WHERE user_id = ?",
+      [user_id]
+    );
+
+    if (existingPoints.length > 0) {
+      // Update existing points
+      const current_points = existingPoints[0].points;
+      const new_points = Math.max(current_points - used_points, 0) + earned_points;
+
+      await pool.execute(
+        "UPDATE loyalty_points SET points = ? WHERE user_id = ?",
+        [new_points, user_id]
+      );
+    } else {
+      // If no existing row, log a message and skip the insert
+      console.log(`No loyalty points record found for user_id: ${user_id}. Skipping update.`);
+    }
+  } catch (error) {
+    console.error("Error updating loyalty points:", error);
+    throw error;
+  }
+}
+
+async function addNotification(userId, orderId, message) {
+  try {
+    await pool.execute(
+      `INSERT INTO notifications (user_id, order_id, message) VALUES (?, ?, ?)`,
+      [userId, orderId, message]
+    );
+  } catch (error) {
+    console.error("Error adding notification:", error);
+    throw error;
+  }
+}
+
+async function getNotifications() {
+  try {
+    const [notifications] = await pool.execute(
+      `SELECT * FROM notifications WHERE is_read = FALSE ORDER BY created_at DESC`
+    );
+    return notifications;
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    throw error;
+  }
+}
+
+async function markNotificationAsRead(notificationId) {
+  try {
+    await pool.execute(
+      `UPDATE notifications SET is_read = TRUE WHERE id = ?`,
+      [notificationId]
+    );
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+    throw error;
+  }
+}
+
+async function fetchChefStats() {
+  try {
+    const statsQuery = `
+      SELECT 
+        COUNT(*) AS totalOrders, 
+        IFNULL(SUM(total_amount), 0) AS totalEarnings 
+      FROM orders
+      WHERE status IN ('Delivered', 'Cooking', 'Prepared for Delivery', 'Off for Delivery')
+    `;
+    const [stats] = await pool.execute(statsQuery);
+    return stats[0];
+  } catch (error) {
+    console.error("Error fetching chef stats:", error);
+    throw error;
+  }
+}
+
 // Export functions
 module.exports = {
   pool,
@@ -534,4 +648,9 @@ module.exports = {
   registerUser,
   loginUser,
   addFoodItem,
+  updateLoyaltyPoints,
+  addNotification,
+  getNotifications,
+  markNotificationAsRead,
+  fetchChefStats,
 };

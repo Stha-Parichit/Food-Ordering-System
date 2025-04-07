@@ -205,7 +205,70 @@ const FoodIcon = ({ category }) => {
   );
 };
 
-// Custom status component with enhanced styling
+// Delivery timeline component
+const DeliveryTimeline = ({ status = "Order Placed" }) => {
+  console.log("Current status:", status); // Log the status for debugging
+
+  const statusStages = [
+    "Order Placed",
+    "Cooking",
+    "Prepared for Delivery",
+    "Off for Delivery",
+    "Delivered",
+  ];
+
+  const getProgress = () => {
+    const currentStageIndex = statusStages.findIndex(
+      (stage) => stage.toLowerCase() === status.toLowerCase()
+    );
+    return currentStageIndex >= 0
+      ? ((currentStageIndex + 1) / statusStages.length) * 100
+      : 0; // Ensure progress is 0 if status is not found
+  };
+
+  return (
+    <Box sx={{ width: "100%", my: 1 }}>
+      <LinearProgress
+        variant="determinate"
+        value={getProgress()}
+        sx={{
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: "rgba(0,0,0,0.05)",
+          "& .MuiLinearProgress-bar": {
+            borderRadius: 3,
+            backgroundImage: "linear-gradient(to right, #FF9800, #FF5722)",
+          },
+        }}
+      />
+      <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
+        {statusStages.map((stage, index) => (
+          <Typography
+            key={stage}
+            variant="caption"
+            color={
+              getProgress() >= ((index + 1) / statusStages.length) * 100
+                ? "primary"
+                : "text.secondary"
+            }
+            sx={{
+              textAlign: "center",
+              width: `${100 / statusStages.length}%`,
+              opacity:
+                getProgress() >= ((index + 1) / statusStages.length) * 100
+                  ? 1
+                  : 0.5,
+            }}
+          >
+            {stage}
+          </Typography>
+        ))}
+      </Box>
+    </Box>
+  );
+};
+
+// Order status component
 const OrderStatus = ({ status }) => {
   const getStatusConfig = () => {
     switch (status?.toLowerCase()) {
@@ -215,16 +278,22 @@ const OrderStatus = ({ status }) => {
           background: "rgba(56, 142, 60, 0.12)",
           icon: <LocalShipping fontSize="small" sx={{ mr: 0.5 }} />
         };
-      case "in progress":
+      case "off for delivery":
         return { 
           color: "#0288D1", 
           background: "rgba(2, 136, 209, 0.12)",
           icon: <LocalShipping fontSize="small" sx={{ mr: 0.5 }} />
         };
-      case "preparing":
+      case "prepared for delivery":
         return { 
           color: "#FFA000", 
           background: "rgba(255, 160, 0, 0.12)",
+          icon: <LocalDining fontSize="small" sx={{ mr: 0.5 }} />
+        };
+      case "cooking":
+        return { 
+          color: "#FF6D00", 
+          background: "rgba(255, 109, 0, 0.12)",
           icon: <LocalDining fontSize="small" sx={{ mr: 0.5 }} />
         };
       case "cancelled":
@@ -264,8 +333,9 @@ const OrderStatus = ({ status }) => {
 
 // Star rating component
 const StarRating = ({ rating = 4.5 }) => {
-  const fullStars = Math.floor(rating);
-  const hasHalfStar = rating % 1 !== 0;
+  const validRating = Math.max(0, Math.min(Number(rating) || 0, 5));
+  const fullStars = Math.floor(validRating);
+  const hasHalfStar = validRating % 1 !== 0;
   const maxStars = 5;
 
   return (
@@ -280,52 +350,12 @@ const StarRating = ({ rating = 4.5 }) => {
         <StarBorder key={`empty-${i}`} sx={{ color: "#FFC107", fontSize: 16 }} />
       ))}
       <Typography variant="body2" sx={{ ml: 0.5, fontWeight: 600, color: "#FFA000" }}>
-        {rating.toFixed(1)}
+        {validRating.toFixed(1)}
       </Typography>
     </Box>
   );
 };
-
-// Delivery timeline component
-const DeliveryTimeline = ({ status = "delivered" }) => {
-  const getProgress = () => {
-    switch (status.toLowerCase()) {
-      case "delivered":
-        return 100;
-      case "in progress":
-        return 66;
-      case "preparing":
-        return 33;
-      default:
-        return 0;
-    }
-  };
-
-  return (
-    <Box sx={{ width: "100%", my: 1 }}>
-      <LinearProgress 
-        variant="determinate" 
-        value={getProgress()} 
-        sx={{ 
-          height: 6, 
-          borderRadius: 3,
-          backgroundColor: "rgba(0,0,0,0.05)",
-          "& .MuiLinearProgress-bar": {
-            borderRadius: 3,
-            backgroundImage: "linear-gradient(to right, #FF9800, #FF5722)"
-          }
-        }}
-      />
-      <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
-        <Typography variant="caption" color="text.secondary">Order Placed</Typography>
-        <Typography variant="caption" color="text.secondary">Preparing</Typography>
-        <Typography variant="caption" color="text.secondary">On the way</Typography>
-        <Typography variant="caption" color="text.secondary">Delivered</Typography>
-      </Box>
-    </Box>
-  );
-};
-
+      
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -346,19 +376,22 @@ const Orders = () => {
 
         const response = await axios.get(`http://localhost:5000/orders?user_id=${userId}`);
         
-        // Add some sample statuses for visualization
-        const ordersWithStatus = response.data.map((order, index) => {
-          const statuses = ["Delivered", "In Progress", "Preparing", "Cancelled"];
+        // Log the fetched orders for debugging
+        console.log("Fetched orders:", response.data);
+
+        // Use the status directly from the database
+        const ordersWithStatus = response.data.map((order) => {
           // Calculate total for each order from its items
           const total = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
           
-          return {
+          const updatedOrder = {
             ...order,
-            status: statuses[index % statuses.length],
-            restaurant: "Delicious Bites" + (index % 3 + 1),
-            rating: (3 + Math.random() * 2).toFixed(1),
             total: total // Add the calculated total
           };
+
+          // Log the status of each order
+          console.log(`Order ID: ${order.id}, Status: ${updatedOrder.status}`);
+          return updatedOrder;
         });
         
         setOrders(ordersWithStatus);

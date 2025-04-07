@@ -30,6 +30,7 @@ import {
   Skeleton,
   Snackbar,
   InputAdornment, ListItemIcon, Avatar, 
+  Autocomplete, TextField
 } from "@mui/material";
 import HomeIcon from "@mui/icons-material/Home";
 import CategoryIcon from "@mui/icons-material/Category";
@@ -41,6 +42,7 @@ import FacebookIcon from '@mui/icons-material/Facebook';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import YouTubeIcon from '@mui/icons-material/YouTube';
+import Badge from '@mui/material/Badge';
 
 import { styled, alpha } from "@mui/material/styles";
 import { useNavigate } from 'react-router-dom';
@@ -224,6 +226,8 @@ const Home = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [searchOptions, setSearchOptions] = useState([]);
+  const [cartCount, setCartCount] = useState(0);
 
   const userEmail = localStorage.getItem("userEmail");
 
@@ -403,7 +407,7 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
         
         // Fallback data in case API fails
         const fallbackData = Array(6).fill().map((_, i) => ({
-          name: `Delicious Recipe ${i+1}`,
+          name: `Delicious Food ${i+1}`,
           description: "A mouth-watering dish that will satisfy your cravings.",
           image_url: "/images/default-placeholder.png",
           rating: Math.floor(Math.random() * 2) + 3 + Math.random(),
@@ -416,6 +420,48 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
     };
 
     fetchFoodItems();
+  }, []);
+
+  useEffect(() => {
+    // Fetch search options (e.g., food item names)
+    const fetchSearchOptions = async () => {
+      try {
+        const response = await axios.get("http://localhost:5000/api/food-items");
+        const options = response.data.map(item => item.name);
+        setSearchOptions(options);
+      } catch (error) {
+        console.error("Error fetching search options:", error);
+      }
+    };
+    fetchSearchOptions();
+  }, []);
+
+  useEffect(() => {
+    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+    setCartCount(totalItems);
+    console.log("Cart Count:", totalItems); // Debugging cart count
+  }, []);
+
+  useEffect(() => {
+    const fetchCartCount = async () => {
+      try {
+        const userId = localStorage.getItem("user_id");
+        if (!userId) return;
+
+        const response = await axios.get(`http://localhost:5000/cart?user_id=${userId}`);
+        if (response.data.success && response.data.items) {
+          setCartCount(response.data.items.reduce((sum, item) => sum + item.quantity, 0)); // Sum up quantities
+        } else {
+          setCartCount(0); // Fallback to 0 if no items
+        }
+      } catch (error) {
+        console.error("Error fetching cart count:", error);
+        setCartCount(0); // Fallback to 0 on error
+      }
+    };
+
+    fetchCartCount();
   }, []);
 
   // const handleAddToCart = () => {
@@ -571,6 +617,22 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
                   <Button 
                     sx={{ 
                       color: "#333", 
+                      fontWeight: 500, 
+                      textTransform: 'none',
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                        transform: 'translateY(-2px)'
+                      },
+                      transition: 'transform 0.2s'
+                    }} 
+                    component="a" 
+                    href="/view-tutorials"
+                  >
+                    View Tutorials
+                  </Button>
+                  <Button 
+                    sx={{ 
+                      color: "#333", 
                       fontWeight: 500,
                       textTransform: 'none',
                       '&:hover': {
@@ -587,16 +649,31 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
                   
                 </Box>
                 
-                <SearchBar>
-                  <SearchIconWrapper>
-                    <SearchIcon />
-                  </SearchIconWrapper>
-                  <StyledInputBase
-                    placeholder="Search recipes…"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                {/* <Box sx={{ display: "flex", justifyContent:"center" ,alignItems: "center", mb: 3, ml: 2, transform: "translateY(10px)" }}>
+                  <Autocomplete
+                    freeSolo
+                    options={searchQuery.length > 0 ? searchOptions.filter(option => 
+                      option.toLowerCase().includes(searchQuery.toLowerCase())
+                    ) : []}
+                    inputValue={searchQuery}
+                    onInputChange={(event, value) => setSearchQuery(value)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Search for food items..."
+                        variant="outlined"
+                        size="small"
+                        sx={{
+                          width: "300px",
+                          "& .MuiOutlinedInput-root": {
+                            borderRadius: 24,
+                            backgroundColor: "white",
+                          },
+                        }}
+                      />
+                    )}
                   />
-                </SearchBar>
+                </Box> */}
               </>
             )}
             
@@ -605,7 +682,11 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
   <>
     <Button 
       variant="text"
-      startIcon={<ShoppingCartIcon href="/cart"/>}
+      startIcon={
+        <Badge badgeContent={cartCount} color="error">
+          <ShoppingCartIcon />
+        </Badge>
+      }
       sx={{ 
         mr: 1,
         color: "#333",
@@ -655,7 +736,9 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
                   onClick={() => navigate("/cart")} 
                   sx={{ display: 'flex', alignItems: 'center' }}
                 >
-                  <ShoppingCartIcon />
+                  <Badge badgeContent={cartCount} color="error">
+                    <ShoppingCartIcon />
+                  </Badge>
                 </IconButton>
               )}
             </Box>
@@ -851,7 +934,7 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
                       <FastfoodIcon sx={{ mr: 1 }} />
                       <Box>
                         <Typography variant="h6" sx={{ lineHeight: 1, fontWeight: 600 }}>100+</Typography>
-                        <Typography variant="caption">Recipes</Typography>
+                        <Typography variant="caption">Food Items</Typography>
                       </Box>
                     </Box>
                   </Box>
