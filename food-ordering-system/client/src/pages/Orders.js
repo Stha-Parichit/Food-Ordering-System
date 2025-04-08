@@ -50,6 +50,7 @@ import {
   Room
 } from "@mui/icons-material";
 import axios from "axios";
+import Sidebar from '../components/Sidebar';
 
 // Custom theme
 const theme = createTheme({
@@ -361,8 +362,13 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Sidebar state
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate(); // Initialize navigation
+
+  const toggleSidebar = () => {
+    setSidebarOpen((prev) => !prev); // Toggle sidebar
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -555,441 +561,448 @@ const Orders = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <Box sx={{ 
-        backgroundColor: theme.palette.background.default,
-        minHeight: "100vh",
-        pb: 6
-      }}>
-        <Container maxWidth="lg" sx={{ py: 4 }}>
-          {/* Page Header with gradient background */}
-          <Paper
-            component={motion.div}
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            elevation={0}
-            sx={{
-              background: "linear-gradient(135deg, #FF7A45 0%, #FF4D00 100%)",
-              borderRadius: 4,
-              mb: 4,
-              p: 4,
-              position: "relative",
-              overflow: "hidden"
-            }}
-          >
-            <Box sx={{
-              position: "absolute",
-              top: 0,
-              right: 0,
-              bottom: 0,
-              left: 0,
-              backgroundImage: "radial-gradient(circle at 20% 90%, rgba(255,255,255,0.12) 0%, transparent 20%), radial-gradient(circle at 90% 10%, rgba(255,255,255,0.12) 0%, transparent 20%)",
-              zIndex: 0
-            }} />
-            
-            <Box sx={{ position: "relative", zIndex: 1 }}>
-              <Typography
-                variant="h4"
-                sx={{
-                  color: "white",
-                  textShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                  mb: 1
-                }}
-              >
-                Your Order History
-              </Typography>
-              <Typography variant="subtitle1" sx={{ color: "rgba(255,255,255,0.9)" }}>
-                Track your culinary journey and reorder your favorites with ease
-              </Typography>
-            </Box>
-          </Paper>
-
-          {/* Search and Filter Bar */}
-          <Paper
-            component={motion.div}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            elevation={2}
-            sx={{
-              p: 2,
-              mb: 3,
-              borderRadius: 3,
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 2
-            }}
-          >
-            <TextField
-              placeholder="Search orders, restaurants, or dishes..."
-              variant="outlined"
-              size="small"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+      <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: theme.palette.background.default }}>
+        <Sidebar 
+          sidebarOpen={sidebarOpen} 
+          toggleSidebar={toggleSidebar} 
+          handleLogout={() => {
+            localStorage.removeItem("token");
+            localStorage.removeItem("userEmail");
+            navigate("/login");
+          }} 
+        />
+        <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 3 }, width: { sm: `calc(100% - 240px)` } }}>
+          <Container maxWidth="lg" sx={{ py: 4 }}>
+            {/* Page Header with gradient background */}
+            <Paper
+              component={motion.div}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              elevation={0}
               sx={{
-                flexGrow: 1,
-                minWidth: { xs: "100%", sm: "auto" },
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: 3,
-                  backgroundColor: "rgba(0,0,0,0.02)"
-                }
+                background: "linear-gradient(135deg, #FF7A45 0%, #FF4D00 100%)",
+                borderRadius: 4,
+                mb: 4,
+                p: 4,
+                position: "relative",
+                overflow: "hidden"
               }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search color="action" />
-                  </InputAdornment>
-                )
-              }}
-            />
-            
-            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
-                Filter:
-              </Typography>
-              {["All", "Delivered", "In Progress", "Preparing", "Cancelled"].map((status) => (
-                <Chip
-                  key={status}
-                  label={status}
-                  clickable
-                  variant={filter.toLowerCase() === status.toLowerCase() ? "filled" : "outlined"}
-                  color={filter.toLowerCase() === status.toLowerCase() ? "primary" : "default"}
-                  size="small"
-                  onClick={() => setFilter(status.toLowerCase())}
-                  sx={{ 
-                    fontWeight: 500,
-                    borderRadius: 3,
-                    px: 0.5
+            >
+              <Box sx={{
+                position: "absolute",
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+                backgroundImage: "radial-gradient(circle at 20% 90%, rgba(255,255,255,0.12) 0%, transparent 20%), radial-gradient(circle at 90% 10%, rgba(255,255,255,0.12) 0%, transparent 20%)",
+                zIndex: 0
+              }} />
+              
+              <Box sx={{ position: "relative", zIndex: 1 }}>
+                <Typography
+                  variant="h4"
+                  sx={{
+                    color: "white",
+                    textShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                    mb: 1
                   }}
-                />
-              ))}
-            </Box>
-          </Paper>
+                >
+                  Your Order History
+                </Typography>
+                <Typography variant="subtitle1" sx={{ color: "rgba(255,255,255,0.9)" }}>
+                  Track your culinary journey and reorder your favorites with ease
+                </Typography>
+              </Box>
+            </Paper>
 
-          {filteredOrders.length === 0 ? (
-            <Card 
+            {/* Search and Filter Bar */}
+            <Paper
               component={motion.div}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              elevation={3}
-              sx={{ 
-                p: 5, 
-                textAlign: "center",
-                borderRadius: 4,
-                background: "linear-gradient(to bottom, white, #f9f9f9)"
+              transition={{ delay: 0.1 }}
+              elevation={2}
+              sx={{
+                p: 2,
+                mb: 3,
+                borderRadius: 3,
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 2
               }}
             >
-              <Box sx={{ 
-                width: 120, 
-                height: 120, 
-                borderRadius: "50%", 
-                backgroundColor: "rgba(255, 77, 0, 0.1)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                margin: "0 auto 24px"
-              }}>
-                <RestaurantMenu sx={{ fontSize: 60, color: theme.palette.primary.main }} />
-              </Box>
-              <Typography variant="h5" gutterBottom sx={{ fontWeight: 700 }}>
-                {searchTerm || filter !== "all" 
-                  ? "No matching orders found" 
-                  : "You haven't placed any orders yet"}
-              </Typography>
-              <Typography variant="body1" color="text.secondary" paragraph sx={{ maxWidth: 500, mx: "auto", mb: 4 }}>
-                {searchTerm || filter !== "all" 
-                  ? "Try changing your search terms or filters to find what you're looking for." 
-                  : "Your culinary journey is waiting to begin! Browse our menu and discover delicious meals crafted just for you."}
-              </Typography>
-              <Button 
-                variant="contained" 
-                size="large"
-                sx={{ 
-                  px: 4,
-                  py: 1.5,
-                  fontSize: "1rem",
-                  backgroundImage: "linear-gradient(135deg, #FF7A45 0%, #FF4D00 100%)",
+              <TextField
+                placeholder="Search orders, restaurants, or dishes..."
+                variant="outlined"
+                size="small"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                sx={{
+                  flexGrow: 1,
+                  minWidth: { xs: "100%", sm: "auto" },
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 3,
+                    backgroundColor: "rgba(0,0,0,0.02)"
+                  }
                 }}
-                onClick={() => navigate("/")}
-              >
-                Explore Menu
-              </Button>
-            </Card>
-          ) : (
-            <Stack spacing={3}>
-              {filteredOrders.map((order, index) => (
-                <Card 
-                  component={motion.div}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: index * 0.1 + 0.2 }}
-                  key={order.id}
-                  elevation={2}
-                  sx={{ overflow: "visible" }}
-                >
-                  {/* Order header with restaurant info */}
-                  <Box 
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search color="action" />
+                    </InputAdornment>
+                  )
+                }}
+              />
+              
+              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                  Filter:
+                </Typography>
+                {["All", "Delivered", "In Progress", "Preparing", "Cancelled"].map((status) => (
+                  <Chip
+                    key={status}
+                    label={status}
+                    clickable
+                    variant={filter.toLowerCase() === status.toLowerCase() ? "filled" : "outlined"}
+                    color={filter.toLowerCase() === status.toLowerCase() ? "primary" : "default"}
+                    size="small"
+                    onClick={() => setFilter(status.toLowerCase())}
                     sx={{ 
-                      p: 2.5, 
-                      background: "linear-gradient(to right, #f9f9f9, #ffffff)",
-                      borderBottom: "1px solid rgba(0,0,0,0.06)",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      gap: 1
+                      fontWeight: 500,
+                      borderRadius: 3,
+                      px: 0.5
                     }}
+                  />
+                ))}
+              </Box>
+            </Paper>
+
+            {filteredOrders.length === 0 ? (
+              <Card 
+                component={motion.div}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                elevation={3}
+                sx={{ 
+                  p: 5, 
+                  textAlign: "center",
+                  borderRadius: 4,
+                  background: "linear-gradient(to bottom, white, #f9f9f9)"
+                }}
+              >
+                <Box sx={{ 
+                  width: 120, 
+                  height: 120, 
+                  borderRadius: "50%", 
+                  backgroundColor: "rgba(255, 77, 0, 0.1)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 24px"
+                }}>
+                  <RestaurantMenu sx={{ fontSize: 60, color: theme.palette.primary.main }} />
+                </Box>
+                <Typography variant="h5" gutterBottom sx={{ fontWeight: 700 }}>
+                  {searchTerm || filter !== "all" 
+                    ? "No matching orders found" 
+                    : "You haven't placed any orders yet"}
+                </Typography>
+                <Typography variant="body1" color="text.secondary" paragraph sx={{ maxWidth: 500, mx: "auto", mb: 4 }}>
+                  {searchTerm || filter !== "all" 
+                    ? "Try changing your search terms or filters to find what you're looking for." 
+                    : "Your culinary journey is waiting to begin! Browse our menu and discover delicious meals crafted just for you."}
+                </Typography>
+                <Button 
+                  variant="contained" 
+                  size="large"
+                  sx={{ 
+                    px: 4,
+                    py: 1.5,
+                    fontSize: "1rem",
+                    backgroundImage: "linear-gradient(135deg, #FF7A45 0%, #FF4D00 100%)",
+                  }}
+                  onClick={() => navigate("/")}
+                >
+                  Explore Menu
+                </Button>
+              </Card>
+            ) : (
+              <Stack spacing={3}>
+                {filteredOrders.map((order, index) => (
+                  <Card 
+                    component={motion.div}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: index * 0.1 + 0.2 }}
+                    key={order.id}
+                    elevation={2}
+                    sx={{ overflow: "visible" }}
                   >
-                    <Box sx={{ display: "flex", alignItems: "center" }}>
-                      <Avatar 
-                        sx={{ 
-                          bgcolor: "primary.light",
-                          width: 40,
-                          height: 40,
-                          mr: 2,
-                          boxShadow: "0 4px 8px rgba(255, 77, 0, 0.2)"
-                        }}
-                      >
-                        <LocalDining />
-                      </Avatar>
-                      
-                      <Box>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-                          <Typography variant="h6" sx={{ fontSize: "1.1rem" }}>
-                            {order.restaurant}
-                          </Typography>
-                          <StarRating rating={parseFloat(order.rating)} />
-                          <Tooltip title="Add to favorites">
-                            <IconButton size="small" sx={{ color: "#FF7A45", ml: 1 }}>
-                              <FavoriteBorder fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <Chip 
-                            icon={<Room sx={{ fontSize: "0.875rem !important" }} />}
-                            label="2.5 km away" 
-                            size="small" 
-                            sx={{ 
-                              height: 20, 
-                              fontSize: "0.7rem", 
-                              bgcolor: "rgba(0,0,0,0.04)",
-                              color: "text.secondary"
-                            }} 
-                          />
-                          <Box 
-                            component="span" 
-                            sx={{ 
-                              width: 4, 
-                              height: 4, 
-                              borderRadius: "50%", 
-                              bgcolor: "text.disabled", 
-                              display: "inline-block" 
-                            }}
-                          />
-                          <Typography variant="caption" color="text.secondary">
-                            Order #{order.id}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-                    
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    {/* Order header with restaurant info */}
+                    <Box 
+                      sx={{ 
+                        p: 2.5, 
+                        background: "linear-gradient(to right, #f9f9f9, #ffffff)",
+                        borderBottom: "1px solid rgba(0,0,0,0.06)",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: 1
+                      }}
+                    >
                       <Box sx={{ display: "flex", alignItems: "center" }}>
-                        <AccessTime fontSize="small" sx={{ color: "text.secondary", mr: 0.5 }} />
-                        <Typography variant="caption" color="text.secondary">
-                          {new Date(order.created_at).toLocaleDateString()} at {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </Typography>
-                      </Box>
-                      <OrderStatus status={order.status} />
-                    </Box>
-                  </Box>
-
-                  {/* Delivery timeline */}
-                  <Box sx={{ px: 3, pt: 2 }}>
-                    <DeliveryTimeline status={order.status} />
-                  </Box>
-
-                  {/* Order items */}
-                  <CardContent sx={{ p: 0 }}>
-                    <Box sx={{ pt: 1 }}>
-                      {order.items.map((item, idx) => (
-                        <React.Fragment key={`${item.food_id}-${idx}`}>
-                          <Box sx={{ 
-                            display: "flex", 
-                            p: 2.5,
-                            backgroundColor: idx % 2 === 0 ? "rgba(0,0,0,0.01)" : "transparent",
-                            transition: "background-color 0.3s",
-                            "&:hover": {
-                              backgroundColor: "rgba(255, 77, 0, 0.04)"
-                            }
-                          }}>
-                            <Box 
+                        <Avatar 
+                          sx={{ 
+                            bgcolor: "primary.light",
+                            width: 40,
+                            height: 40,
+                            mr: 2,
+                            boxShadow: "0 4px 8px rgba(255, 77, 0, 0.2)"
+                          }}
+                        >
+                          <LocalDining />
+                        </Avatar>
+                        
+                        <Box>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                            <Typography variant="h6" sx={{ fontSize: "1.1rem" }}>
+                              {order.restaurant}
+                            </Typography>
+                            <StarRating rating={parseFloat(order.rating)} />
+                            <Tooltip title="Add to favorites">
+                              <IconButton size="small" sx={{ color: "#FF7A45", ml: 1 }}>
+                                <FavoriteBorder fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Chip 
+                              icon={<Room sx={{ fontSize: "0.875rem !important" }} />}
+                              label="2.5 km away" 
+                              size="small" 
                               sx={{ 
-                                position: "relative",
-                                mr: 2
+                                height: 20, 
+                                fontSize: "0.7rem", 
+                                bgcolor: "rgba(0,0,0,0.04)",
+                                color: "text.secondary"
+                              }} 
+                            />
+                            <Box 
+                              component="span" 
+                              sx={{ 
+                                width: 4, 
+                                height: 4, 
+                                borderRadius: "50%", 
+                                bgcolor: "text.disabled", 
+                                display: "inline-block" 
                               }}
-                            >
-                              <Avatar 
-                                src={item.image_url} 
-                                alt={item.food_name}
-                                variant="rounded"
-                                sx={{ 
-                                  width: 80, 
-                                  height: 80, 
-                                  borderRadius: 3,
-                                  boxShadow: "0 4px 12px rgba(0,0,0,0.06)"
-                                }}
-                              />
-                              <Box 
-                                sx={{ 
-                                  position: "absolute", 
-                                  bottom: -10, 
-                                  left: -10, 
-                                  backgroundColor: "primary.main", 
-                                  color: "white",
-                                  width: 26,
-                                  height: 26,
-                                  borderRadius: "50%",
-                                  display: "flex",
-                                  justifyContent: "center",
-                                  alignItems: "center",
-                                  boxShadow: "0 2px 8px rgba(255, 77, 0, 0.3)",
-                                  fontWeight: "bold",
-                                  fontSize: "0.75rem"
-                                }}
-                              >
-                                {item.quantity}x
-                              </Box>
-                            </Box>
-                            
-                            <Box sx={{ flexGrow: 1 }}>
-                              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                  <Typography variant="subtitle1" fontWeight={600}>
-                                    {item.food_name}
-                                  </Typography>
-                                  <FoodIcon category={idx % 5 === 0 ? "pizza" : idx % 5 === 1 ? "burger" : idx % 5 === 2 ? "pasta" : idx % 5 === 3 ? "dessert" : "drink"} />
-                                </Box>
-                                <Typography 
-                                  variant="subtitle1" 
-                                  fontWeight={700}
-                                  sx={{ 
-                                    color: "primary.main",
-                                  }}
-                                >
-                                  Rs.{(Number(item.price) || 0).toFixed(2)}
-                                </Typography>
-                              </Box>
-                              
-                              {/* Display customizations */}
-                              {formatCustomization(item.customization) && (
-                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 1 }}>
-                                  {formatCustomization(item.customization).map((customization, cidx) => (
-                                    <Chip 
-                                    key={cidx}
-                                    label={customization}
-                                    size="small"
-                                    sx={{ 
-                                      height: 20,
-                                      fontSize: "0.6rem",
-                                      backgroundColor: "rgba(0,0,0,0.04)",
-                                      color: "text.secondary"
-                                    }}
-                                  />
-                                ))}
-                              </Box>
-                            )}
+                            />
+                            <Typography variant="caption" color="text.secondary">
+                              Order #{order.id}
+                            </Typography>
                           </Box>
                         </Box>
-                        {idx < order.items.length - 1 && (
-                          <Divider variant="middle" sx={{ opacity: 0.6 }} />
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </Box>
-                </CardContent>
+                      </Box>
+                      
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                          <AccessTime fontSize="small" sx={{ color: "text.secondary", mr: 0.5 }} />
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(order.created_at).toLocaleDateString()} at {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </Typography>
+                        </Box>
+                        <OrderStatus status={order.status} />
+                      </Box>
+                    </Box>
 
-                {/* Order footer with total and actions */}
-                <Box 
-                  sx={{ 
-                    display: "flex", 
-                    justifyContent: "space-between", 
-                    alignItems: "center",
-                    p: 2.5,
-                    backgroundColor: "rgba(0,0,0,0.02)",
-                    borderTop: "1px solid rgba(0,0,0,0.06)",
-                    flexWrap: "wrap",
-                    gap: 2
-                  }}
-                >
-                  <Box>
-                    <Typography variant="h6" sx={{ display: "flex", alignItems: "center" }}>
-                      <Receipt sx={{ mr: 1, color: "primary.main" }} />
-                      Total: <Box component="span" sx={{ ml: 1, color: "primary.main" }}>Rs.{order.total.toFixed(2)}</Box>
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Incl. delivery fee and taxes
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ display: "flex", gap: 2 }}>
-                    <Button 
-                      variant="outlined" 
-                      size={isMobile ? "small" : "medium"}
-                      color="primary"
-                      startIcon={<Info />}
-                      sx={{ borderRadius: 30 }}
-                    >
-                      Order Details
-                    </Button>
+                    {/* Delivery timeline */}
+                    <Box sx={{ px: 3, pt: 2 }}>
+                      <DeliveryTimeline status={order.status} />
+                    </Box>
+
+                    {/* Order items */}
+                    <CardContent sx={{ p: 0 }}>
+                      <Box sx={{ pt: 1 }}>
+                        {order.items.map((item, idx) => (
+                          <React.Fragment key={`${item.food_id}-${idx}`}>
+                            <Box sx={{ 
+                              display: "flex", 
+                              p: 2.5,
+                              backgroundColor: idx % 2 === 0 ? "rgba(0,0,0,0.01)" : "transparent",
+                              transition: "background-color 0.3s",
+                              "&:hover": {
+                                backgroundColor: "rgba(255, 77, 0, 0.04)"
+                              }
+                            }}>
+                              <Box 
+                                sx={{ 
+                                  position: "relative",
+                                  mr: 2
+                                }}
+                              >
+                                <Avatar 
+                                  src={item.image_url} 
+                                  alt={item.food_name}
+                                  variant="rounded"
+                                  sx={{ 
+                                    width: 80, 
+                                    height: 80, 
+                                    borderRadius: 3,
+                                    boxShadow: "0 4px 12px rgba(0,0,0,0.06)"
+                                  }}
+                                />
+                                <Box 
+                                  sx={{ 
+                                    position: "absolute", 
+                                    bottom: -10, 
+                                    left: -10, 
+                                    backgroundColor: "primary.main", 
+                                    color: "white",
+                                    width: 26,
+                                    height: 26,
+                                    borderRadius: "50%",
+                                    display: "flex",
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                    boxShadow: "0 2px 8px rgba(255, 77, 0, 0.3)",
+                                    fontWeight: "bold",
+                                    fontSize: "0.75rem"
+                                  }}
+                                >
+                                  {item.quantity}x
+                                </Box>
+                              </Box>
+                              
+                              <Box sx={{ flexGrow: 1 }}>
+                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                    <Typography variant="subtitle1" fontWeight={600}>
+                                      {item.food_name}
+                                    </Typography>
+                                    <FoodIcon category={idx % 5 === 0 ? "pizza" : idx % 5 === 1 ? "burger" : idx % 5 === 2 ? "pasta" : idx % 5 === 3 ? "dessert" : "drink"} />
+                                  </Box>
+                                  <Typography 
+                                    variant="subtitle1" 
+                                    fontWeight={700}
+                                    sx={{ 
+                                      color: "primary.main",
+                                    }}
+                                  >
+                                    Rs.{(Number(item.price) || 0).toFixed(2)}
+                                  </Typography>
+                                </Box>
+                                
+                                {/* Display customizations */}
+                                {formatCustomization(item.customization) && (
+                                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 1 }}>
+                                    {formatCustomization(item.customization).map((customization, cidx) => (
+                                      <Chip 
+                                      key={cidx}
+                                      label={customization}
+                                      size="small"
+                                      sx={{ 
+                                        height: 20,
+                                        fontSize: "0.6rem",
+                                        backgroundColor: "rgba(0,0,0,0.04)",
+                                        color: "text.secondary"
+                                      }}
+                                    />
+                                  ))}
+                                </Box>
+                              )}
+                            </Box>
+                          </Box>
+                          {idx < order.items.length - 1 && (
+                            <Divider variant="middle" sx={{ opacity: 0.6 }} />
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </Box>
+                  </CardContent>
+
+                  {/* Order footer with total and actions */}
+                  <Box 
+                    sx={{ 
+                      display: "flex", 
+                      justifyContent: "space-between", 
+                      alignItems: "center",
+                      p: 2.5,
+                      backgroundColor: "rgba(0,0,0,0.02)",
+                      borderTop: "1px solid rgba(0,0,0,0.06)",
+                      flexWrap: "wrap",
+                      gap: 2
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="h6" sx={{ display: "flex", alignItems: "center" }}>
+                        <Receipt sx={{ mr: 1, color: "primary.main" }} />
+                        Total: <Box component="span" sx={{ ml: 1, color: "primary.main" }}>Rs.{order.total.toFixed(2)}</Box>
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Incl. delivery fee and taxes
+                      </Typography>
+                    </Box>
                     
-                    <Button 
-                      variant="contained" 
-                      size={isMobile ? "small" : "medium"}
-                      color="primary"
-                      startIcon={<Repeat />}
-                      sx={{ 
-                        borderRadius: 30,
-                        backgroundImage: "linear-gradient(to right, #FF7A45, #FF4D00)"
-                      }}
-                      onClick={() => reorderItems(order)}
-                    >
-                      Reorder
-                    </Button>
+                    <Box sx={{ display: "flex", gap: 2 }}>
+                      <Button 
+                        variant="outlined" 
+                        size={isMobile ? "small" : "medium"}
+                        color="primary"
+                        startIcon={<Info />}
+                        sx={{ borderRadius: 30 }}
+                      >
+                        Order Details
+                      </Button>
+                      
+                      <Button 
+                        variant="contained" 
+                        size={isMobile ? "small" : "medium"}
+                        color="primary"
+                        startIcon={<Repeat />}
+                        sx={{ 
+                          borderRadius: 30,
+                          backgroundImage: "linear-gradient(to right, #FF7A45, #FF4D00)"
+                        }}
+                        onClick={() => reorderItems(order)}
+                      >
+                        Reorder
+                      </Button>
+                    </Box>
                   </Box>
-                </Box>
-              </Card>
-            ))}
-          </Stack>
-        )}
+                </Card>
+              ))}
+            </Stack>
+          )}
 
-        {/* Load more button */}
-        {filteredOrders.length > 0 && (
-          <Box 
-            sx={{ 
-              display: "flex", 
-              justifyContent: "center", 
-              mt: 4 
-            }}
-          >
-            <Button 
-              variant="outlined"
+          {/* Load more button */}
+          {filteredOrders.length > 0 && (
+            <Box 
               sx={{ 
-                py: 1.2,
-                px: 4,
-                borderRadius: 30,
-                borderWidth: 2,
-                "&:hover": {
-                  borderWidth: 2
-                }
+                display: "flex", 
+                justifyContent: "center", 
+                mt: 4 
               }}
             >
-              Load More Orders
-            </Button>
-          </Box>
-        )}
-      </Container>
+              <Button 
+                variant="outlined"
+                sx={{ 
+                  py: 1.2,
+                  px: 4,
+                  borderRadius: 30,
+                  borderWidth: 2,
+                  "&:hover": {
+                    borderWidth: 2
+                  }
+                }}
+              >
+                Load More Orders
+              </Button>
+            </Box>
+          )}
+        </Container>
+      </Box>
     </Box>
   </ThemeProvider>
 );
