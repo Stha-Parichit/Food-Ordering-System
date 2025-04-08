@@ -901,11 +901,14 @@ app.post("/orders", async (req, res) => {
 });
 
 app.post("/process-payment", async (req, res) => {
-  const { user_id, total_amount } = req.body;
+  const { user_id, total_amount, selectedCharity } = req.body;
 
   if (!user_id || !total_amount) {
     return res.status(400).json({ message: "User ID and total amount are required." });
   }
+
+  // Log charity details for debugging
+  console.log("Received charity details:", selectedCharity);
 
   const connection = await db.pool.getConnection();
 
@@ -918,7 +921,7 @@ app.post("/process-payment", async (req, res) => {
       INSERT INTO orders (user_id, total_amount)
       VALUES (?, ?)
     `;
-    const [orderResult] = await connection.execute(insertOrderQuery, [user_id, total_amount]);
+    const [orderResult] = await connection.execute(insertOrderQuery, [user_id, parseFloat(total_amount)]);
     const orderId = orderResult.insertId;
 
     // Fetch cart items
@@ -993,6 +996,11 @@ app.post("/process-payment", async (req, res) => {
 
     // Update loyalty points
     await db.updateLoyaltyPoints(user_id, total_amount, 0);
+
+    // Insert charity record if applicable
+    if (selectedCharity?.title && selectedCharity?.amount > 0) {
+      await db.addCharityRecord(user_id, selectedCharity.title, selectedCharity.amount);
+    }
 
     // Commit the transaction
     await connection.query("COMMIT");

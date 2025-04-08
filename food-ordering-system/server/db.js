@@ -46,6 +46,19 @@ async function initializeDatabase() {
       )
     `);
 
+    const createCharityTableQuery = `
+      CREATE TABLE IF NOT EXISTS charity (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        charity_name VARCHAR(255) NOT NULL,
+        amount DECIMAL(10, 2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `;
+    await pool.execute(createCharityTableQuery);
+    console.log("Charity table ensured");
+
     console.log('Database tables initialized');
   } catch (error) {
     console.error('Error initializing database:', error);
@@ -747,6 +760,19 @@ async function deleteAddress(id) {
   }
 }
 
+async function addCharityRecord(userId, charityName, amount) {
+  try {
+    await pool.execute(
+      `INSERT INTO charity (user_id, charity_name, amount) VALUES (?, ?, ?)`,
+      [userId, charityName, amount]
+    );
+    console.log("Charity record added successfully");
+  } catch (error) {
+    console.error("Error adding charity record:", error);
+    throw error;
+  }
+}
+
 // Export functions
 module.exports = {
   pool,
@@ -771,4 +797,5 @@ module.exports = {
   addAddress,
   updateAddress,
   deleteAddress,
+  addCharityRecord,
 };

@@ -401,9 +401,18 @@ useEffect(() => {
   
     try {
       const userId = localStorage.getItem("user_id");
+      const selectedCharity = JSON.parse(localStorage.getItem("selectedCharity"));
+
+      // Ensure total_amount is passed as a number
+      const totalAmount = parseFloat(orderDetails.total);
+
       const response = await axios.post(`${apiUrl}/process-payment`, {
         user_id: userId,
-        total_amount: orderDetails.total,
+        total_amount: totalAmount, // Pass total_amount as a number
+        selectedCharity: {
+          title: selectedCharity?.title || null, // Send charity name
+          amount: selectedCharity?.amount ? parseFloat(selectedCharity.amount.replace('Rs. ', '')) : 0, // Send charity amount
+        },
       });
   
       if (response.data.message === "Order placed successfully") {
