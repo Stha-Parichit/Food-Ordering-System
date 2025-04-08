@@ -159,6 +159,24 @@ const CategoriesPage = () => {
     fetchCartItems();
   }, [cartDrawerOpen]); // Refetch cart items when the drawer is toggled
 
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      try {
+        const userId = localStorage.getItem("user_id");
+        if (!userId) return;
+  
+        const response = await axios.get(`http://localhost:5000/api/favorites?user_id=${userId}`);
+        if (response.data.success) {
+          setFavorites(response.data.favorites.map((fav) => fav.food_id));
+        }
+      } catch (error) {
+        console.error("Error fetching favorites:", error);
+      }
+    };
+  
+    fetchFavorites();
+  }, []);
+
   // Item Handling
   const handleCategoryChange = (category) => {
     setSelectedCategory(category === selectedCategory ? '' : category);
@@ -330,23 +348,59 @@ const CategoriesPage = () => {
   };
 
   // Favorite Management
-  const toggleFavorite = (itemId) => {
-    if (favorites.includes(itemId)) {
-      setFavorites(favorites.filter(id => id !== itemId));
+  const toggleFavorite = async (itemId) => {
+    try {
+      const userId = localStorage.getItem("user_id");
+      if (!userId) {
+        setNotification({
+          open: true,
+          message: "Please log in to manage favorites.",
+          severity: "warning",
+        });
+        return;
+      }
+  
+      const isCurrentlyFavorite = favorites.includes(itemId);
+      const endpoint = isCurrentlyFavorite
+        ? `http://localhost:5000/api/favorites/remove`
+        : `http://localhost:5000/api/favorites/add`;
+  
+      const response = await axios.post(endpoint, { user_id: userId, food_id: itemId });
+  
+      if (response.data.success) {
+        if (isCurrentlyFavorite) {
+          setFavorites(favorites.filter((id) => id !== itemId));
+          setNotification({
+            open: true,
+            message: "Removed from favorites",
+            severity: "info",
+          });
+        } else {
+          setFavorites([...favorites, itemId]);
+          setNotification({
+            open: true,
+            message: "Added to favorites!",
+            severity: "success",
+          });
+        }
+      } else {
+        console.error("Failed to update favorites:", response.data.message);
+        setNotification({
+          open: true,
+          message: "Failed to update favorites. Please try again.",
+          severity: "error",
+        });
+      }
+    } catch (error) {
+      console.error("Error updating favorites:", error);
       setNotification({
         open: true,
-        message: 'Removed from favorites',
-        severity: 'info'
-      });
-    } else {
-      setFavorites([...favorites, itemId]);
-      setNotification({
-        open: true,
-        message: 'Added to favorites!',
-        severity: 'success'
+        message: "An error occurred. Please try again.",
+        severity: "error",
       });
     }
   };
+  
 
   const isFavorite = (itemId) => favorites.includes(itemId);
 
