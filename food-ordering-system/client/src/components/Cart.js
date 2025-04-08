@@ -40,6 +40,18 @@ import OutdoorGrillIcon from "@mui/icons-material/OutdoorGrill";
 import { FaBell } from "react-icons/fa";
 import { motion } from "framer-motion";
 import axios from "axios";
+import { styled } from "@mui/material/styles";
+
+// Styled Button for consistency
+const StyledButton = styled(Button)(({ theme }) => ({
+  borderRadius: 28,
+  padding: '10px 24px',
+  fontWeight: 600,
+  textTransform: 'none',
+  '&:hover': {
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+  },
+}));
 
 const Cart = () => {
   // State variables remain the same
@@ -327,76 +339,76 @@ const Cart = () => {
   };
 
   return (
-    <Box sx={{ 
-      display: 'flex',
-      flexDirection: 'column',
-      minHeight: '100vh',
-      bgcolor: '#f9f9f9'
-    }}>
-      {/* App bar remains the same */}
-      <AppBar position="sticky" elevation={0} sx={{ 
-        backgroundColor: "#fff", 
-        color: "#333", 
-        borderBottom: '1px solid #eaeaea'
-      }}>
-        {/* AppBar content - same as before */}
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f9f9f9' }}>
+      {/* Updated AppBar */}
+      <AppBar 
+        position="fixed" 
+        sx={{ 
+          backgroundColor: "rgba(255, 255, 255, 0.9)", 
+          backdropFilter: "blur(10px)",
+          color: "#333", 
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)"
+        }}
+      >
         <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
-          {/* Toolbar content - same as before */}
-          {isMobile ? (
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={toggleDrawer(true)}
-              sx={{ mr: 2 }}
-            >
-              <MenuIcon />
-            </IconButton>
-          ) : null}
-          
-          {/* <Box sx={{ display: "flex", alignItems: "center" }} onClick={() => window.location.href = '/home'}>
-            <img 
-              src="/images/logo1.png" 
-              alt="Logo" 
-              style={{ 
-                width: 40, 
-                height: 40,
-                filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.1))'
-              }} 
-            />
-            <Typography 
-              variant="h6" 
-              sx={{ 
-                ml: 2, 
-                color: "#ff9800", 
-                fontWeight: "bold",
-                display: { xs: 'none', sm: 'block' }
-              }}
-            >
-              YOO!!!
-            </Typography>
-          </Box> */}
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            {isMobile && (
+              <IconButton
+                color="inherit"
+                aria-label="open drawer"
+                edge="start"
+                onClick={toggleDrawer(true)}
+                sx={{ mr: 2 }}
+              >
+                <MenuIcon />
+              </IconButton>
+            )}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <img src="/images/logo1.png" alt="Logo" style={{ width: 50, height: 45 }} />
+            </Box>
+          </Box>
           
           {!isMobile && (
-            <Box sx={{ 
-              display: "flex", 
-              alignItems: "center", 
-              backgroundColor: "#f5f5f5",
-              borderRadius: "24px",
-              padding: "4px 16px",
-              width: '300px',
-              mx: "auto"
-            }}>
-              <SearchIcon sx={{ color: '#757575', mr: 1 }} />
-              <TextField 
-                variant="standard"
-                placeholder="Search for food" 
-                fullWidth
-                InputProps={{ 
-                  disableUnderline: true,
-                }}
-                sx={{ '& input': { p: '8px 0' } }}
-              />
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Button 
+                sx={{ 
+                  color: "#333", 
+                  fontWeight: 500, 
+                  textTransform: 'none',
+                  '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' },
+                }} 
+                component="a" 
+                href="/home"
+                startIcon={<HomeIcon />}
+              >
+                Home
+              </Button>
+              <Button 
+                sx={{ 
+                  color: "#333", 
+                  fontWeight: 500, 
+                  textTransform: 'none',
+                  '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' },
+                }} 
+                component="a" 
+                href="/view-tutorials"
+                startIcon={<CategoryIcon />}
+              >
+                View Tutorials
+              </Button>
+              <Button 
+                sx={{ 
+                  color: "#333", 
+                  fontWeight: 500, 
+                  textTransform: 'none',
+                  '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' },
+                }} 
+                component="a" 
+                href="/dashboard"
+                startIcon={<DashboardIcon />}
+              >
+                Dashboard
+              </Button>
             </Box>
           )}
           
@@ -404,107 +416,70 @@ const Cart = () => {
             {!isMobile && (
               <>
                 <Button 
+                  variant="text"
+                  startIcon={
+                    <Badge badgeContent={cartItems.length} color="error">
+                      <ShoppingCartIcon />
+                    </Badge>
+                  }
                   sx={{ 
-                    color: "#333", 
-                    mx: 0.5,
-                    borderRadius: '12px',
-                    '&:hover': { backgroundColor: '#f5f5f5' }
-                  }} 
-                  component="a" 
-                  href="/home"
-                  startIcon={<HomeIcon />}
+                    mr: 1,
+                    color: "#333",
+                    fontWeight: 500,
+                    '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' },
+                  }}
+                  href="/cart"
                 >
-                  Home
+                  Cart
                 </Button>
                 <Button 
+                  variant="outlined" 
                   sx={{ 
-                    color: "#333", 
-                    mx: 0.5,
-                    borderRadius: '12px',
-                    '&:hover': { backgroundColor: '#f5f5f5' }
-                  }} 
+                    mr: 1,
+                    borderRadius: '8px',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    borderColor: '#FF6B6B',
+                    color: '#FF6B6B',
+                    '&:hover': {
+                      borderColor: '#FF8E53',
+                      backgroundColor: 'rgba(255, 107, 107, 0.04)',
+                    },
+                  }}
                   component="a" 
-                  href="/categories"
-                  startIcon={<CategoryIcon />}
+                  href="/profile"
                 >
-                  Menu
+                  My Profile
                 </Button>
+                <StyledButton 
+                  variant="contained" 
+                  sx={{ 
+                    background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
+                    color: 'white',
+                  }}
+                  onClick={handleLogout}
+                >
+                  Logout
+                </StyledButton>
               </>
             )}
-            
-            <IconButton sx={{ ml: 1 }}>
-              <Badge badgeContent={2} color="error">
-                <FaBell style={{ fontSize: "1.3rem", color: "#333" }} />
-              </Badge>
-            </IconButton>
-            
-            <IconButton onClick={handleClickProfile} sx={{ ml: 1 }}>
-              <Avatar sx={{ 
-                bgcolor: "#ff9800",
-                boxShadow: '0 2px 8px rgba(255, 152, 0, 0.3)'
-              }}>
-                {userEmail ? userEmail.charAt(0).toUpperCase() : <AccountCircleIcon />}
-              </Avatar>
-            </IconButton>
-            
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleCloseProfileMenu}
-              PaperProps={{
-                elevation: 3,
-                sx: { 
-                  mt: 1.5,
-                  borderRadius: '12px',
-                  minWidth: '200px',
-                  overflow: 'visible',
-                  '&:before': {
-                    content: '""',
-                    display: 'block',
-                    position: 'absolute',
-                    top: 0,
-                    right: 14,
-                    width: 10,
-                    height: 10,
-                    bgcolor: 'background.paper',
-                    transform: 'translateY(-50%) rotate(45deg)',
-                    zIndex: 0,
-                  },
-                }
-              }}
-              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-            >
-              {/* Profile menu items - same as before */}
-              <Box sx={{ p: 2, display: 'flex', alignItems: 'center' }}>
-                <Avatar sx={{ bgcolor: "#ff9800", mr: 2 }}>
-                  {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
-                </Avatar>
-                <Box>
-                  <Typography sx={{ fontWeight: 'bold' }}>{userEmail?.split('@')[0]}</Typography>
-                  <Typography variant="body2" color="text.secondary">{userEmail}</Typography>
-                </Box>
-              </Box>
-              <Divider />
-              <MenuItem sx={{ py: 1.5 }} component="a" href="/profile">
-                <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
-                Profile
-              </MenuItem>
-              <MenuItem sx={{ py: 1.5 }} component="a" href="/orders">
-                <ListItemIcon><ReceiptIcon fontSize="small" /></ListItemIcon>
-                My Orders
-              </MenuItem>
-              <Divider />
-              <MenuItem sx={{ py: 1.5, color: 'error.main' }} onClick={handleLogout}>
-                <ListItemIcon><LogoutIcon fontSize="small" color="error" /></ListItemIcon>
-                Logout
-              </MenuItem>
-            </Menu>
+            {isMobile && (
+              <IconButton 
+                color="inherit" 
+                onClick={() => navigate("/cart")} 
+                sx={{ display: 'flex', alignItems: 'center' }}
+              >
+                <Badge badgeContent={cartItems.length} color="error">
+                  <ShoppingCartIcon />
+                </Badge>
+              </IconButton>
+            )}
           </Box>
         </Toolbar>
       </AppBar>
-
-      {/* Mobile Drawer - same as before */}
+      <Toolbar /> {/* Spacer for fixed AppBar */}
+      
+      {/* Drawer for mobile */}
       <Drawer
         anchor="left"
         open={drawerOpen}
@@ -516,37 +491,15 @@ const Cart = () => {
           },
         }}
       >
-        {/* Drawer content - same as before */}
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} >
-          <Box sx={{ display: 'flex', alignItems: 'left' }}>
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <img src="/images/logo1.png" alt="Logo" style={{ width: 50, height: 45 }} />
-            {/* <Typography variant="h6" sx={{ ml: 1, fontWeight: 'bold', color: '#ff9800' }}>
-              YOO!!!
-            </Typography> */}
           </Box>
           <IconButton onClick={toggleDrawer(false)}>
             <CloseIcon />
           </IconButton>
         </Box>
-        
         <Divider />
-        
-        <Box sx={{ p: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, mt: 1 }}>
-            <Avatar sx={{ bgcolor: "#ff9800", mr: 2 }}>
-              {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
-            </Avatar>
-            <Box>
-              <Typography sx={{ fontWeight: 'medium' }}>
-                {userEmail?.split('@')[0] || 'Guest'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {userEmail || 'Not signed in'}
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
-        
         <List>
           <ListItem button component="a" href="/home" onClick={toggleDrawer(false)}>
             <ListItemIcon><HomeIcon /></ListItemIcon>
@@ -556,23 +509,9 @@ const Cart = () => {
             <ListItemIcon><CategoryIcon /></ListItemIcon>
             <ListItemText primary="Menu" />
           </ListItem>
-          <ListItem button component="a" href="/dashboard" onClick={toggleDrawer(false)}>
-            <ListItemIcon><DashboardIcon /></ListItemIcon>
-            <ListItemText primary="Dashboard" />
-          </ListItem>
-          <ListItem button component="a" href="/orders" onClick={toggleDrawer(false)}>
-            <ListItemIcon><ReceiptIcon /></ListItemIcon>
-            <ListItemText primary="My Orders" />
-          </ListItem>
         </List>
-        
         <Divider />
-        
         <List>
-          <ListItem button component="a" href="/profile" onClick={toggleDrawer(false)}>
-            <ListItemIcon><PersonIcon /></ListItemIcon>
-            <ListItemText primary="Profile" />
-          </ListItem>
           <ListItem button onClick={() => { handleLogout(); toggleDrawer(false)(); }}>
             <ListItemIcon><LogoutIcon color="error" /></ListItemIcon>
             <ListItemText primary="Logout" sx={{ color: 'error.main' }} />

@@ -448,10 +448,11 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
       try {
         const userId = localStorage.getItem("user_id");
         if (!userId) return;
-
+  
         const response = await axios.get(`http://localhost:5000/cart?user_id=${userId}`);
         if (response.data.success && response.data.items) {
-          setCartCount(response.data.items.reduce((sum, item) => sum + item.quantity, 0)); // Sum up quantities
+          // Count unique items in the cart
+          setCartCount(response.data.items.length);
         } else {
           setCartCount(0); // Fallback to 0 if no items
         }
@@ -460,7 +461,7 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
         setCartCount(0); // Fallback to 0 on error
       }
     };
-
+  
     fetchCartCount();
   }, []);
 
@@ -611,6 +612,7 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
                     }} 
                     component="a" 
                     href="/home"
+                    startIcon={<HomeIcon />}
                   >
                     Home
                   </Button>
@@ -627,6 +629,7 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
                     }} 
                     component="a" 
                     href="/view-tutorials"
+                    startIcon={<CategoryIcon />}
                   >
                     View Tutorials
                   </Button>
@@ -643,6 +646,7 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
                     }} 
                     component="a" 
                     href="/dashboard"
+                    startIcon={<DashboardIcon />}
                   >
                     Dashboard
                   </Button>
@@ -741,6 +745,11 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
                   </Badge>
                 </IconButton>
               )}
+              {/* <IconButton onClick={handleDrawerToggle}>
+                <Avatar sx={{ bgcolor: "#ff9800" }}>
+                  {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
+                </Avatar>
+              </IconButton> */}
             </Box>
           </Toolbar>
         </AppBar>

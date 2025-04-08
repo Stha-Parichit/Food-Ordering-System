@@ -1014,75 +1014,105 @@ app.post("/process-payment", async (req, res) => {
   }
 });
 
+// orders endpoint
 app.get("/orders", async (req, res) => {
   const userId = req.query.user_id;
+  const status = req.query.status;
 
   if (!userId) {
     return res.status(400).json({ message: "User ID is required." });
   }
 
   try {
-    const ordersQuery = `
-      SELECT o.id, o.total_amount, o.status, o.created_at -- Include status field
-      FROM orders o
-      WHERE o.user_id = ?
-      ORDER BY o.created_at DESC
-    `;
-    const [orders] = await db.pool.execute(ordersQuery, [userId]);
-
-    const orderDetailsQuery = `
+    let query = `
       SELECT 
-        oi.order_id, oi.food_id, f.name AS food_name, f.image_url, oi.quantity, oi.price,
-        oi.customization
-      FROM order_items oi
-      JOIN food_items f ON oi.food_id = f.id
-      WHERE oi.order_id = ?
+        o.id, 
+        o.total_amount,
+        o.status,
+        o.created_at,
+        GROUP_CONCAT(f.name) as item_names
+      FROM orders o
+      LEFT JOIN order_items oi ON o.id = oi.order_id
+      LEFT JOIN food_items f ON oi.food_id = f.id
+      WHERE o.user_id = ?
     `;
 
-    for (const order of orders) {
-      const [items] = await db.pool.execute(orderDetailsQuery, [order.id]);
-      order.items = items.map((item) => ({
-        ...item,
-        customization: item.customization ? JSON.parse(item.customization) : null,
-      }));
+    if (status === 'active') {
+      query += ` AND o.status IN ('Order Placed', 'Cooking', 'Prepared for Delivery', 'Off for Delivery')`;
     }
 
-    res.status(200).json(orders);
+    query += ` GROUP BY o.id ORDER BY o.created_at DESC`;
+
+    const [orders] = await db.pool.execute(query, [userId]);
+    
+    if (orders.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    // Format the response
+    const formattedOrders = orders.map(order => ({
+      id: order.id,
+      total_amount: parseFloat(order.total_amount),
+      status: order.status,
+      created_at: order.created_at,
+      items_summary: order.item_names ? order.item_names.split(',') : []
+    }));
+
+    res.status(200).json(formattedOrders);
   } catch (error) {
     console.error("Error fetching orders:", error);
     res.status(500).json({ message: "Failed to fetch orders", error: error.message });
   }
 });
 
-// Endpoint to update order status
-app.put("/orders/:id/status", async (req, res) => {
+// Update the single order endpoint
+app.get("/orders/:id", async (req, res) => {
   const orderId = req.params.id;
-  const { status } = req.body;
-
-  const validStatuses = [
-    "Order Placed",
-    "Cooking",
-    "Prepared for Delivery",
-    "Off for Delivery",
-    "Delivered",
-  ];
-
-  if (!validStatuses.includes(status)) {
-    return res.status(400).json({ message: "Invalid status value." });
-  }
 
   try {
-    const updateQuery = `
-      UPDATE orders
-      SET status = ?
-      WHERE id = ?
+    const query = `
+      SELECT 
+        oi.order_id,
+        oi.food_id,
+        f.name as food_name,
+        f.image_url,
+        oi.quantity,
+        oi.price,
+        oi.customization,
+        o.status,
+        o.created_at,
+        o.total_amount
+      FROM order_items oi
+      JOIN orders o ON oi.order_id = o.id
+      JOIN food_items f ON oi.food_id = f.id
+      WHERE oi.order_id = ?
     `;
-    await db.pool.execute(updateQuery, [status, orderId]);
 
-    res.status(200).json({ message: "Order status updated successfully." });
+    const [items] = await db.pool.execute(query, [orderId]);
+
+    if (items.length === 0) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const orderDetails = {
+      id: orderId,
+      status: items[0].status,
+      created_at: items[0].created_at,
+      total_amount: parseFloat(items[0].total_amount),
+      items: items.map(item => ({
+        food_id: item.food_id,
+        food_name: item.food_name,
+        image_url: item.image_url,
+        quantity: parseInt(item.quantity),
+        price: parseFloat(item.price),
+        customization: item.customization ? JSON.parse(item.customization) : null
+      }))
+    };
+
+    res.status(200).json(orderDetails);
   } catch (error) {
-    console.error("Error updating order status:", error);
-    res.status(500).json({ message: "Failed to update order status", error: error.message });
+    console.error("Error fetching order details:", error);
+    res.status(500).json({ message: "Failed to fetch order details", error: error.message });
   }
 });
 
@@ -1226,6 +1256,45 @@ app.post("/notifications/:id/read", async (req, res) => {
   } catch (error) {
     console.error("Error marking notification as read:", error);
     res.status(500).json({ message: "Failed to mark notification as read", error: error.message });
+  }
+});
+
+// Mark notification as read
+app.put("/notifications/:id", async (req, res) => {
+  const notificationId = req.params.id;
+  const { user_id } = req.body;
+
+  try {
+    // Validate that notification belongs to user
+    const [notification] = await db.pool.execute(
+      "SELECT * FROM notifications WHERE id = ? AND user_id = ?",
+      [notificationId, user_id]
+    );
+
+    if (notification.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Notification not found or unauthorized" 
+      });
+    }
+
+    // Update notification status
+    await db.pool.execute(
+      "UPDATE notifications SET is_read = TRUE WHERE id = ?",
+      [notificationId]
+    );
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Notification marked as read" 
+    });
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to mark notification as read",
+      error: error.message 
+    });
   }
 });
 
@@ -1727,6 +1796,277 @@ app.get("/chef/orders/stats", async (req, res) => {
   } catch (error) {
     console.error("Error fetching chef stats:", error);
     res.status(500).json({ message: "Failed to fetch chef stats", error: error.message });
+  }
+});
+
+// Get monthly order statistics
+app.get("/api/orders/monthly-stats", async (req, res) => {
+  const userId = req.query.user_id;
+
+  try {
+    const query = `
+      SELECT 
+        DATE_FORMAT(created_at, '%b') as month,
+        COUNT(*) as count
+      FROM orders
+      WHERE user_id = ?
+        AND created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+      GROUP BY month
+      ORDER BY created_at
+    `;
+
+    const [results] = await db.pool.execute(query, [userId]);
+    // console.log("Monthly Stats Data:", results); // Log fetched data
+    res.json(results);
+  } catch (error) {
+    console.error("Error fetching monthly stats:", error);
+    res.status(500).json({ message: "Failed to fetch monthly stats", error: error.message });
+  }
+});
+
+// Get cuisine preference statistics
+app.get("/api/orders/cuisine-stats", async (req, res) => {
+  const userId = req.query.user_id;
+
+  try {
+    const query = `
+      SELECT 
+        f.category,
+        COUNT(*) as count
+      FROM orders o
+      JOIN order_items oi ON o.id = oi.order_id
+      JOIN food_items f ON oi.food_id = f.id
+      WHERE o.user_id = ?
+      GROUP BY f.category
+      ORDER BY count DESC
+      LIMIT 10
+    `;
+
+    const [results] = await db.pool.execute(query, [userId]);
+    // console.log("Cuisine Stats Data:", results); // Log fetched data
+    res.json(results);
+  } catch (error) {
+    console.error("Error fetching cuisine stats:", error);
+    res.status(500).json({ message: "Failed to fetch cuisine stats", error: error.message });
+  }
+});
+
+// Add to favorites
+app.post("/api/favorites/add", async (req, res) => {
+  const { user_id, food_id } = req.body;
+
+  if (!user_id || !food_id) {
+    return res.status(400).json({ success: false, message: "User ID and Food ID are required." });
+  }
+
+  try {
+    const query = "INSERT INTO favorites (user_id, food_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE user_id = user_id";
+    await db.pool.execute(query, [user_id, food_id]);
+    res.status(200).json({ success: true, message: "Added to favorites" });
+  } catch (error) {
+    console.error("Error adding to favorites:", error);
+    res.status(500).json({ success: false, message: "Failed to add to favorites" });
+  }
+});
+
+// Remove from favorites
+app.post("/api/favorites/remove", async (req, res) => {
+  const { user_id, food_id } = req.body;
+
+  if (!user_id || !food_id) {
+    return res.status(400).json({ success: false, message: "User ID and Food ID are required." });
+  }
+
+  try {
+    const query = "DELETE FROM favorites WHERE user_id = ? AND food_id = ?";
+    await db.pool.execute(query, [user_id, food_id]);
+    res.status(200).json({ success: true, message: "Removed from favorites" });
+  } catch (error) {
+    console.error("Error removing from favorites:", error);
+    res.status(500).json({ success: false, message: "Failed to remove from favorites" });
+  }
+});
+
+// Get user's favorite items
+app.get("/api/favorites", async (req, res) => {
+  const { user_id } = req.query;
+
+  if (!user_id) {
+    return res.status(400).json({ success: false, message: "User ID is required." });
+  }
+
+  try {
+    const query = "SELECT food_id FROM favorites WHERE user_id = ?";
+    const [favorites] = await db.pool.execute(query, [user_id]);
+    res.status(200).json({ success: true, favorites });
+  } catch (error) {
+    console.error("Error fetching favorites:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch favorites" });
+  }
+});
+
+// Update order status and notify user
+app.put("/api/orders/:id/status", async (req, res) => {
+  const orderId = req.params.id;
+  const { status } = req.body;
+
+  if (!status) {
+    console.error("Order status is missing in the request.");
+    return res.status(400).json({ message: "Order status is required." });
+  }
+
+  try {
+    console.log(`Updating status for order ID ${orderId} to "${status}"`);
+
+    // Update the order status
+    const query = "UPDATE orders SET status = ? WHERE id = ?";
+    const [result] = await db.pool.execute(query, [status, orderId]);
+
+    if (result.affectedRows === 0) {
+      console.error(`Order ID ${orderId} not found.`);
+      return res.status(404).json({ message: "Order not found." });
+    }
+
+    console.log(`Order ID ${orderId} status updated successfully.`);
+
+    // Fetch the user ID associated with the order
+    const [orderDetails] = await db.pool.execute(
+      "SELECT user_id FROM orders WHERE id = ?",
+      [orderId]
+    );
+
+    if (orderDetails.length > 0) {
+      const userId = orderDetails[0].user_id;
+
+      // Add a notification for the user
+      const notificationMessage = `Your order #${orderId} status has been updated to "${status}".`;
+      await db.addNotification(userId, orderId, notificationMessage);
+
+      // Emit the notification via WebSocket
+      io.emit("new-notification", {
+        user_id: userId,
+        order_id: orderId,
+        message: notificationMessage,
+      });
+
+      console.log(`Notification sent for order ID ${orderId}.`);
+    }
+
+    res.status(200).json({ message: "Order status updated and user notified successfully." });
+  } catch (error) {
+    console.error("Error updating order status:", error);
+    res.status(500).json({ message: "Failed to update order status.", error: error.message });
+  }
+});
+
+// Add notification endpoint
+app.post("/api/notifications", async (req, res) => {
+  const { user_id, message } = req.body;
+
+  console.log("Received notification payload:", req.body); // Debugging log
+
+  if (!user_id || !message) {
+    console.error("Missing required fields: user_id or message.");
+    return res.status(400).json({ message: "User ID and message are required." });
+  }
+
+  try {
+    await db.addNotification(user_id, null, message); // Add notification without an order ID
+    res.status(201).json({ message: "Notification created successfully." });
+  } catch (error) {
+    console.error("Error creating notification:", error);
+    res.status(500).json({ message: "Failed to create notification.", error: error.message });
+  }
+});
+
+// Get notifications for a specific user
+app.get("/api/notifications", async (req, res) => {
+  const userId = req.query.user_id;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required." });
+  }
+
+  try {
+    const query = `
+      SELECT 
+        id, 
+        order_id, 
+        message, 
+        is_read, 
+        created_at,
+        user_id
+      FROM notifications
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `;
+    const [notifications] = await db.pool.execute(query, [userId]);
+
+    res.status(200).json(notifications);
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    res.status(500).json({ message: "Failed to fetch notifications.", error: error.message });
+  }
+});
+
+// Get user addresses
+app.get("/api/addresses/:userId", async (req, res) => {
+  try {
+    const [addresses] = await db.pool.execute(
+      "SELECT * FROM addresses WHERE user_id = ? ORDER BY created_at DESC",
+      [req.params.userId]
+    );
+    res.json(addresses);
+  } catch (error) {
+    console.error("Error fetching addresses:", error);
+    res.status(500).json({ message: "Failed to fetch addresses" });
+  }
+});
+
+// Add new address
+app.post("/api/addresses", async (req, res) => {
+  const { userId, label, fullName, phoneNumber, street, city, state, zipCode, landmark } = req.body;
+  
+  try {
+    const [result] = await db.pool.execute(
+      `INSERT INTO addresses (user_id, label, full_name, phone_number, street, city, state, zip_code, landmark) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [userId, label, fullName, phoneNumber, street, city, state, zipCode, landmark]
+    );
+    res.status(201).json({ id: result.insertId, message: "Address added successfully" });
+  } catch (error) {
+    console.error("Error adding address:", error);
+    res.status(500).json({ message: "Failed to add address" });
+  }
+});
+
+// Update address
+app.put("/api/addresses/:id", async (req, res) => {
+  const { label, fullName, phoneNumber, street, city, state, zipCode, landmark } = req.body;
+  
+  try {
+    await db.pool.execute(
+      `UPDATE addresses 
+       SET label = ?, full_name = ?, phone_number = ?, street = ?, city = ?, 
+           state = ?, zip_code = ?, landmark = ?
+       WHERE id = ?`,
+      [label, fullName, phoneNumber, street, city, state, zipCode, landmark, req.params.id]
+    );
+    res.json({ message: "Address updated successfully" });
+  } catch (error) {
+    console.error("Error updating address:", error);
+    res.status(500).json({ message: "Failed to update address" });
+  }
+});
+
+// Delete address
+app.delete("/api/addresses/:id", async (req, res) => {
+  try {
+    await db.pool.execute("DELETE FROM addresses WHERE id = ?", [req.params.id]);
+    res.json({ message: "Address deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting address:", error);
+    res.status(500).json({ message: "Failed to delete address" });
   }
 });
 

@@ -39,6 +39,7 @@ import ChefPage from './components/ChefPage';
 import ChefDashboard from './components/ChefDashboard';
 import TutorialUpload from './components/TutorialUpload';
 import TutorialDetail from './components/TutorialDetail';
+import AddressesPage from './components/AddressesPage';
 const theme = createTheme(); // Ensure a theme is provided
 
 const PageTitleUpdater = () => {
@@ -79,6 +80,7 @@ const PageTitleUpdater = () => {
       '/chef': 'Chef Page',
       '/chef-dashboard': 'Chef Dashboard',
       '/tutorial-upload': 'Tutorial Upload Page',
+      '/addresses': 'Addresses Page',
     };
     const pageTitle = pageTitles[location.pathname] || 'Page';
     document.title = `${pageTitle} - YOO!!!`;
@@ -132,6 +134,7 @@ const App = () => {
             <Route path="/admin-dashboard" element={<AdminDashboard />} />
             <Route path="/chef" element={<ChefPage />} />
             <Route path="/chef-dashboard" element={<ChefDashboard />} />
+            <Route path="/addresses" element={<AddressesPage />} />
           </Routes>
           {/* Example usage of logout */}
           {/* <button onClick={logout}>Logout</button> */}

@@ -494,6 +494,41 @@ initializeDatabase().catch(console.error);
     `;
     await pool.execute(createNotificationsTableQuery);
     console.log("Notifications table ensured");
+
+    const createFavoritesTableQuery = `
+      CREATE TABLE IF NOT EXISTS favorites (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        food_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (food_id) REFERENCES food_items(id) ON DELETE CASCADE,
+        UNIQUE KEY unique_favorite (user_id, food_id)
+      )
+    `;
+    await pool.execute(createFavoritesTableQuery);
+    console.log("Favorites table ensured");
+
+    const createAddressesTableQuery = `
+      CREATE TABLE IF NOT EXISTS addresses (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        label VARCHAR(50) NOT NULL,
+        full_name VARCHAR(100) NOT NULL,
+        phone_number VARCHAR(20) NOT NULL,
+        street VARCHAR(255) NOT NULL,
+        city VARCHAR(100) NOT NULL,
+        state VARCHAR(100) NOT NULL,
+        zip_code VARCHAR(20) NOT NULL,
+        landmark VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `;
+    await pool.execute(createAddressesTableQuery);
+    console.log("Addresses table ensured");
+
   } catch (error) {
     console.error("Error during database initialization:", error);
   }
@@ -581,6 +616,8 @@ async function updateLoyaltyPoints(user_id, total_amount, used_points) {
 }
 
 async function addNotification(userId, orderId, message) {
+  console.log("Adding notification to database:", { userId, orderId, message }); // Debugging log
+
   try {
     await pool.execute(
       `INSERT INTO notifications (user_id, order_id, message) VALUES (?, ?, ?)`,
@@ -633,6 +670,83 @@ async function fetchChefStats() {
   }
 }
 
+async function getAddresses(userId) {
+  try {
+    const [addresses] = await pool.execute(
+      "SELECT * FROM addresses WHERE user_id = ? ORDER BY created_at DESC",
+      [userId]
+    );
+    return addresses;
+  } catch (error) {
+    console.error("Error fetching addresses:", error);
+    throw error;
+  }
+}
+
+async function addAddress(addressData) {
+  try {
+    const {
+      userId,
+      label,
+      fullName,
+      phoneNumber,
+      street,
+      city,
+      state,
+      zipCode,
+      landmark
+    } = addressData;
+
+    const [result] = await pool.execute(
+      `INSERT INTO addresses 
+       (user_id, label, full_name, phone_number, street, city, state, zip_code, landmark)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [userId, label, fullName, phoneNumber, street, city, state, zipCode, landmark]
+    );
+    return { id: result.insertId, ...addressData };
+  } catch (error) {
+    console.error("Error adding address:", error);
+    throw error;
+  }
+}
+
+async function updateAddress(id, addressData) {
+  try {
+    const {
+      label,
+      fullName,
+      phoneNumber,
+      street,
+      city,
+      state,
+      zipCode,
+      landmark
+    } = addressData;
+
+    await pool.execute(
+      `UPDATE addresses 
+       SET label = ?, full_name = ?, phone_number = ?, street = ?, 
+           city = ?, state = ?, zip_code = ?, landmark = ?
+       WHERE id = ?`,
+      [label, fullName, phoneNumber, street, city, state, zipCode, landmark, id]
+    );
+    return { id, ...addressData };
+  } catch (error) {
+    console.error("Error updating address:", error);
+    throw error;
+  }
+}
+
+async function deleteAddress(id) {
+  try {
+    await pool.execute("DELETE FROM addresses WHERE id = ?", [id]);
+    return true;
+  } catch (error) {
+    console.error("Error deleting address:", error);
+    throw error;
+  }
+}
+
 // Export functions
 module.exports = {
   pool,
@@ -653,4 +767,8 @@ module.exports = {
   getNotifications,
   markNotificationAsRead,
   fetchChefStats,
+  getAddresses,
+  addAddress,
+  updateAddress,
+  deleteAddress,
 };

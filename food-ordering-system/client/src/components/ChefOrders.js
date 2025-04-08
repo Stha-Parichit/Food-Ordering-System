@@ -429,30 +429,46 @@ const ChefOrders = () => {
   }, []);
 
   const handleStatusUpdate = async () => {
-    if (!selectedOrder || !selectedStatus) return;
-
+    if (!selectedOrder || !selectedStatus) {
+      console.error("Selected order or status is missing.");
+      setSnackbar({ open: true, message: "Please select an order and status.", severity: "error" });
+      return;
+    }
+  
     try {
-      await axios.put(`http://localhost:5000/orders/${selectedOrder.id}/status`, { 
-        status: selectedStatus 
-      });
-
-      // Update the local state to reflect the new status
-      const updatedOrders = orders.map(order => 
-        order.id === selectedOrder.id 
-          ? { ...order, status: selectedStatus } 
-          : order
-      );
-
-      setOrders(updatedOrders);
-      setStatusUpdateDialogOpen(false);
-
-      // Show a success notification
-      setSnackbar({ open: true, message: `Order #${selectedOrder.id} status updated to ${selectedStatus}`, severity: "success" });
+      const apiUrl = `http://localhost:5000/api/orders/${selectedOrder.id}/status`;
+      console.log("Updating order status at:", apiUrl);
+  
+      const response = await axios.put(apiUrl, { status: selectedStatus });
+  
+      if (response.status === 200) {
+        console.log("Order status update response:", response.data);
+  
+        // Update the local state to reflect the new status
+        const updatedOrders = orders.map(order =>
+          order.id === selectedOrder.id
+            ? { ...order, status: selectedStatus }
+            : order
+        );
+  
+        setOrders(updatedOrders);
+        setStatusUpdateDialogOpen(false);
+  
+        // Show a success notification
+        setSnackbar({ open: true, message: `Order #${selectedOrder.id} status updated to ${selectedStatus}`, severity: "success" });
+      } else {
+        console.error("Unexpected response status:", response.status);
+        setSnackbar({ open: true, message: "Failed to update order status. Please try again.", severity: "error" });
+      }
     } catch (error) {
-      console.error("Error updating order status:", error);
-      setSnackbar({ open: true, message: "Failed to update order status", severity: "error" });
+      console.error("Error updating order status:", error.response?.data || error.message);
+  
+      // Show a more specific error message if available
+      const errorMessage = error.response?.data?.message || "Failed to update order status. Please try again.";
+      setSnackbar({ open: true, message: errorMessage, severity: "error" });
     }
   };
+  
 
   const handleSnackbarClose = () => {
     setSnackbar({ ...snackbar, open: false });

@@ -214,19 +214,20 @@ const ViewTutorials = () => {
       try {
         const userId = localStorage.getItem("user_id");
         if (!userId) return;
-
+  
         const response = await axios.get(`http://localhost:5000/cart?user_id=${userId}`);
         if (response.data.success && response.data.items) {
-          setCartCount(response.data.items.reduce((sum, item) => sum + item.quantity, 0));
+          // Count unique items in the cart
+          setCartCount(response.data.items.length);
         } else {
-          setCartCount(0);
+          setCartCount(0); // Fallback to 0 if no items
         }
       } catch (error) {
         console.error("Error fetching cart count:", error);
-        setCartCount(0);
+        setCartCount(0); // Fallback to 0 on error
       }
     };
-
+  
     fetchCartCount();
   }, []);
 
@@ -277,6 +278,7 @@ const ViewTutorials = () => {
                     }} 
                     component="a" 
                     href="/home"
+                    startIcon={<HomeIcon />}
                   >
                     Home
                   </Button>
@@ -293,6 +295,7 @@ const ViewTutorials = () => {
                     }} 
                     component="a" 
                     href="/view-tutorials"
+                    startIcon={<CategoryIcon />}
                   >
                     View Tutorials
                   </Button>
@@ -309,6 +312,7 @@ const ViewTutorials = () => {
                     }} 
                     component="a" 
                     href="/dashboard"
+                    startIcon={<DashboardIcon />}
                   >
                     Dashboard
                   </Button>
@@ -380,6 +384,11 @@ const ViewTutorials = () => {
                   </Badge>
                 </IconButton>
               )}
+              {/* <IconButton onClick={handleDrawerToggle}>
+                <Avatar sx={{ bgcolor: "#ff9800" }}>
+                  {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
+                </Avatar>
+              </IconButton> */}
             </Box>
           </Toolbar>
         </AppBar>
@@ -531,7 +540,7 @@ const ViewTutorials = () => {
               }}>
                 <Box 
                   component="img"
-                  src="/images/food-collage.png" 
+                  src="/images/food-tutorial.png" 
                   alt="Food collage"
                   sx={{
                     height: '100%',
