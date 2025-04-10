@@ -1032,41 +1032,43 @@ app.get("/orders", async (req, res) => {
   }
 
   try {
-    let query = `
+    const ordersQuery = `
       SELECT 
         o.id, 
         o.total_amount,
         o.status,
-        o.created_at,
-        GROUP_CONCAT(f.name) as item_names
+        o.created_at
       FROM orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN food_items f ON oi.food_id = f.id
       WHERE o.user_id = ?
+      ${status === 'active' ? "AND o.status IN ('Order Placed', 'Cooking', 'Prepared for Delivery', 'Off for Delivery')" : ""}
+      ORDER BY o.created_at DESC
     `;
 
-    if (status === 'active') {
-      query += ` AND o.status IN ('Order Placed', 'Cooking', 'Prepared for Delivery', 'Off for Delivery')`;
-    }
+    const [orders] = await db.pool.execute(ordersQuery, [userId]);
 
-    query += ` GROUP BY o.id ORDER BY o.created_at DESC`;
-
-    const [orders] = await db.pool.execute(query, [userId]);
-    
     if (orders.length === 0) {
       return res.status(200).json([]);
     }
 
-    // Format the response
-    const formattedOrders = orders.map(order => ({
-      id: order.id,
-      total_amount: parseFloat(order.total_amount),
-      status: order.status,
-      created_at: order.created_at,
-      items_summary: order.item_names ? order.item_names.split(',') : []
-    }));
+    const orderDetailsQuery = `
+      SELECT 
+        oi.order_id, 
+        oi.food_id, 
+        f.name AS food_name, 
+        f.image_url, 
+        oi.quantity, 
+        oi.price
+      FROM order_items oi
+      JOIN food_items f ON oi.food_id = f.id
+      WHERE oi.order_id = ?
+    `;
 
-    res.status(200).json(formattedOrders);
+    for (const order of orders) {
+      const [items] = await db.pool.execute(orderDetailsQuery, [order.id]);
+      order.items = items; // Explicitly map items for each order
+    }
+
+    res.status(200).json(orders);
   } catch (error) {
     console.error("Error fetching orders:", error);
     res.status(500).json({ message: "Failed to fetch orders", error: error.message });

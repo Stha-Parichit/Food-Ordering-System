@@ -387,8 +387,8 @@ const Orders = () => {
 
         // Use the status directly from the database
         const ordersWithStatus = response.data.map((order) => {
-          // Calculate total for each order from its items
-          const total = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+          // Ensure items is an array before reducing
+          const total = (order.items || []).reduce((sum, item) => sum + (item.price * item.quantity), 0);
           
           const updatedOrder = {
             ...order,
@@ -825,7 +825,7 @@ const Orders = () => {
                     {/* Order items */}
                     <CardContent sx={{ p: 0 }}>
                       <Box sx={{ pt: 1 }}>
-                        {order.items.map((item, idx) => (
+                        {(order.items || []).map((item, idx) => (
                           <React.Fragment key={`${item.food_id}-${idx}`}>
                             <Box sx={{ 
                               display: "flex", 
@@ -914,7 +914,7 @@ const Orders = () => {
                               )}
                             </Box>
                           </Box>
-                          {idx < order.items.length - 1 && (
+                          {idx < (order.items || []).length - 1 && (
                             <Divider variant="middle" sx={{ opacity: 0.6 }} />
                           )}
                         </React.Fragment>

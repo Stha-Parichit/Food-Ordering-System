@@ -1194,7 +1194,7 @@ const Dashboard = () => {
                 <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>Order Trends</Typography>
                 <Box sx={{ height: 240 }}>
                   {isLineDataEmpty ? (
-                    <Typography variant="body2" color="textSecondary" align="center">
+                    <Typography variant="body2" component="div" color="text.secondary" align="center">
                       No data available for Order Trends.
                     </Typography>
                   ) : (
@@ -1210,7 +1210,7 @@ const Dashboard = () => {
                 <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>Cuisine Preferences</Typography>
                 <Box sx={{ height: 240 }}>
                   {isPieDataEmpty ? (
-                    <Typography variant="body2" color="textSecondary" align="center">
+                    <Typography variant="body2" component="div" color="text.secondary" align="center">
                       No data available for Cuisine Preferences.
                     </Typography>
                   ) : (
@@ -1345,13 +1345,13 @@ const Dashboard = () => {
                 color: 'white'
               }}>
                 <Typography variant="h5" fontWeight="bold">New User Special Offer!</Typography>
-                <Typography variant="body1">Get 20% off on your first order</Typography>
+                <Typography variant="body1" component="div" fontWeight="medium">Use code: <Chip label="WELCOME20" color="primary" size="small" /></Typography>
               </Box>
             </Box>
             <CardContent sx={{ p: 2 }}>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <Typography variant="body1" fontWeight="medium">Use code: <Chip label="WELCOME20" color="primary" size="small" /> at checkout</Typography>
+                  <Typography variant="body1" component="div" fontWeight="medium">Use code: <Chip label="WELCOME20" color="primary" size="small" /></Typography>
                 </Grid>
                 <Grid item xs={12} sm={6} sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
                   {/* <Button variant="contained" color="primary" onClick={() => navigate("/offers")}>
