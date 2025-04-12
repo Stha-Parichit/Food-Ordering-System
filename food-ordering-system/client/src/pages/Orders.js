@@ -376,88 +376,58 @@ const Orders = () => {
         const userId = localStorage.getItem("user_id");
         if (!userId) {
           alert("Please log in to view your orders.");
-          navigate("/login"); // Redirect to login if user is not logged in
+          navigate("/login");
           return;
         }
 
         const response = await axios.get(`http://localhost:5000/orders?user_id=${userId}`);
-        
-        // Log the fetched orders for debugging
         console.log("Fetched orders:", response.data);
 
-        // Use the status directly from the database
-        const ordersWithStatus = response.data.map((order) => {
-          // Calculate total for each order from its items
-          const total = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-          
-          const updatedOrder = {
-            ...order,
-            total: total // Add the calculated total
+        // Fetch all food items to get their details including images
+        const foodItemsResponse = await axios.get('http://localhost:5000/api/food-items');
+        const foodItemsMap = foodItemsResponse.data.reduce((acc, item) => {
+          acc[item.name] = {
+            image_url: item.image_url,
+            category: item.category
           };
+          return acc;
+        }, {});
 
-          // Log the status of each order
-          console.log(`Order ID: ${order.id}, Status: ${updatedOrder.status}`);
-          return updatedOrder;
-        });
-        
-        setOrders(ordersWithStatus);
+        // Format the orders data with food item images
+        const formattedOrders = response.data.map(order => ({
+          id: order.id,
+          created_at: order.created_at,
+          status: order.status || "Order Placed",
+          restaurant: "YOO!!! Food",
+          rating: "4.5",
+          total: order.total_amount,
+          items: order.items_summary ? order.items_summary.map(itemName => {
+            const foodItemInfo = foodItemsMap[itemName] || {};
+            const image_url = foodItemInfo.image_url || '';
+            
+            // Ensure image URL is properly formatted
+            const formattedImageUrl = image_url.startsWith('http') 
+              ? image_url 
+              : image_url 
+                ? `http://localhost:5000${image_url}`
+                : '/images/default-food.png';
+
+            return {
+              food_id: "N/A",
+              food_name: itemName,
+              price: order.total_amount / (order.items_summary.length || 1),
+              quantity: 1,
+              image_url: formattedImageUrl,
+              category: foodItemInfo.category || 'Other',
+              customization: null
+            };
+          }) : []
+        }));
+
+        setOrders(formattedOrders);
       } catch (error) {
         console.error("Error fetching orders:", error);
-        // Providing default data if API fails
-        setOrders([
-          {
-            id: "1001",
-            created_at: new Date().toISOString(),
-            status: "Delivered",
-            restaurant: "Delicious Bites1",
-            rating: "4.5",
-            total: 1250.50,
-            items: [
-              {
-                food_id: "101",
-                food_name: "Margherita Pizza",
-                price: 450.50,
-                quantity: 1,
-                image_url: "",
-                customization: { extraCheese: true }
-              },
-              {
-                food_id: "102",
-                food_name: "Garlic Bread",
-                price: 150,
-                quantity: 2,
-                image_url: "",
-                customization: null
-              }
-            ]
-          },
-          {
-            id: "1002",
-            created_at: new Date(Date.now() - 86400000).toISOString(),
-            status: "In Progress",
-            restaurant: "Delicious Bites2",
-            rating: "4.2",
-            total: 850.75,
-            items: [
-              {
-                food_id: "201",
-                food_name: "Chicken Burger",
-                price: 350.75,
-                quantity: 1,
-                image_url: "",
-                customization: { noOnions: true, extraCheese: true }
-              },
-              {
-                food_id: "202",
-                food_name: "French Fries",
-                price: 250.00,
-                quantity: 2,
-                image_url: "",
-                customization: null
-              }
-            ]
-          }
-        ]);
+        setOrders([]); // Set empty array on error
       } finally {
         setLoading(false);
       }
@@ -658,7 +628,7 @@ const Orders = () => {
                 <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
                   Filter:
                 </Typography>
-                {["All", "Delivered", "In Progress", "Preparing", "Cancelled"].map((status) => (
+                {["All", "Delivered", "Order Placed", "Cooking", "Prepared for Delivery", "Off for Delivery", "Cancelled"].map((status) => (
                   <Chip
                     key={status}
                     label={status}
@@ -881,7 +851,7 @@ const Orders = () => {
                                     <Typography variant="subtitle1" fontWeight={600}>
                                       {item.food_name}
                                     </Typography>
-                                    <FoodIcon category={idx % 5 === 0 ? "pizza" : idx % 5 === 1 ? "burger" : idx % 5 === 2 ? "pasta" : idx % 5 === 3 ? "dessert" : "drink"} />
+                                    <FoodIcon category={item.category} />
                                   </Box>
                                   <Typography 
                                     variant="subtitle1" 

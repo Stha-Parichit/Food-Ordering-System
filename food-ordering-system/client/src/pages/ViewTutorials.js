@@ -609,9 +609,17 @@ const ViewTutorials = () => {
                 whiteSpace: 'nowrap',
                 textTransform: 'none',
                 fontWeight: 600,
-                ...(activeCategory === category.name && {
+                ...(activeCategory === category.name ? {
                   background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
                   color: 'white',
+                } : {
+                  borderColor: '#FF9F1C',
+                  color: '#FF9F1C',
+                  '&:hover': {
+                    borderColor: '#FFBF69',
+                    background: 'linear-gradient(135deg, #FF9F1C 0%, #FFBF69 100%)',
+                    color: 'white',
+                  }
                 })
               }}
             >
@@ -700,12 +708,12 @@ const ViewTutorials = () => {
                         <Chip
                           icon={<RestaurantIcon />}
                           label={tutorial.category}
-                          color="primary"
                           sx={{
                             mb: 1,
                             fontWeight: 500,
                             fontSize: '0.8rem',
-                            borderRadius: 2
+                            borderRadius: 2, 
+                            background: 'linear-gradient(135deg, #FF9F1C 0%, #FFBF69 100%)',
                           }}
                         />
                         

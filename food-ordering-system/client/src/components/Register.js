@@ -35,6 +35,7 @@ import LocalPizzaIcon from '@mui/icons-material/LocalPizza';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import EmojiFoodBeverageIcon from '@mui/icons-material/EmojiFoodBeverage';
 
 const Register = () => {
   const [activeStep, setActiveStep] = useState(0);
@@ -427,16 +428,84 @@ const Register = () => {
       disableGutters
       sx={{
         minHeight: '100vh',
-        backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url("/images/restaurant-bg.jpg")',
+        backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url("/images/restaurant-bg.jpg")',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: { xs: 2, sm: 3, md: 4, lg: 5 }
+        padding: { xs: 2, sm: 3, md: 4, lg: 5 },
+        position: 'relative',
+        overflow: 'hidden',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at center, rgba(255,87,34,0.15) 0%, rgba(0,0,0,0) 70%)',
+          zIndex: 1
+        },
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: `url('/images/pattern-overlay.png')`,
+          backgroundSize: '200px',
+          opacity: 0.1,
+          zIndex: 1
+        }
       }}
     >
+      {/* Add Floating food icons */}
+      <Box sx={{ 
+        position: 'absolute',
+        top: '10%',
+        left: '10%',
+        animation: 'float 8s ease-in-out infinite',
+        zIndex: 1,
+        opacity: 0.6,
+        display: { xs: 'none', md: 'block' }
+      }}>
+        <FastfoodIcon sx={{ fontSize: 60, color: '#FFB74D' }} />
+      </Box>
+      <Box sx={{ 
+        position: 'absolute',
+        top: '20%',
+        right: '15%',
+        animation: 'float 12s ease-in-out infinite',
+        zIndex: 1,
+        opacity: 0.6,
+        display: { xs: 'none', md: 'block' }
+      }}>
+        <LocalPizzaIcon sx={{ fontSize: 70, color: '#FFAB91' }} />
+      </Box>
+      <Box sx={{ 
+        position: 'absolute',
+        bottom: '15%',
+        right: '10%',
+        animation: 'float 10s ease-in-out infinite',
+        zIndex: 1,
+        opacity: 0.6,
+        display: { xs: 'none', md: 'block' }
+      }}>
+        <EmojiFoodBeverageIcon sx={{ fontSize: 50, color: '#FFCC80' }} />
+      </Box>
+
+      {/* Add CSS animations */}
+      <style jsx global>{`
+        @keyframes float {
+          0% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+          100% { transform: translateY(0px); }
+        }
+      `}</style>
+
       <Paper 
         elevation={6}
         sx={{
@@ -444,21 +513,30 @@ const Register = () => {
           maxWidth: { xs: '100%', sm: 600, md: 680 },
           borderRadius: { xs: 2, sm: 3, md: 4 },
           overflow: 'hidden',
-          boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-          transition: 'all 0.3s ease-in-out',
-          '&:hover': {
-            boxShadow: '0 15px 50px rgba(0,0,0,0.3)',
+          boxShadow: '0 25px 80px rgba(0,0,0,0.3)',
+          position: 'relative',
+          zIndex: 2,
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '150px',
+            height: '150px',
+            background: 'radial-gradient(circle at top right, rgba(255,87,34,0.1), transparent 70%)',
+            zIndex: 0,
+            borderRadius: '0 0 0 100%'
           },
-          animation: 'fadeIn 0.5s ease-out',
-          '@keyframes fadeIn': {
-            '0%': {
-              opacity: 0,
-              transform: 'translateY(20px)'
-            },
-            '100%': {
-              opacity: 1,
-              transform: 'translateY(0)'
-            }
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            width: '150px',
+            height: '150px',
+            background: 'radial-gradient(circle at bottom left, rgba(255,87,34,0.1), transparent 70%)',
+            zIndex: 0,
+            borderRadius: '0 100% 0 0'
           }
         }}
       >

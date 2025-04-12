@@ -48,8 +48,7 @@ const SidebarContent = memo(({ mobile = false, handleLogout, toggleSidebar }) =>
   };
 
   const mainMenuItems = [
-    { text: 'Home', icon: <FaHome size={20} />, link: '/home' },
-    { text: 'Dashboard', icon: <FaChartBar size={20} />, link: '/dashboard' },
+    { text: 'Dashboard', icon: <FaChartBar size={20} />, link: '/chef-dashboard' },
     { text: 'Upload Tutorials', icon: <FaUtensils size={20} />, link: '/tutorial-upload' },
     { text: 'Categories', icon: <FaThList size={20} />, link: '/categories' },
   ];
@@ -62,10 +61,12 @@ const SidebarContent = memo(({ mobile = false, handleLogout, toggleSidebar }) =>
       submenu: [
         { text: 'Profile', icon: <FaUser size={16}/>, link: '/profile' },
         { text: 'Addresses', icon: <FaMapMarkerAlt size={16} />, link: '/addresses' },
+        { text: 'Payment Methods', icon: <FaWallet size={16} />, link: '/payment-methods' },
       ]
     },
     { text: 'My Orders', icon: <FaHistory size={20} />, link: '/orders' },
     { text: 'Favorites', icon: <FaHeart size={20} />, link: '/favorites' },
+    { text: 'Offers & Promos', icon: <FaTicketAlt size={20} />, link: '/offers' },
   ];
   
   const supportMenuItems = [
@@ -330,7 +331,7 @@ const SidebarContent = memo(({ mobile = false, handleLogout, toggleSidebar }) =>
   );
 });
 
-const Sidebar = memo(({ sidebarOpen, toggleSidebar, handleLogout }) => {
+const ChefSidebar = memo(({ sidebarOpen, toggleSidebar, handleLogout }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -378,7 +379,7 @@ const Sidebar = memo(({ sidebarOpen, toggleSidebar, handleLogout }) => {
   );
 });
 
-Sidebar.displayName = 'Sidebar';
-SidebarContent.displayName = 'SidebarContent';
+ChefSidebar.displayName = 'ChefSidebar';
+SidebarContent.displayName = 'ChefSidebarContent';
 
-export default Sidebar;
+export default ChefSidebar;

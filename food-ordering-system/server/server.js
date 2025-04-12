@@ -452,74 +452,126 @@ app.get("/cart", async (req, res) => {
 
   try {
     const query = `
-  SELECT 
-    c.id AS cart_id, 
-    f.id AS food_id, 
-    f.name AS food_name, 
-    f.description,
-    f.category, 
-    f.image_url, 
-    f.price AS base_price, 
-    c.quantity,
-    c.extra_cheese,
-    c.extra_meat,
-    c.extra_veggies,
-    c.no_onions,
-    c.no_garlic,
-    c.spicy_level,
-    c.special_instructions,
-    c.gluten_free, -- New field
-    c.cooking_preference, -- New field
-    (
-      f.price + 
-      (c.extra_cheese * 35) + 
-      (c.extra_meat * 50) + 
-      (c.extra_veggies * 30) +
-      (c.gluten_free * 40) -- New field
-    ) AS item_price,
-    (
-      (f.price + 
-      (c.extra_cheese * 35) + 
-      (c.extra_meat * 50) + 
-      (c.extra_veggies * 30) +
-      (c.gluten_free * 40)) * c.quantity -- New field
-    ) AS total_price
-  FROM 
-    cart c
-  JOIN 
-    food_items f ON c.food_id = f.id
-  WHERE 
-    c.user_id = ?
-  ORDER BY
-    c.id DESC
-`;
+      SELECT 
+        c.id AS cart_id, 
+        f.id AS food_id, 
+        f.name AS food_name, 
+        f.description,
+        f.category, 
+        f.image_url, 
+        f.price AS base_price, 
+        c.quantity,
+        c.extra_cheese,
+        c.extra_meat,
+        c.extra_veggies,
+        c.no_onions,
+        c.no_garlic,
+        c.spicy_level,
+        c.special_instructions,
+        c.gluten_free, -- New field
+        c.cooking_preference, -- New field
+        c.sides,
+        c.dip_sauce
+      FROM 
+        cart c
+      JOIN 
+        food_items f ON c.food_id = f.id
+      WHERE 
+        c.user_id = ?
+      ORDER BY
+        c.id DESC
+    `;
 
     const [cartItems] = await db.pool.execute(query, [user_id]);
     
+    // Fetch sides and dips prices
+    const [sides] = await db.pool.execute("SELECT name, price FROM sides");
+    const [dips] = await db.pool.execute("SELECT name, price FROM dips");
+
+    const sidesMap = Object.fromEntries(sides.map(side => [side.name, side.price]));
+    const dipsMap = Object.fromEntries(dips.map(dip => [dip.name, dip.price]));
+
     // Format the results for the frontend
-    const formattedItems = cartItems.map(item => ({
-      cart_id: item.cart_id,
-      food_id: item.food_id,
-      name: item.food_name,
-      description: item.description,
-      category: item.category,
-      image_url: item.image_url,
-      base_price: item.base_price,
-      quantity: item.quantity,
-      customization: {
-        extraCheese: item.extra_cheese === 1,
-        extraMeat: item.extra_meat === 1,
-        extraVeggies: item.extra_veggies === 1,
-        noOnions: item.no_onions === 1,
-        noGarlic: item.no_garlic === 1,
-        spicyLevel: item.spicy_level, // Already stored as string
-        specialInstructions: item.special_instructions || "",
-        sides: item.sides || null,
-    dip_sauce: item.dip_sauce || null
-      },
-      item_price: item.item_price,
-      total_price: item.total_price
-    }));
+    const formattedItems = cartItems.map(item => {
+      const parseArray = (input) => {
+        try {
+          // Attempt to parse as JSON
+          const parsed = JSON.parse(input);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          // Handle plain text input (e.g., "French Fries × 2")
+          if (typeof input === "string") {
+            return input.split(",").map(entry => {
+              const [name, quantity] = entry.split("×").map(part => part.trim());
+              return { name, quantity: parseInt(quantity, 10) || 1 };
+            });
+          }
+          return [];
+        }
+      };
+
+      const sidesArray = parseArray(item.sides);
+      const dipsArray = parseArray(item.dip_sauce);
+
+      console.log("Parsed sides for item:", item.food_name, sidesArray);
+      console.log("Parsed dips for item:", item.food_name, dipsArray);
+
+      let sidesPrice = 0;
+      console.log("Calculating sides price for item:", item.food_name);
+      sidesArray.forEach(side => {
+        const sideName = side.name || side; // Handle both object and string formats
+        const sideQuantity = side.quantity || 1; // Default quantity to 1 if not provided
+        const sidePrice = (sidesMap[sideName] || 0) * sideQuantity;
+        console.log(`Side: ${sideName}, Quantity: ${sideQuantity}, Price: ${sidePrice}`);
+        sidesPrice += sidePrice;
+      });
+      console.log(`Total sides price for item "${item.food_name}": ${sidesPrice}`);
+
+      let dipsPrice = 0;
+      console.log("Calculating dips price for item:", item.food_name);
+      dipsArray.forEach(dip => {
+        const dipName = dip.name || dip; // Handle both object and string formats
+        const dipQuantity = dip.quantity || 1; // Default quantity to 1 if not provided
+        const dipPrice = (dipsMap[dipName] || 0) * dipQuantity;
+        console.log(`Dip: ${dipName}, Quantity: ${dipQuantity}, Price: ${dipPrice}`);
+        dipsPrice += dipPrice;
+      });
+      console.log(`Total dips price for item "${item.food_name}": ${dipsPrice}`);
+
+      const customizationPrice =
+        (item.extra_cheese ? 35 : 0) +
+        (item.extra_meat ? 50 : 0) +
+        (item.extra_veggies ? 30 : 0) +
+        (item.gluten_free ? 40 : 0) +
+        sidesPrice +
+        dipsPrice;
+
+      const itemPrice = Number(item.base_price) + customizationPrice;
+
+      return {
+        cart_id: item.cart_id,
+        food_id: item.food_id,
+        name: item.food_name,
+        description: item.description,
+        category: item.category,
+        image_url: item.image_url,
+        base_price: Number(item.base_price),
+        quantity: item.quantity,
+        customization: {
+          extraCheese: item.extra_cheese === 1,
+          extraMeat: item.extra_meat === 1,
+          extraVeggies: item.extra_veggies === 1,
+          noOnions: item.no_onions === 1,
+          noGarlic: item.no_garlic === 1,
+          spicyLevel: item.spicy_level, // Already stored as string
+          specialInstructions: item.special_instructions || "",
+          sides: sidesArray,
+          dip_sauce: dipsArray
+        },
+        item_price: itemPrice,
+        total_price: itemPrice * item.quantity
+      };
+    });
 
     // Calculate cart summary
     const cartSummary = {
@@ -1793,10 +1845,10 @@ app.get("/chef/orders/stats", async (req, res) => {
   try {
     const statsQuery = `
       SELECT 
-        COUNT(*) AS totalOrders, 
-        IFNULL(SUM(total_amount), 0) AS totalEarnings 
+        COUNT(*) AS totalOrders,
+        COUNT(CASE WHEN status = 'Delivered' THEN 1 END) AS completedOrders,
+        IFNULL(SUM(total_amount), 0) AS totalEarnings
       FROM orders
-      WHERE status IN ('Delivered', 'Cooking', 'Prepared for Delivery', 'Off for Delivery')
     `;
 
     const [stats] = await db.pool.execute(statsQuery);
@@ -2017,12 +2069,18 @@ app.get("/api/notifications", async (req, res) => {
   }
 });
 
-// Get user addresses
-app.get("/api/addresses/:userId", async (req, res) => {
+// Get user addresses - support both query and URL parameter
+app.get("/api/addresses/:userId?", async (req, res) => {
+  const userId = req.params.userId || req.query.user_id;
+  
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required" });
+  }
+
   try {
     const [addresses] = await db.pool.execute(
       "SELECT * FROM addresses WHERE user_id = ? ORDER BY created_at DESC",
-      [req.params.userId]
+      [userId]
     );
     res.json(addresses);
   } catch (error) {

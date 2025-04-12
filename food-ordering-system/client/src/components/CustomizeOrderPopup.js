@@ -47,7 +47,7 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
 // Define customization categories with more detailed options
-const CUSTOMIZATION_CATEGORIES = {
+export const CUSTOMIZATION_CATEGORIES = {
   toppings: [
     { id: 'extraCheese', label: 'Extra Cheese', price: 35, image: '/images/toppings/cheese.jpg', popular: true, veg: true },
     { id: 'extraMeat', label: 'Double Meat', price: 50, image: '/images/toppings/meat.jpg', popular: true, veg: false },
@@ -276,10 +276,18 @@ const CustomizeOrderPopup = ({ open, onClose, onSave, item, favoriteItems, onTog
   };
 
   const handleCustomizationChange = (name, value) => {
-    setCustomization(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setCustomization(prev => {
+      // Ensure only one topping can be selected
+      if (CUSTOMIZATION_CATEGORIES.toppings.some(topping => topping.id === name)) {
+        const updatedCustomization = { ...prev };
+        CUSTOMIZATION_CATEGORIES.toppings.forEach(topping => {
+          updatedCustomization[topping.id] = false;
+        });
+        updatedCustomization[name] = value;
+        return updatedCustomization;
+      }
+      return { ...prev, [name]: value };
+    });
   };
 
   const handleSetDipQuantity = (dipId, value) => {
@@ -524,79 +532,16 @@ const CustomizeOrderPopup = ({ open, onClose, onSave, item, favoriteItems, onTog
               variant="scrollable"
               scrollButtons="auto"
             >
-              <Tab label={
-                <Box display="flex" alignItems="center">
-                  <Typography>Toppings</Typography>
-                  {selectedExtras > 0 && (
-                    <StyledBadge badgeContent={selectedExtras} color="success" />
-                  )}
-                </Box>
-              } />
               <Tab label="Preferences" />
               <Tab label="Sides" />
               <Tab label="Dips & Sauces" />
             </Tabs>
           </Box>
           
-          {/* Toppings Tab */}
+          {/* Preferences Tab */}
           <Box role="tabpanel" hidden={tabValue !== 0} p={2}>
             {tabValue === 0 && (
               <Fade in={tabValue === 0}>
-                <Box>
-                  <Grid container spacing={2}>
-                    {CUSTOMIZATION_CATEGORIES.toppings.map(topping => (
-                      <Grid item xs={6} sm={4} md={3} key={topping.id}>
-                        <Zoom in={true} style={{ transitionDelay: '150ms' }}>
-                          <ToppingCard 
-                            selected={customization[topping.id]} 
-                            onClick={() => handleCustomizationChange(topping.id, !customization[topping.id])}
-                            elevation={customization[topping.id] ? 3 : 1}
-                          >
-                            {isRecommended(topping.id) && (
-                              <Box position="absolute" top={-8} right={-8}>
-                                <Chip 
-                                  label="Recommended" 
-                                  size="small" 
-                                  color="secondary"
-                                  sx={{ transform: 'scale(0.8)' }}
-                                />
-                              </Box>
-                            )}
-                            <Avatar 
-                              src={topping.image} 
-                              alt={topping.label}
-                              sx={{ width: 56, height: 56, mb: 1 }}
-                            />
-                            <Typography variant="body2" align="center" gutterBottom>
-                              {topping.label}
-                            </Typography>
-                            <Typography variant="caption" color="primary">
-                              +Rs. {topping.price}
-                            </Typography>
-                            {customization[topping.id] && (
-                              <Box 
-                                position="absolute" 
-                                bottom={8} 
-                                right={8}
-                                sx={{ color: 'primary.main' }}
-                              >
-                                <CheckCircleIcon />
-                              </Box>
-                            )}
-                          </ToppingCard>
-                        </Zoom>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Box>
-              </Fade>
-            )}
-          </Box>
-          
-          {/* Preferences Tab */}
-          <Box role="tabpanel" hidden={tabValue !== 1} p={2}>
-            {tabValue === 1 && (
-              <Fade in={tabValue === 1}>
                 <Box>
                   <Grid container spacing={2}>
                     {CUSTOMIZATION_CATEGORIES.preferences.map(pref => (
@@ -665,9 +610,9 @@ const CustomizeOrderPopup = ({ open, onClose, onSave, item, favoriteItems, onTog
           </Box>
           
           {/* Sides Tab */}
-          <Box role="tabpanel" hidden={tabValue !== 2} p={2}>
-            {tabValue === 2 && (
-              <Fade in={tabValue === 2}>
+          <Box role="tabpanel" hidden={tabValue !== 1} p={2}>
+            {tabValue === 1 && (
+              <Fade in={tabValue === 1}>
                 <Box>
                   <Grid container spacing={2}>
                     {CUSTOMIZATION_CATEGORIES.sides.map(side => (
@@ -736,9 +681,9 @@ const CustomizeOrderPopup = ({ open, onClose, onSave, item, favoriteItems, onTog
           </Box>
           
           {/* Dips & Sauces Tab */}
-          <Box role="tabpanel" hidden={tabValue !== 3} p={2}>
-            {tabValue === 3 && (
-              <Fade in={tabValue === 3}>
+          <Box role="tabpanel" hidden={tabValue !== 2} p={2}>
+            {tabValue === 2 && (
+              <Fade in={tabValue === 2}>
                 <Box>
                   <Grid container spacing={2}>
                     {CUSTOMIZATION_CATEGORIES.dips.map(dip => (

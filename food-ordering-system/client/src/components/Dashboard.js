@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo, useMemo } from 'react';
+import { debounce } from 'lodash'; // Import lodash for debouncing
 import { 
   Button, Box, Typography, Grid, TextField, IconButton, 
   Menu, MenuItem, Card, CardContent, Table, TableHead, TableRow, TableCell, TableBody, Paper, 
@@ -17,14 +18,37 @@ import DeliveryDiningIcon from "@mui/icons-material/DeliveryDining";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import AddIcon from "@mui/icons-material/Add";
 import { Pie, Line } from "react-chartjs-2";
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement } from "chart.js";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Filler } from "chart.js";
 import { useNavigate, Link } from "react-router-dom";
 import Sidebar from './Sidebar';
 import axios from 'axios';
 import { io } from "socket.io-client"; // Import socket.io-client
 import AddressDialog from './AddressDialog';
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement);
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Filler);
+
+// Extract chart configuration
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { position: 'bottom' },
+  }
+};
+
+// Memoize discount levels calculation
+const DISCOUNT_LEVELS = [
+  { points: 5, discount: 5 },
+  { points: 8, discount: 7 },
+  { points: 10, discount: 8 },
+  { points: 12, discount: 10 },
+  { points: 15, discount: 15 },
+];
+
+// Add debounced socket event handler
+const debouncedSocketHandler = debounce((callback) => {
+  callback();
+}, 100);
 
 const Dashboard = () => {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -51,14 +75,100 @@ const Dashboard = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [openAddressDialog, setOpenAddressDialog] = useState(false);
   const [deliveryAddresses, setDeliveryAddresses] = useState([]);
+  const [selectedAddress, setSelectedAddress] = useState(null);
 
   const toggleSidebar = () => {
     setSidebarOpen((prev) => !prev);
   };
-  
+
+  // Memoize heavy calculations
+  const nextLevel = useMemo(() => 
+    DISCOUNT_LEVELS.find(level => loyaltyPoints < level.points) || 
+    { points: 0, discount: 0 }, 
+    [loyaltyPoints]
+  );
+
+  const pointsToNextReward = useMemo(() => 
+    nextLevel.points - loyaltyPoints,
+    [nextLevel.points, loyaltyPoints]
+  );
+
+  // Optimize socket connection with useCallback
+  const setupSocket = useCallback(() => {
+    const newSocket = io("http://localhost:5000", {
+      path: "/socket.io/",
+      reconnection: true,
+      reconnectionAttempts: 3,
+      reconnectionDelay: 1000,
+      transports: ['websocket']
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+    });
+
+    // Debounce socket event handlers
+    newSocket.on("order-updated", (updatedOrder) => {
+      debouncedSocketHandler(() => {
+        if (activeDelivery && updatedOrder.id === activeDelivery.id) {
+          setActiveDelivery(prev => ({
+            ...prev,
+            status: updatedOrder.status,
+          }));
+        }
+      });
+    });
+
+    return newSocket;
+  }, []);
+
+  // Optimize data fetching with useCallback
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const userId = localStorage.getItem("user_id");
+      if (!userId) return;
+
+      const [
+        ordersResponse,
+        loyaltyResponse,
+        cartResponse
+      ] = await Promise.all([
+        axios.get(`/api/orders/stats`, { params: { user_id: userId } }),
+        axios.get(`/loyalty-points`, { params: { user_id: userId } }),
+        axios.get(`http://localhost:5000/cart?user_id=${userId}`)
+      ]);
+
+      setTotalSpent(ordersResponse.data.totalSpent || 0);
+      setTotalOrders(ordersResponse.data.totalOrders || 0);
+      setLoyaltyPoints(loyaltyResponse.data.points || 0);
+      setCartCount(
+        cartResponse.data.success && cartResponse.data.items 
+          ? cartResponse.data.items.reduce((sum, item) => sum + item.quantity, 0)
+          : 0
+      );
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      // Set default values on error
+      setTotalSpent(0);
+      setTotalOrders(0);
+      setLoyaltyPoints(0);
+      setCartCount(0);
+    }
+  }, []);
+
+  // Combine related useEffects
   useEffect(() => {
     document.title = "YOO!!! Food Dashboard";
+    const socket = setupSocket();
+    setSocket(socket);
+    fetchDashboardData();
 
+    return () => {
+      socket.disconnect();
+    };
+  }, [setupSocket, fetchDashboardData]);
+
+  useEffect(() => {
     const fetchRecentOrders = async () => {
       try {
         const response = await axios.get(`/api/recent-orders`, {
@@ -70,29 +180,7 @@ const Dashboard = () => {
       }
     };
 
-    const fetchDashboardStats = async () => {
-      try {
-        const userId = localStorage.getItem("user_id");
-        if (!userId) return;
-
-        const [ordersResponse, loyaltyResponse] = await Promise.all([
-          axios.get(`/api/orders/stats`, { params: { user_id: userId } }),
-          axios.get(`/loyalty-points`, { params: { user_id: userId } })
-        ]);
-
-        setTotalSpent(ordersResponse.data.totalSpent || 0);
-        setTotalOrders(ordersResponse.data.totalOrders || 0);
-        setLoyaltyPoints(loyaltyResponse.data.points || 0);
-      } catch (error) {
-        console.error("Error fetching dashboard stats:", error);
-        setTotalSpent(0);
-        setTotalOrders(0);
-        setLoyaltyPoints(0);
-      }
-    };
-
     fetchRecentOrders();
-    fetchDashboardStats();
 
     // Simulated data for other states
     setFavoriteItems([
@@ -110,38 +198,6 @@ const Dashboard = () => {
       driverName: "Alex",
       driverPhone: "+91 9876543210"
     });
-
-    const fetchCartCount = async () => {
-      try {
-        const userId = localStorage.getItem("user_id");
-        if (!userId) return;
-
-        const response = await axios.get(`http://localhost:5000/cart?user_id=${userId}`);
-        if (response.data.success && response.data.items) {
-          setCartCount(response.data.items.reduce((sum, item) => sum + item.quantity, 0)); // Sum up quantities
-        } else {
-          setCartCount(0); // Fallback to 0 if no items
-        }
-      } catch (error) {
-        console.error("Error fetching cart count:", error);
-        setCartCount(0); // Fallback to 0 on error
-      }
-    };
-
-    fetchCartCount();
-  }, []);
-
-  useEffect(() => {
-    // Initialize socket connection
-    const newSocket = io("http://localhost:5000", {
-      path: "/socket.io/",
-    });
-    setSocket(newSocket);
-
-    // Clean up on component unmount
-    return () => {
-      newSocket.disconnect();
-    };
   }, []);
 
   useEffect(() => {
@@ -444,12 +500,29 @@ const Dashboard = () => {
     const fetchAddresses = async () => {
       try {
         const userId = localStorage.getItem("user_id");
-        if (!userId) return;
+        if (!userId) {
+          console.warn("No user ID found");
+          return;
+        }
 
-        const response = await axios.get(`http://localhost:5000/api/addresses/${userId}`);
+        const response = await axios.get(`http://localhost:5000/api/addresses`, {
+          params: { user_id: userId }
+        });
+
         if (response.data) {
-          setDeliveryAddresses(response.data);
+          const formattedAddresses = response.data.map(addr => ({
+            id: addr.id,
+            name: addr.label || 'Address',  // Use label instead of type
+            address: `${addr.street}, ${addr.city}, ${addr.state} ${addr.zip_code}`,
+            isDefault: addr.is_default === 1
+          }));
+          setDeliveryAddresses(formattedAddresses);
+          
+          // Set selected address to default or first address
+          const defaultAddress = formattedAddresses.find(addr => addr.isDefault) || formattedAddresses[0];
+          setSelectedAddress(defaultAddress);
         } else {
+          console.warn("Invalid address data format", response.data);
           setDeliveryAddresses([]);
         }
       } catch (error) {
@@ -513,87 +586,40 @@ const Dashboard = () => {
     navigate("/login");
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
-    }
-  };
-
-  // Chart Data
-  const pieData = {
-    labels: cuisinePreferences.map(item => item.category),
-    datasets: [{
-      data: cuisinePreferences.map(item => item.count),
-      backgroundColor: [
-        "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", 
-        "#FF9F40", "#4D5360", "#E7E9ED", "#97BBCD", "#DCDCDC"
-      ].slice(0, cuisinePreferences.length)
-    }]
-  };
-
-  const lineData = {
-    labels: ordersByMonth.map(item => item.month),
-    datasets: [{
-      label: "Orders",
-      data: ordersByMonth.map(item => item.count),
-      borderColor: "#FF6384",
-      backgroundColor: "rgba(255, 99, 132, 0.2)",
-      tension: 0.3,
-      fill: true
-    }]
-  };
-
-  const orderStatsData = {
-    labels: orderStats.map(stat => stat.month),
-    datasets: [{
-      label: "Orders",
-      data: orderStats.map(stat => stat.count),
-      borderColor: "#36A2EB",
-      backgroundColor: "rgba(54, 162, 235, 0.2)",
-      tension: 0.3,
-      fill: true
-    }]
-  };
-
-  const categoryStatsData = {
-    labels: categoryStats.map(stat => stat.category),
-    datasets: [{
-      data: categoryStats.map(stat => stat.count),
-      backgroundColor: [
-        "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", 
-        "#FF9F40", "#4D5360", "#E7E9ED", "#97BBCD", "#DCDCDC"
-      ].slice(0, categoryStats.length)
-    }]
-  };
-
-  const chartOptions = { 
-    responsive: true, 
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom',
+  // Optimize handleSearch with debounce
+  const handleSearch = useCallback(
+    debounce((query) => {
+      if (query.trim()) {
+        navigate(`/search?q=${encodeURIComponent(query)}`);
       }
-    }
-  };
-  
-  // Discount calculation for loyalty
-  const discountLevels = [
-    { points: 5, discount: 5 },
-    { points: 8, discount: 7 },
-    { points: 10, discount: 8 },
-    { points: 12, discount: 10 },
-    { points: 15, discount: 15 },
-  ];
-  const nextLevel = discountLevels.find(level => loyaltyPoints < level.points) || { points: 0, discount: 0 };
-  const pointsToNextReward = nextLevel.points - loyaltyPoints;
+    }, 300), // Debounce with a 300ms delay
+    [navigate]
+  );
 
-  // Fallback for empty data
-  const isLineDataEmpty = ordersByMonth.length === 0 || ordersByMonth.every(item => item.count === 0);
-  const isPieDataEmpty = cuisinePreferences.length === 0 || cuisinePreferences.every(item => item.count === 0);
+  // Optimize state updates
+  useEffect(() => {
+    const fetchCartCount = async () => {
+      try {
+        const userId = localStorage.getItem("user_id");
+        if (!userId) return;
 
-  // Update the notification menu content
-  const renderNotificationContent = (notification) => {
+        const response = await axios.get(`http://localhost:5000/cart?user_id=${userId}`);
+        const newCartCount = response.data.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+
+        // Only update state if the value has changed
+        if (newCartCount !== cartCount) {
+          setCartCount(newCartCount);
+        }
+      } catch (error) {
+        console.error("Error fetching cart count:", error);
+      }
+    };
+
+    fetchCartCount();
+  }, [cartCount]);
+
+  // Memoize notification renderer
+  const renderNotificationContent = useCallback((notification) => {
     const getNotificationIcon = (type) => {
       switch (type) {
         case 'order': return '🛍️';
@@ -667,6 +693,87 @@ const Dashboard = () => {
         </Box>
       </MenuItem>
     );
+  }, [handleNotificationClose, markNotificationAsRead]);
+
+  // Memoize chart data
+  const chartData = useMemo(() => ({
+    pieData: {
+      labels: cuisinePreferences.map(item => item.category),
+      datasets: [{
+        data: cuisinePreferences.map(item => item.count),
+        backgroundColor: [
+          "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF",
+          "#FF9F40", "#4D5360", "#E7E9ED", "#97BBCD", "#DCDCDC"
+        ].slice(0, cuisinePreferences.length)
+      }]
+    },
+    lineData: {
+      labels: ordersByMonth.map(item => item.month),
+      datasets: [{
+        label: "Orders",
+        data: ordersByMonth.map(item => item.count),
+        borderColor: "#FF6384",
+        backgroundColor: "rgba(255, 99, 132, 0.2)",
+        tension: 0.3,
+        fill: true
+      }]
+    }
+  }), [cuisinePreferences, ordersByMonth]);
+
+  // Memoize menu items to prevent re-renders
+  const menuItems = useMemo(() => [
+    { label: "My Profile", onClick: () => navigate("/profile") },
+    { label: "My Orders", onClick: () => navigate("/orders") },
+    { label: "Favorites", onClick: () => navigate("/favorites") },
+    { label: "Addresses", onClick: () => navigate("/addresses") },
+    { label: "Payment Methods", onClick: () => navigate("/payment-methods") },
+  ], [navigate]);
+
+  // Update the Menu items for addresses
+  const addressMenuContent = deliveryAddresses.length > 0 ? (
+    deliveryAddresses.map(address => (
+      <MenuItem 
+        key={address.id} 
+        onClick={() => handleAddressSelect(address)}
+        sx={{ 
+          py: 2,
+          px: 2,
+          borderBottom: '1px solid rgba(0,0,0,0.08)',
+          bgcolor: selectedAddress?.id === address.id ? 'action.selected' : 'transparent',
+          '&:hover': {
+            bgcolor: 'action.hover'
+          }
+        }}
+      >
+        <Box sx={{ width: '100%' }}>
+          <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 600 }}>
+            {address.name}
+            {address.isDefault && (
+              <Chip 
+                label="Default" 
+                size="small" 
+                color="primary" 
+                sx={{ ml: 1, height: 20 }} 
+              />
+            )}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {address.address}
+          </Typography>
+        </Box>
+      </MenuItem>
+    ))
+  ) : (
+    <MenuItem disabled sx={{ py: 2, textAlign: 'center' }}>
+      <Typography variant="body2" color="text.secondary">
+        No saved addresses
+      </Typography>
+    </MenuItem>
+  );
+
+  const handleAddressSelect = (address) => {
+    setSelectedAddress(address);
+    handleAddressClose();
   };
 
   return (
@@ -729,11 +836,37 @@ const Dashboard = () => {
           </Box> */}
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={handleAddressClick}>
-              <LocationOnIcon color="primary" />
-              <Typography variant="body2" sx={{ ml: 0.5, display: { xs: 'none', sm: 'block' } }}>
-                Home
-              </Typography>
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                cursor: 'pointer',
+                bgcolor: 'background.paper',
+                px: 2,
+                py: 0.5,
+                borderRadius: 2,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                '&:hover': {
+                  bgcolor: 'grey.50'
+                },
+                minWidth: { sm: 200 }
+              }} 
+              onClick={handleAddressClick}
+            >
+              <LocationOnIcon color="primary" sx={{ fontSize: 20 }} />
+              <Box sx={{ ml: 1, display: { xs: 'none', sm: 'block' }, overflow: 'hidden' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Deliver to
+                </Typography>
+                <Typography variant="body2" sx={{ 
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>
+                  {selectedAddress ? selectedAddress.name : 'Add Address'}
+                </Typography>
+              </Box>
             </Box>
             
             <IconButton onClick={handleNotificationClick}>
@@ -775,11 +908,11 @@ const Dashboard = () => {
           onClose={handleCloseProfileMenu}
           sx={{ mt: 1 }}
         >
-          <MenuItem onClick={() => navigate("/profile")}>My Profile</MenuItem>
-          <MenuItem onClick={() => navigate("/orders")}>My Orders</MenuItem>
-          <MenuItem onClick={() => navigate("/favorites")}>Favorites</MenuItem>
-          <MenuItem onClick={() => navigate("/addresses")}>Addresses</MenuItem>
-          <MenuItem onClick={() => navigate("/payment-methods")}>Payment Methods</MenuItem>
+          {menuItems.map((item) => (
+            <MenuItem key={item.label} onClick={item.onClick}>
+              {item.label}
+            </MenuItem>
+          ))}
           <Divider />
           <MenuItem onClick={handleLogout}>Logout</MenuItem>
         </Menu>
@@ -806,45 +939,22 @@ const Dashboard = () => {
           transformOrigin={{ horizontal: 'center', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
         >
-          <Box sx={{ p: 2, borderBottom: '1px solid #eee' }}>
-            <Typography variant="subtitle1" fontWeight="bold">
-              Notifications {unreadCount > 0 && `(${unreadCount} new)`}
-            </Typography>
-          </Box>
-          {notifications.length > 0 ? (
-            <>
-              <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
-                {notifications.map(notification => renderNotificationContent(notification))}
-              </Box>
-              {unreadCount > 0 && (
-                <Box sx={{ p: 2, borderTop: '1px solid #eee', textAlign: 'center' }}>
-                  <Button
-                    size="small"
-                    onClick={async () => {
-                      try {
-                        await Promise.all(
-                          notifications
-                            .filter(n => n.is_read === 0)
-                            .map(n => markNotificationAsRead(n.id))
-                        );
-                        handleNotificationClose();
-                      } catch (error) {
-                        console.error("Error marking all as read:", error);
-                      }
-                    }}
-                  >
-                    Mark all as read
-                  </Button>
-                </Box>
-              )}
-            </>
-          ) : (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography variant="body1" color="text.secondary">
-                No notifications
+          {[
+            <Box key="header" sx={{ p: 2, borderBottom: '1px solid #eee' }}>
+              <Typography variant="subtitle1" fontWeight="bold">
+                Notifications {unreadCount > 0 && `(${unreadCount} new)`}
               </Typography>
-            </Box>
-          )}
+            </Box>,
+            ...notifications.length > 0
+              ? notifications.map(notification => renderNotificationContent(notification))
+              : [
+                  <Box key="no-notifications" sx={{ p: 4, textAlign: 'center' }}>
+                    <Typography variant="body1" color="textSecondary">
+                      No notifications
+                    </Typography>
+                  </Box>
+                ]
+          ]}
         </Menu>
         <Menu
           anchorEl={deliveryAddressAnchorEl}
@@ -852,64 +962,23 @@ const Dashboard = () => {
           onClose={handleAddressClose}
           sx={{ 
             mt: 1,
+            transformOrigin: { vertical: 'top', horizontal: 'right' },
             '& .MuiPaper-root': {
               width: 320,
               maxHeight: 400,
-              color: 'text.secondary',
+              overflow: 'auto',
+              borderRadius: 2,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
             }
           }}
         >
-          <MenuItem  sx={{ bgcolor: 'grey.100' }}>
+          <MenuItem sx={{ bgcolor: 'grey.50', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
             <LocationOnIcon sx={{ mr: 1 }} color="primary" />
-            <Typography variant="subtitle2">Delivery Address</Typography>
+            <Typography variant="subtitle2">Delivery Addresses</Typography>
           </MenuItem>
-
-          {deliveryAddresses.length > 0 ? (
-            deliveryAddresses.map(address => (
-              <MenuItem 
-                key={address.id} 
-                onClick={handleAddressClose}
-                sx={{ 
-                  py: 2,
-                  display: 'block',
-                  '&:hover': {
-                    bgcolor: 'rgba(0, 0, 0, 0.04)'
-                  }
-                }}
-              >
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    fontWeight: 600,
-                    color: 'text.primary',
-                    mb: 0.5
-                  }}
-                >
-                  {address.name}
-                </Typography>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    color: 'text.secondary',
-                    whiteSpace: 'normal',
-                    wordWrap: 'break-word'
-                  }}
-                >
-                  {address.address}
-                </Typography>
-              </MenuItem>
-            ))
-          ) : (
-            <MenuItem disabled sx={{ py: 2 }}>
-              <Box sx={{ textAlign: 'center', width: '100%' }}>
-                <Typography variant="body2" color="text.secondary">
-                  No saved addresses
-                </Typography>
-              </Box>
-            </MenuItem>
-          )}
           
-          <Divider />
+          {addressMenuContent}
+          
           <MenuItem 
             onClick={() => {
               handleAddressClose();
@@ -917,13 +986,15 @@ const Dashboard = () => {
             }}
             sx={{ 
               color: 'primary.main',
-              py: 1.5,
+              py: 2,
+              borderTop: '1px solid rgba(0,0,0,0.08)',
               display: 'flex',
-              alignItems: 'center' 
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
-            <AddIcon sx={{ mr: 1, fontSize: 20 }} />
-            <Typography variant="body2">Add New Address</Typography>
+            <AddIcon sx={{ mr: 1 }} />
+            <Typography variant="subtitle2">Add New Address</Typography>
           </MenuItem>
         </Menu>
 
@@ -1139,18 +1210,8 @@ const Dashboard = () => {
                 </Box>
                 <Typography variant="h4" fontWeight="bold">{nextLevel.discount}%</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Next level: {nextLevel.points} points
+                  Next level: {nextLevel.points}
                 </Typography>
-                {/* <Button 
-                  variant="outlined" 
-                  size="small" 
-                  color="primary" 
-                  startIcon={<LocalOfferIcon />}
-                  onClick={() => navigate("/offers")}
-                  sx={{ mt: 1 }}
-                >
-                  View Offers
-                </Button> */}
               </CardContent>
             </Card>
           </Grid>
@@ -1193,12 +1254,12 @@ const Dashboard = () => {
               <CardContent>
                 <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>Order Trends</Typography>
                 <Box sx={{ height: 240 }}>
-                  {isLineDataEmpty ? (
+                  {ordersByMonth.length === 0 || ordersByMonth.every(item => item.count === 0) ? (
                     <Typography variant="body2" color="textSecondary" align="center">
                       No data available for Order Trends.
                     </Typography>
                   ) : (
-                    <Line data={lineData} options={chartOptions} />
+                    <Line data={chartData.lineData} options={chartOptions} />
                   )}
                 </Box>
               </CardContent>
@@ -1209,12 +1270,12 @@ const Dashboard = () => {
               <CardContent>
                 <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>Cuisine Preferences</Typography>
                 <Box sx={{ height: 240 }}>
-                  {isPieDataEmpty ? (
+                  {cuisinePreferences.length === 0 || cuisinePreferences.every(item => item.count === 0) ? (
                     <Typography variant="body2" color="textSecondary" align="center">
                       No data available for Cuisine Preferences.
                     </Typography>
                   ) : (
-                    <Pie data={pieData} options={chartOptions} />
+                    <Pie data={chartData.pieData} options={chartOptions} />
                   )}
                 </Box>
               </CardContent>
@@ -1345,13 +1406,23 @@ const Dashboard = () => {
                 color: 'white'
               }}>
                 <Typography variant="h5" fontWeight="bold">New User Special Offer!</Typography>
-                <Typography variant="body1">Get 20% off on your first order</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body1" component="span" fontWeight="medium">
+                    Use code:
+                  </Typography>
+                  <Chip label="WELCOME20" color="primary" size="small" />
+                </Box>
               </Box>
             </Box>
             <CardContent sx={{ p: 2 }}>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <Typography variant="body1" fontWeight="medium">Use code: <Chip label="WELCOME20" color="primary" size="small" /> at checkout</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body1" component="span" fontWeight="medium">
+                      Use code:
+                    </Typography>
+                    <Chip label="WELCOME20" color="primary" size="small" />
+                  </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
                   {/* <Button variant="contained" color="primary" onClick={() => navigate("/offers")}>
@@ -1362,22 +1433,12 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Box>
-
-        {/* Footer */}
-        {/* <Box sx={{ mt: 6, p: 3, textAlign: 'center', bgcolor: '#f5f5f5', borderRadius: 2 }}></Box>
-          <Typography variant="body2" color="textSecondary">© 2025 YOO!!! Food Delivery. All Rights Reserved</Typography>
-          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-            24/7 Customer Support: +91 1800-123-4567 | help@yoofood.com
-          </Typography>
-        </Box> */}
-
-        {/* Add this at the end of your component's return statement */}
         <AddressDialog
           open={openAddressDialog}
           onClose={(success) => {
             setOpenAddressDialog(false);
             if (success) {
-              // Optionally refresh any address data
+              
             }
           }}
           userId={localStorage.getItem('user_id')}
@@ -1387,4 +1448,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default memo(Dashboard);

@@ -288,11 +288,16 @@ const Cart = () => {
     if (cookingPreference) 
       customizations.push(cookingPreference);
     
-    if (sides) 
-      customizations.push(`Side: ${sides}`);
-    
-    if (dip_sauce) 
-      customizations.push(`Sauce: ${dip_sauce}`);
+    // Format sides and dips as readable strings
+    if (sides && Array.isArray(sides)) {
+      const sidesList = sides.map((side) => (side.name ? side.name : side)).join(", ");
+      customizations.push(`Side: ${sidesList}`);
+    }
+  
+    if (dip_sauce && Array.isArray(dip_sauce)) {
+      const dipsList = dip_sauce.map((dip) => (dip.name ? dip.name : dip)).join(", ");
+      customizations.push(`Sauce: ${dipsList}`);
+    }
     
     if (spicyLevel && spicyLevel !== "Medium") 
       customizations.push(`${spicyLevel} Spicy`);
@@ -305,12 +310,20 @@ const Cart = () => {
     if (!item.customization) return {};
     
     const custom = item.customization;
+    const parseArray = (input) => {
+      try {
+        return Array.isArray(input) ? input : JSON.parse(input);
+      } catch {
+        return [];
+      }
+    };
+
     const result = {
       additions: [],
       removals: [],
       cookingPreference: custom.cookingPreference || null,
-      sides: custom.sides || null, // Include sides
-      dip_sauce: custom.dip_sauce || null, // Include sauces
+      sides: parseArray(custom.sides), // Parse sides
+      dip_sauce: parseArray(custom.dip_sauce), // Parse dips
       spicyLevel: custom.spicyLevel || null,
       allergies: [],
       specialInstructions: custom.specialInstructions || null
@@ -336,6 +349,18 @@ const Cart = () => {
       return;
     }
     setDrawerOpen(open);
+  };
+
+  const getItemPriceWithCustomizations = (item) => {
+    const basePrice = Number(item.base_price) || 0;
+    const customizationPrice = 
+      (item.customization.extraCheese ? 35 : 0) +
+      (item.customization.extraMeat ? 50 : 0) +
+      (item.customization.extraVeggies ? 30 : 0) +
+      (item.customization.glutenFree ? 40 : 0) +
+      (item.customization.sides ? item.customization.sides.reduce((total, side) => total + (side.price || 0), 0) : 0) +
+      (item.customization.dip_sauce ? item.customization.dip_sauce.reduce((total, dip) => total + (dip.price || 0), 0) : 0);
+    return basePrice + customizationPrice;
   };
 
   return (
@@ -763,7 +788,7 @@ const Cart = () => {
                                 fontWeight: 'bold'
                               }}
                             >
-                              Rs.{(Number(item.total_price) || 0).toFixed(2)} {/* Display total price including customizations and quantity */}
+                              Rs.{(getItemPriceWithCustomizations(item) * item.quantity).toFixed(2)}
                             </Typography>
                           </Box>
                           
@@ -890,7 +915,7 @@ const Cart = () => {
                                                   {Array.isArray(values) ? (
                                                     values.map((value, idx) => (
                                                       <Typography key={idx} variant="body2" color="text.secondary">
-                                                        {value}
+                                                        {value.name || value} {/* Display name if available */}
                                                       </Typography>
                                                     ))
                                                   ) : (

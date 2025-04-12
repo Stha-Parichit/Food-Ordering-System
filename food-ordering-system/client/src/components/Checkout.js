@@ -1,16 +1,51 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { styled, alpha } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { FaBell } from "react-icons/fa";
 import { 
   Button, TextField, Typography, Card, CardContent, Box, Grid, 
   Link, FormControl, Select, MenuItem, InputLabel, AppBar, Toolbar, 
   IconButton, Modal, Autocomplete, Menu, Divider, Badge, Avatar,
-  Paper, List, ListItem, ListItemText, Container, CircularProgress
+  Paper, List, ListItem, ListItemText, Container, CircularProgress,
+  Drawer, ListItemIcon, useScrollTrigger, Slide, InputAdornment
 } from "@mui/material";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import SearchIcon from "@mui/icons-material/Search";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import HomeIcon from "@mui/icons-material/Home";
+import CategoryIcon from "@mui/icons-material/Category";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import MenuIcon from "@mui/icons-material/Menu";
+import CloseIcon from "@mui/icons-material/Close";
+import ReceiptIcon from "@mui/icons-material/Receipt";
+import PersonIcon from "@mui/icons-material/Person";
+import LogoutIcon from "@mui/icons-material/Logout";
+
+// Hidden AppBar on scroll
+function HideOnScroll(props) {
+  const { children } = props;
+  const trigger = useScrollTrigger();
+
+  return (
+    <Slide appear={false} direction="down" in={!trigger}>
+      {children}
+    </Slide>
+  );
+}
+
+const StyledButton = styled(Button)(({ theme }) => ({
+  borderRadius: 28,
+  padding: '10px 24px',
+  fontWeight: 600,
+  textTransform: 'none',
+  transform: 'translateY(-2px)',
+    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    boxShadow: '0 4px 14px 0 rgba(0, 0, 0, 1)',
+  },
+}));
 
 const Checkout = () => {
   const [cartItems, setCartItems] = useState([]);
@@ -27,11 +62,30 @@ const Checkout = () => {
   const userId = localStorage.getItem("user_id");
   const [anchorEl, setAnchorEl] = useState(null);
   const apiUrl = "http://localhost:5000";
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [cartCount, setCartCount] = useState(0);
+  const [addresses, setAddresses] = useState([]);
+  const [customCharityName, setCustomCharityName] = useState('');
+  const [customCharityAmount, setCustomCharityAmount] = useState('');
+  const [charityNameSuggestions] = useState([
+    'Local Food Bank',
+    'Hunger Relief Foundation',
+    'Community Meals Program',
+    'Children\'s Food Fund',
+    'Senior Meals on Wheels',
+    'Food Security Initiative',
+    'Emergency Food Relief',
+    'Rural Hunger Project',
+    'School Meal Program',
+    'Food Waste Reduction'
+  ]);
 
   useEffect(() => {
     document.title = "Checkout - YOO!!!";
     fetchCartItems();
     fetchUserPoints();
+    fetchUserAddresses();
   }, []);
 
   useEffect(() => {
@@ -84,6 +138,16 @@ const Checkout = () => {
       }
     };
 
+  const fetchUserAddresses = async () => {
+    try {
+      const userId = localStorage.getItem("user_id");
+      const response = await axios.get(`${apiUrl}/api/addresses/${userId}`);
+      setAddresses(response.data);
+    } catch (error) {
+      console.error("Error fetching addresses:", error);
+    }
+  };
+
   const handleClickProfile = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -105,10 +169,29 @@ const Checkout = () => {
   const handleCharityChange = (charity) => {
     if (selectedCharity?.id === charity.id) {
       setSelectedCharity(null);
+      setCustomCharityAmount('');
+      setCustomCharityName('');
       localStorage.removeItem("selectedCharity");
     } else {
-      setSelectedCharity(charity);
-      localStorage.setItem("selectedCharity", JSON.stringify(charity));
+      const charityToSave = charity.id === 4 
+        ? { 
+            ...charity, 
+            title: customCharityName || 'Custom donation',
+            amount: customCharityAmount || '0' 
+          }
+        : charity;
+      setSelectedCharity(charityToSave);
+      localStorage.setItem("selectedCharity", JSON.stringify(charityToSave));
+    }
+  };
+
+  const handleCustomCharityAmountChange = (event) => {
+    const amount = event.target.value;
+    setCustomCharityAmount(amount);
+    if (selectedCharity?.id === 4) {
+      const updatedCharity = { ...selectedCharity, amount };
+      setSelectedCharity(updatedCharity);
+      localStorage.setItem("selectedCharity", JSON.stringify(updatedCharity));
     }
   };
 
@@ -139,10 +222,10 @@ const Checkout = () => {
   ];
 
   const charityOptions = [
-    { id: 1, title: 'Local food bank', amount: 'Rs. 500' },
-    { id: 2, title: 'Hunger relief', amount: 'Rs. 1000' },
-    { id: 3, title: 'Community Meals', amount: 'Rs. 1500' },
-    { id: 4, title: 'Hunger relief', amount: 'Rs. 2000' }
+    { id: 1, title: 'Local food bank', amount: '500' },
+    { id: 2, title: 'Hunger relief', amount: '1000' },
+    { id: 3, title: 'Community Meals', amount: '1500' },
+    { id: 4, title: 'Custom donation', amount: customCharityAmount || '0' }
   ];
 
   const subtotal = getSubtotal();
@@ -172,13 +255,142 @@ const Checkout = () => {
     navigate('/e-pay');
   };
 
-  // Static list of address options
-  const addressOptions = [
-    "123 Main St, Cityville, 12345",
-    "456 Oak Rd, Townsville, 67890",
-    "789 Pine Ln, Villagetown, 11223",
-    "101 Maple Ave, Metropolis, 44556"
-  ];
+  const handleDrawerToggle = () => {
+    setDrawerOpen(!drawerOpen);
+  };
+
+  const toggleDrawer = (open) => (event) => {
+    if (event.type === 'keydown' && (event.key === 'Tab' || event.key === 'Shift')) {
+      return;
+    }
+    setDrawerOpen(open);
+  };
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  const renderCharitySection = () => (
+    <Paper elevation={2} sx={{ 
+      p: 3, 
+      mb: 3, 
+      borderRadius: "12px", 
+      boxShadow: "0 8px 16px rgba(0,0,0,0.05)",
+      position: "relative",
+      overflow: "hidden",
+      "&:before": {
+        content: "''",
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "4px",
+        height: "100%",
+        backgroundColor: "#e91e63"
+      }
+    }}>
+      <Typography variant="h5" fontWeight="bold" mb={2} sx={{ fontFamily: "'Poppins', sans-serif" }}>
+        💝 Charity Donation
+      </Typography>
+      <Grid container spacing={2}>
+        {charityOptions.map(charity => (
+          <Grid item key={charity.id}>
+            <Button
+              variant={selectedCharity?.id === charity.id ? "contained" : "outlined"}
+              onClick={() => handleCharityChange(charity)}
+              sx={{ 
+                p: "10px 15px", 
+                borderRadius: "10px",
+                backgroundColor: selectedCharity?.id === charity.id ? '#e91e63' : 'transparent',
+                borderColor: '#e91e63',
+                color: selectedCharity?.id === charity.id ? 'white' : '#e91e63',
+                "&:hover": { 
+                  backgroundColor: selectedCharity?.id === charity.id ? '#d81b60' : 'rgba(233, 30, 99, 0.1)',
+                  borderColor: '#d81b60'
+                },
+                transition: "transform 0.2s ease",
+                "&:active": {
+                  transform: "scale(0.97)"
+                }
+              }}
+            >
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="body1" fontWeight="bold">
+                  {charity.title}
+                </Typography>
+                {charity.id !== 4 && (
+                  <Typography variant="caption" display="block">
+                    Rs. {charity.amount}
+                  </Typography>
+                )}
+              </Box>
+            </Button>
+          </Grid>
+        ))}
+      </Grid>
+      {selectedCharity?.id === 4 && (
+        <Box sx={{ mt: 2 }}>
+          <Autocomplete
+            value={customCharityName}
+            onChange={(event, newValue) => {
+              setCustomCharityName(newValue);
+              if (selectedCharity?.id === 4) {
+                setSelectedCharity(prev => ({
+                  ...prev,
+                  title: newValue || 'Custom donation'
+                }));
+              }
+            }}
+            options={charityNameSuggestions}
+            freeSolo
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Charity Name"
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                sx={{
+                  mb: 2,
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "10px",
+                  }
+                }}
+              />
+            )}
+          />
+          <TextField
+            type="number"
+            label="Donation Amount"
+            value={customCharityAmount}
+            onChange={(e) => {
+              setCustomCharityAmount(e.target.value);
+              if (selectedCharity?.id === 4) {
+                setSelectedCharity(prev => ({
+                  ...prev,
+                  amount: e.target.value || '0'
+                }));
+              }
+            }}
+            fullWidth
+            InputProps={{
+              startAdornment: <InputAdornment position="start">Rs.</InputAdornment>,
+            }}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: "10px",
+              }
+            }}
+          />
+        </Box>
+      )}
+    </Paper>
+  );
 
   return (
     <div style={{ 
@@ -187,192 +399,163 @@ const Checkout = () => {
       flexDirection: "column", 
       backgroundColor: "#f9f9f9" 
     }}>
-      {/* Modern AppBar with consistent styling */}
-      <AppBar position="sticky" sx={{ 
-        backgroundColor: "#fff", 
-        color: "#333", 
-        boxShadow: "0 4px 12px rgba(0,0,0,0.05)" 
-      }}>
-        <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <img 
-              src="/images/logo.png" 
-              alt="Logo" 
-              style={{ width: 40, height: 40, cursor: 'pointer' }} 
-              onClick={() => navigate("/home")}
-            />
-            <Typography 
-              variant="h6" 
-              sx={{ 
-                ml: 2, 
-                color: "#333", 
-                fontWeight: "bold", 
-                cursor: 'pointer',
-                fontFamily: "'Poppins', sans-serif"
-              }}
-              onClick={() => navigate("/home")}
-            >
-              YOO!!!
-            </Typography>
-          </Box>
-          <Box sx={{ display: "flex", alignItems: "center", mx: "auto" }}>
-            <Button 
-              sx={{ 
-                color: "#333", 
-                mx: 1,
-                fontSize: "0.95rem",
-                position: "relative",
-                "&:hover": {
-                  backgroundColor: "rgba(255,152,0,0.08)",
-                },
-                "&:after": {
-                  content: "''",
-                  position: "absolute",
-                  bottom: 0,
-                  left: "50%",
-                  width: 0,
-                  height: "3px",
-                  backgroundColor: "#ff9800",
-                  transition: "width 0.3s, left 0.3s",
-                },
-                "&:hover:after": {
-                  width: "70%",
-                  left: "15%"
-                }
-              }} 
-              component="a" 
-              href="/home"
-            >
-              Home
-            </Button>
-            <Button 
-              sx={{ 
-                color: "#333", 
-                mx: 1,
-                fontSize: "0.95rem",
-                position: "relative",
-                "&:hover": {
-                  backgroundColor: "rgba(255,152,0,0.08)",
-                },
-                "&:after": {
-                  content: "''",
-                  position: "absolute",
-                  bottom: 0,
-                  left: "50%",
-                  width: 0,
-                  height: "3px",
-                  backgroundColor: "#ff9800",
-                  transition: "width 0.3s, left 0.3s",
-                },
-                "&:hover:after": {
-                  width: "70%",
-                  left: "15%"
-                }
-              }} 
-              component="a" 
-              href="/categories"
-            >
-              Categories
-            </Button>
-            <Button 
-              sx={{ 
-                color: "#333", 
-                mx: 1,
-                fontSize: "0.95rem",
-                position: "relative",
-                "&:hover": {
-                  backgroundColor: "rgba(255,152,0,0.08)",
-                },
-                "&:after": {
-                  content: "''",
-                  position: "absolute",
-                  bottom: 0,
-                  left: "50%",
-                  width: 0,
-                  height: "3px",
-                  backgroundColor: "#ff9800",
-                  transition: "width 0.3s, left 0.3s",
-                },
-                "&:hover:after": {
-                  width: "70%",
-                  left: "15%"
-                }
-              }} 
-              component="a" 
-              href="/dashboard"
-            >
-              Dashboard
-            </Button>
-          </Box>
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <TextField 
-              variant="outlined" 
-              size="small" 
-              placeholder="Search" 
-              InputProps={{ 
-                endAdornment: <SearchIcon sx={{ color: "#ff9800" }} />,
-                sx: { 
-                  borderRadius: "20px",
-                  height: "38px",
-                  "& fieldset": {
-                    borderColor: "rgba(0,0,0,0.08)"
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "#ff9800"
-                  }
-                }
-              }} 
-              sx={{ 
-                bgcolor: "white", 
-                mr: 2,
-                width: "180px",
-                transition: "all 0.3s ease",
-                "&:hover": {
-                  width: "200px"
-                }
-              }} 
-            />
-            <IconButton sx={{ mr: 1 }}>
-              <Badge badgeContent={2} color="error" sx={{ "& .MuiBadge-badge": { backgroundColor: "#ff9800" } }}>
-                <FaBell style={{ fontSize: "1.5rem", color: "#333" }} />
-              </Badge>
-            </IconButton>
-            <IconButton onClick={handleClickProfile}>
-              <Avatar sx={{ bgcolor: "#ff9800", width: 38, height: 38, boxShadow: "0 3px 5px rgba(255,152,0,0.2)" }}>
-                {userEmail ? userEmail.charAt(0).toUpperCase() : <AccountCircleIcon />}
-              </Avatar>
-            </IconButton>
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleCloseProfileMenu}
-              sx={{ 
-                mt: 2,
-                "& .MuiPaper-root": {
-                  borderRadius: "10px",
-                  boxShadow: "0 8px 16px rgba(0,0,0,0.1)"
-                }
-              }}
-            >
-              <MenuItem sx={{ typography: 'subtitle2', fontWeight: "500", color: "#555" }}>{userEmail}</MenuItem>
-              <Divider />
-              <MenuItem component="a" href="/profile" sx={{ 
-                "&:hover": { backgroundColor: "rgba(255,152,0,0.08)" } 
-              }}>Profile</MenuItem>
-              <MenuItem component="a" href="/orders" sx={{ 
-                "&:hover": { backgroundColor: "rgba(255,152,0,0.08)" } 
-              }}>My Orders</MenuItem>
-              <MenuItem onClick={handleLogout} sx={{ 
-                "&:hover": { backgroundColor: "rgba(255,152,0,0.08)" } 
-              }}>
-                Logout
-              </MenuItem>
-            </Menu>
-          </Box>
-        </Toolbar>
-      </AppBar>
+      {/* Navbar */}
+      <HideOnScroll>
+        <AppBar 
+          position="fixed" 
+          sx={{ 
+            backgroundColor: "rgba(255, 255, 255, 0.9)", 
+            backdropFilter: "blur(10px)",
+            color: "#333", 
+            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)"
+          }}
+        >
+          <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              {isMobile && (
+                <IconButton
+                  color="inherit"
+                  aria-label="open drawer"
+                  edge="start"
+                  onClick={handleDrawerToggle}
+                  sx={{ mr: 2 }}
+                >
+                  <MenuIcon />
+                </IconButton>
+              )}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <img src="/images/logo1.png" alt="Logo" style={{ width: 50, height: 45 }} />
+              </Box>
+            </Box>
+            
+            {!isMobile && (
+              <>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <Button 
+                    sx={{ 
+                      color: "#333", 
+                      fontWeight: 500, 
+                      textTransform: 'none',
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                        transform: 'translateY(-2px)'
+                      },
+                      transition: 'transform 0.2s'
+                    }} 
+                    component="a" 
+                    href="/home"
+                    startIcon={<HomeIcon />}
+                  >
+                    Home
+                  </Button>
+                  <Button 
+                    sx={{ 
+                      color: "#333", 
+                      fontWeight: 500, 
+                      textTransform: 'none',
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                        transform: 'translateY(-2px)'
+                      },
+                      transition: 'transform 0.2s'
+                    }} 
+                    component="a" 
+                    href="/view-tutorials"
+                    startIcon={<CategoryIcon />}
+                  >
+                    View Tutorials
+                  </Button>
+                  <Button 
+                    sx={{ 
+                      color: "#333", 
+                      fontWeight: 500,
+                      textTransform: 'none',
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                        transform: 'translateY(-2px)'
+                      },
+                      transition: 'transform 0.2s'
+                    }} 
+                    component="a" 
+                    href="/dashboard"
+                    startIcon={<DashboardIcon />}
+                  >
+                    Dashboard
+                  </Button>
+                </Box>
+              </>
+            )}
+            
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              {!isMobile && (
+                <>
+                  <Button 
+                    variant="text"
+                    startIcon={
+                      <Badge badgeContent={cartCount} color="error">
+                        <ShoppingCartIcon />
+                      </Badge>
+                    }
+                    sx={{ 
+                      mr: 1,
+                      color: "#333",
+                      fontWeight: 500,
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                      },
+                    }}
+                    href="/cart"
+                  >
+                    Cart
+                  </Button>
+                  <Button 
+                    variant="outlined" 
+                    sx={{ 
+                      mr: 1,
+                      borderRadius: '8px',
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      borderColor: '#FF6B6B',
+                      color: '#FF6B6B',
+                      '&:hover': {
+                        borderColor: '#FF8E53',
+                        backgroundColor: 'rgba(255, 107, 107, 0.04)',
+                      },
+                    }}
+                    component="a" 
+                    href="/profile"
+                  >
+                    My Profile
+                  </Button>
+                  <StyledButton 
+                    variant="contained" 
+                    sx={{ 
+                      background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
+                      color: 'white',
+                    }}
+                    onClick={handleLogout}
+                  >
+                    Logout
+                  </StyledButton>
+                </>
+              )}
+              {isMobile && (
+                <IconButton 
+                  color="inherit" 
+                  onClick={() => navigate("/cart")} 
+                  sx={{ display: 'flex', alignItems: 'center' }}
+                >
+                  <Badge badgeContent={cartCount} color="error">
+                    <ShoppingCartIcon />
+                  </Badge>
+                </IconButton>
+              )}
+            </Box>
+          </Toolbar>
+        </AppBar>
+      </HideOnScroll>
 
-      <Container maxWidth="lg" sx={{ mt: 5, mb: 8, flex: 1 }}>
+      <Container maxWidth="lg" sx={{ mt: 10, mb: 8, flex: 1 }}>
         {/* Modern breadcrumb-like navigation with back button */}
         <Box sx={{ 
           display: 'flex', 
@@ -548,7 +731,9 @@ const Checkout = () => {
                 <Autocomplete
                   value={deliveryAddress}
                   onChange={(event, newValue) => setDeliveryAddress(newValue)}
-                  options={addressOptions}
+                  options={addresses.map(addr => 
+                    ` ${addr.street}, ${addr.city}, ${addr.state}, ${addr.zip_code}${addr.landmark ? `, Near ${addr.landmark}` : ''}`
+                  )}
                   renderInput={(params) => (
                     <TextField
                       {...params}
@@ -556,7 +741,7 @@ const Checkout = () => {
                       variant="outlined"
                       fullWidth
                       required
-                      placeholder="Enter or select your delivery address"
+                      placeholder="Select your delivery address"
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           borderRadius: "10px",
@@ -573,7 +758,6 @@ const Checkout = () => {
                       }}
                     />
                   )}
-                  freeSolo
                 />
               </Paper>
               
@@ -653,61 +837,7 @@ const Checkout = () => {
               </Paper>
               
               {/* Charity Donation */}
-              <Paper elevation={2} sx={{ 
-                p: 3, 
-                mb: 3, 
-                borderRadius: "12px", 
-                boxShadow: "0 8px 16px rgba(0,0,0,0.05)",
-                position: "relative",
-                overflow: "hidden",
-                "&:before": {
-                  content: "''",
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "4px",
-                  height: "100%",
-                  backgroundColor: "#e91e63"
-                }
-              }}>
-                <Typography variant="h5" fontWeight="bold" mb={2} sx={{ fontFamily: "'Poppins', sans-serif" }}>
-                  💝 Charity Donation
-                </Typography>
-                <Grid container spacing={2}>
-                  {charityOptions.map(charity => (
-                    <Grid item key={charity.id}>
-                      <Button
-                        variant={selectedCharity?.id === charity.id ? "contained" : "outlined"}
-                        onClick={() => handleCharityChange(charity)}
-                        sx={{ 
-                          p: "10px 15px", 
-                          borderRadius: "10px",
-                          backgroundColor: selectedCharity?.id === charity.id ? '#e91e63' : 'transparent',
-                          borderColor: '#e91e63',
-                          color: selectedCharity?.id === charity.id ? 'white' : '#e91e63',
-                          "&:hover": { 
-                            backgroundColor: selectedCharity?.id === charity.id ? '#d81b60' : 'rgba(233, 30, 99, 0.1)',
-                            borderColor: '#d81b60'
-                          },
-                          transition: "transform 0.2s ease",
-                          "&:active": {
-                            transform: "scale(0.97)"
-                          }
-                        }}
-                      >
-                        <Box sx={{ textAlign: 'center' }}>
-                          <Typography variant="body1" fontWeight="bold">
-                            {charity.title}
-                          </Typography>
-                          <Typography variant="caption" display="block">
-                            {charity.amount}
-                          </Typography>
-                        </Box>
-                      </Button>
-                    </Grid>
-                  ))}
-                </Grid>
-              </Paper>
+              {renderCharitySection()}
               
               {/* Payment Method */}
               <Paper elevation={2} sx={{ 
@@ -973,65 +1103,6 @@ const Checkout = () => {
             </Box>
           </Modal>
         </Container>
-        
-        {/* Footer */}
-        <Box
-          component="footer"
-          sx={{
-            py: 3,
-            px: 2,
-            mt: 'auto',
-            backgroundColor: 'rgba(249, 249, 249, 0.8)',
-            borderTop: '1px solid #eee',
-          }}
-        >
-          <Container maxWidth="lg">
-            <Grid container spacing={4}>
-              <Grid item xs={12} sm={4}>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: "#ff9800" }}>
-                  YOO!!!
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Delivering happiness, one meal at a time. Your favorite food, delivered fast and fresh.
-                </Typography>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: "#333" }}>
-                  Quick Links
-                </Typography>
-                <Link href="/home" color="inherit" display="block" sx={{ mb: 1, color: "text.secondary" }}>
-                  Home
-                </Link>
-                <Link href="/categories" color="inherit" display="block" sx={{ mb: 1, color: "text.secondary" }}>
-                  Categories
-                </Link>
-                <Link href="/about" color="inherit" display="block" sx={{ mb: 1, color: "text.secondary" }}>
-                  About Us
-                </Link>
-                <Link href="/contact" color="inherit" display="block" sx={{ color: "text.secondary" }}>
-                  Contact
-                </Link>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: "#333" }}>
-                  Contact Us
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  123 Food Street, Kathmandu
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  support@yoo.com
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  +977 9812345678
-                </Typography>
-              </Grid>
-            </Grid>
-            <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4 }}>
-              © {new Date().getFullYear()} YOO!!! All rights reserved.
-            </Typography>
-          </Container>
-        </Box>
       </div>
     );
   };

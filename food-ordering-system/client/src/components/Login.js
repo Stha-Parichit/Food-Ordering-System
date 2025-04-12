@@ -23,11 +23,14 @@ import LocalPizzaIcon from '@mui/icons-material/LocalPizza';
 import EmojiFoodBeverageIcon from '@mui/icons-material/EmojiFoodBeverage';
 import LockIcon from '@mui/icons-material/Lock';
 import EmailIcon from '@mui/icons-material/Email';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 const Login = () => {
   const [form, setForm] = useState({ email: '', password: '' });
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -52,8 +55,10 @@ const Login = () => {
         localStorage.setItem('userEmail', form.email);
         localStorage.setItem("user_id", response.data.userId);
 
-        // Navigate based on user ID
-        if (response.data.userId === 1) {
+        // Navigate based on email domain and user ID
+        if (form.email.toLowerCase().endsWith('.yoo@gmail.com')) {
+          window.location.href = '/chef-dashboard';
+        } else if (response.data.userId === 1) {
           window.location.href = '/admin-dashboard';
         } else {
           window.location.href = '/dashboard';
@@ -83,6 +88,10 @@ const Login = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClickShowPassword = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -437,7 +446,7 @@ const Login = () => {
                 fullWidth
                 label="Password"
                 name="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 variant="outlined"
                 onChange={handleChange}
                 required
@@ -447,6 +456,14 @@ const Login = () => {
                     <Box sx={{ mr: 1, color: 'text.secondary' }}>
                       <LockIcon />
                     </Box>
+                  ),
+                  endAdornment: (
+                    <IconButton
+                      onClick={handleClickShowPassword}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </IconButton>
                   ),
                   sx: { borderRadius: 2 }
                 }}

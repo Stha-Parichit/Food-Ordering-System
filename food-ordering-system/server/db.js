@@ -542,6 +542,54 @@ initializeDatabase().catch(console.error);
     await pool.execute(createAddressesTableQuery);
     console.log("Addresses table ensured");
 
+    const createSidesTableQuery = `
+      CREATE TABLE IF NOT EXISTS sides (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        price DECIMAL(10, 2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    await pool.execute(createSidesTableQuery);
+    console.log("Sides table ensured");
+
+    const createDipsTableQuery = `
+      CREATE TABLE IF NOT EXISTS dips (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        price DECIMAL(10, 2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    await pool.execute(createDipsTableQuery);
+    console.log("Dips table ensured");
+
+    // // Insert default sides if not already present
+    // const insertDefaultSidesQuery = `
+    //   INSERT INTO sides (name, price) 
+    //   VALUES 
+    //     ('French Fries', 99),
+    //     ('Onion Rings', 129),
+    //     ('Garlic Bread', 149),
+    //     ('Coleslaw', 79)
+    //   ON DUPLICATE KEY UPDATE price = VALUES(price)
+    // `;
+    // await pool.execute(insertDefaultSidesQuery);
+
+    // // Insert default dips if not already present
+    // const insertDefaultDipsQuery = `
+    //   INSERT INTO dips (name, price) 
+    //   VALUES 
+    //     ('Ketchup', 15),
+    //     ('Mayonnaise', 20),
+    //     ('Chipotle Dip', 25),
+    //     ('BBQ Sauce', 25),
+    //     ('Cheese Dip', 30)
+    //   ON DUPLICATE KEY UPDATE price = VALUES(price)
+    // `;
+    // await pool.execute(insertDefaultDipsQuery);
+
+    console.log("Default sides and dips ensured");
   } catch (error) {
     console.error("Error during database initialization:", error);
   }

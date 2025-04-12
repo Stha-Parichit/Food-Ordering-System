@@ -136,8 +136,6 @@ const App = () => {
             <Route path="/chef-dashboard" element={<ChefDashboard />} />
             <Route path="/addresses" element={<AddressesPage />} />
           </Routes>
-          {/* Example usage of logout */}
-          {/* <button onClick={logout}>Logout</button> */}
         </Router>
       </GoogleOAuthProvider>
     </ThemeProvider>

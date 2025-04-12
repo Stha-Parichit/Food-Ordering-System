@@ -590,7 +590,7 @@ const ChefOrders = () => {
               <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
                 Filter:
               </Typography>
-              {["All", "Delivered", "In Progress", "Preparing", "Cancelled"].map((status) => (
+              {["All", "Delivered", "Order Placed", "Cooking", "Prepared for Delivery", "Off for Delivery", "Cancelled"].map((status) => (
                 <Chip
                   key={status}
                   label={status}
