@@ -40,6 +40,11 @@ import ChefDashboard from './components/ChefDashboard';
 import TutorialUpload from './components/TutorialUpload';
 import TutorialDetail from './components/TutorialDetail';
 import AddressesPage from './components/AddressesPage';
+import NotFound from './pages/NotFound';
+import ContactUs from './components/ContactUs';
+import ChefContactUs from './components/ChefContactUs';
+import AboutUs from './components/AboutUs';
+import ChefProfile from './components/ChefProfile';
 const theme = createTheme(); // Ensure a theme is provided
 
 const PageTitleUpdater = () => {
@@ -81,6 +86,10 @@ const PageTitleUpdater = () => {
       '/chef-dashboard': 'Chef Dashboard',
       '/tutorial-upload': 'Tutorial Upload Page',
       '/addresses': 'Addresses Page',
+      '/contact': 'Contact Us',
+      '/chef-contact': 'Chef Contact Us',
+      '/about': 'About Us',
+      '/chef-profile': 'Chef Profile',
     };
     const pageTitle = pageTitles[location.pathname] || 'Page';
     document.title = `${pageTitle} - YOO!!!`;
@@ -135,6 +144,13 @@ const App = () => {
             <Route path="/chef" element={<ChefPage />} />
             <Route path="/chef-dashboard" element={<ChefDashboard />} />
             <Route path="/addresses" element={<AddressesPage />} />
+            <Route path="/contact" element={<ContactUs />} />
+            <Route path="/chef-contact" element={<ChefContactUs />} />
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/chef-profile" element={<ChefProfile />} />
+
+
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>
       </GoogleOAuthProvider>

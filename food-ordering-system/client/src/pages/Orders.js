@@ -47,7 +47,8 @@ import {
   MoreVert,
   LocalOffer,
   LocalDining,
-  Room
+  Room,
+  CheckCircle
 } from "@mui/icons-material";
 import axios from "axios";
 import Sidebar from '../components/Sidebar';
@@ -208,7 +209,7 @@ const FoodIcon = ({ category }) => {
 
 // Delivery timeline component
 const DeliveryTimeline = ({ status = "Order Placed" }) => {
-  console.log("Current status:", status); // Log the status for debugging
+  // console.log("Current status:", status); // Log the status for debugging
 
   const statusStages = [
     "Order Placed",
@@ -476,6 +477,15 @@ const Orders = () => {
     return true;
   });
 
+  // Separate orders into delivered and ongoing
+  const deliveredOrders = filteredOrders.filter(order => 
+    order.status.toLowerCase() === 'delivered'
+  );
+  
+  const ongoingOrders = filteredOrders.filter(order => 
+    order.status.toLowerCase() !== 'delivered'
+  );
+
   // Loading skeleton for better user experience
   if (loading) {
     return (
@@ -698,283 +708,570 @@ const Orders = () => {
                 </Button>
               </Card>
             ) : (
-              <Stack spacing={3}>
-                {filteredOrders.map((order, index) => (
-                  <Card 
-                    component={motion.div}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 + 0.2 }}
-                    key={order.id}
-                    elevation={2}
-                    sx={{ overflow: "visible" }}
-                  >
-                    {/* Order header with restaurant info */}
-                    <Box 
-                      sx={{ 
-                        p: 2.5, 
-                        background: "linear-gradient(to right, #f9f9f9, #ffffff)",
-                        borderBottom: "1px solid rgba(0,0,0,0.06)",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        flexWrap: "wrap",
+              <Box>
+                {/* Ongoing Orders Section */}
+                {ongoingOrders.length > 0 && (
+                  <Box>
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        mb: 3,
+                        mt: 4,
+                        color: 'primary.main',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
                         gap: 1
                       }}
                     >
-                      <Box sx={{ display: "flex", alignItems: "center" }}>
-                        <Avatar 
-                          sx={{ 
-                            bgcolor: "primary.light",
-                            width: 40,
-                            height: 40,
-                            mr: 2,
-                            boxShadow: "0 4px 8px rgba(255, 77, 0, 0.2)"
-                          }}
+                      <LocalShipping /> Ongoing Orders ({ongoingOrders.length})
+                    </Typography>
+                    <Stack spacing={3} sx={{ mb: 4 }}>
+                      {ongoingOrders.map((order, index) => (
+                        <Card 
+                          component={motion.div}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5, delay: index * 0.1 + 0.2 }}
+                          key={order.id}
+                          elevation={2}
+                          sx={{ overflow: "visible" }}
                         >
-                          <LocalDining />
-                        </Avatar>
-                        
-                        <Box>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-                            <Typography variant="h6" sx={{ fontSize: "1.1rem" }}>
-                              {order.restaurant}
-                            </Typography>
-                            <StarRating rating={parseFloat(order.rating)} />
-                            <Tooltip title="Add to favorites">
-                              <IconButton size="small" sx={{ color: "#FF7A45", ml: 1 }}>
-                                <FavoriteBorder fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Chip 
-                              icon={<Room sx={{ fontSize: "0.875rem !important" }} />}
-                              label="2.5 km away" 
-                              size="small" 
-                              sx={{ 
-                                height: 20, 
-                                fontSize: "0.7rem", 
-                                bgcolor: "rgba(0,0,0,0.04)",
-                                color: "text.secondary"
-                              }} 
-                            />
-                            <Box 
-                              component="span" 
-                              sx={{ 
-                                width: 4, 
-                                height: 4, 
-                                borderRadius: "50%", 
-                                bgcolor: "text.disabled", 
-                                display: "inline-block" 
-                              }}
-                            />
-                            <Typography variant="caption" color="text.secondary">
-                              Order #{order.id}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Box>
-                      
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                        <Box sx={{ display: "flex", alignItems: "center" }}>
-                          <AccessTime fontSize="small" sx={{ color: "text.secondary", mr: 0.5 }} />
-                          <Typography variant="caption" color="text.secondary">
-                            {new Date(order.created_at).toLocaleDateString()} at {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </Typography>
-                        </Box>
-                        <OrderStatus status={order.status} />
-                      </Box>
-                    </Box>
-
-                    {/* Delivery timeline */}
-                    <Box sx={{ px: 3, pt: 2 }}>
-                      <DeliveryTimeline status={order.status} />
-                    </Box>
-
-                    {/* Order items */}
-                    <CardContent sx={{ p: 0 }}>
-                      <Box sx={{ pt: 1 }}>
-                        {order.items.map((item, idx) => (
-                          <React.Fragment key={`${item.food_id}-${idx}`}>
-                            <Box sx={{ 
-                              display: "flex", 
-                              p: 2.5,
-                              backgroundColor: idx % 2 === 0 ? "rgba(0,0,0,0.01)" : "transparent",
-                              transition: "background-color 0.3s",
-                              "&:hover": {
-                                backgroundColor: "rgba(255, 77, 0, 0.04)"
-                              }
-                            }}>
-                              <Box 
+                          {/* Order header with restaurant info */}
+                          <Box 
+                            sx={{ 
+                              p: 2.5, 
+                              background: "linear-gradient(to right, #f9f9f9, #ffffff)",
+                              borderBottom: "1px solid rgba(0,0,0,0.06)",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              flexWrap: "wrap",
+                              gap: 1
+                            }}
+                          >
+                            <Box sx={{ display: "flex", alignItems: "center" }}>
+                              <Avatar 
                                 sx={{ 
-                                  position: "relative",
-                                  mr: 2
+                                  bgcolor: "primary.light",
+                                  width: 40,
+                                  height: 40,
+                                  mr: 2,
+                                  boxShadow: "0 4px 8px rgba(255, 77, 0, 0.2)"
                                 }}
                               >
-                                <Avatar 
-                                  src={item.image_url} 
-                                  alt={item.food_name}
-                                  variant="rounded"
-                                  sx={{ 
-                                    width: 80, 
-                                    height: 80, 
-                                    borderRadius: 3,
-                                    boxShadow: "0 4px 12px rgba(0,0,0,0.06)"
-                                  }}
-                                />
-                                <Box 
-                                  sx={{ 
-                                    position: "absolute", 
-                                    bottom: -10, 
-                                    left: -10, 
-                                    backgroundColor: "primary.main", 
-                                    color: "white",
-                                    width: 26,
-                                    height: 26,
-                                    borderRadius: "50%",
-                                    display: "flex",
-                                    justifyContent: "center",
-                                    alignItems: "center",
-                                    boxShadow: "0 2px 8px rgba(255, 77, 0, 0.3)",
-                                    fontWeight: "bold",
-                                    fontSize: "0.75rem"
-                                  }}
-                                >
-                                  {item.quantity}x
-                                </Box>
-                              </Box>
+                                <LocalDining />
+                              </Avatar>
                               
-                              <Box sx={{ flexGrow: 1 }}>
-                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                    <Typography variant="subtitle1" fontWeight={600}>
-                                      {item.food_name}
-                                    </Typography>
-                                    <FoodIcon category={item.category} />
-                                  </Box>
-                                  <Typography 
-                                    variant="subtitle1" 
-                                    fontWeight={700}
+                              <Box>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                                  <Typography variant="h6" sx={{ fontSize: "1.1rem" }}>
+                                    {order.restaurant}
+                                  </Typography>
+                                  <StarRating rating={parseFloat(order.rating)} />
+                                  <Tooltip title="Add to favorites">
+                                    <IconButton size="small" sx={{ color: "#FF7A45", ml: 1 }}>
+                                      <FavoriteBorder fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                </Box>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                  <Chip 
+                                    icon={<Room sx={{ fontSize: "0.875rem !important" }} />}
+                                    label="2.5 km away" 
+                                    size="small" 
                                     sx={{ 
-                                      color: "primary.main",
+                                      height: 20, 
+                                      fontSize: "0.7rem", 
+                                      bgcolor: "rgba(0,0,0,0.04)",
+                                      color: "text.secondary"
+                                    }} 
+                                  />
+                                  <Box 
+                                    component="span" 
+                                    sx={{ 
+                                      width: 4, 
+                                      height: 4, 
+                                      borderRadius: "50%", 
+                                      bgcolor: "text.disabled", 
+                                      display: "inline-block" 
                                     }}
-                                  >
-                                    Rs.{(Number(item.price) || 0).toFixed(2)}
+                                  />
+                                  <Typography variant="caption" color="text.secondary">
+                                    Order #{order.id}
                                   </Typography>
                                 </Box>
-                                
-                                {/* Display customizations */}
-                                {formatCustomization(item.customization) && (
-                                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 1 }}>
-                                    {formatCustomization(item.customization).map((customization, cidx) => (
-                                      <Chip 
-                                      key={cidx}
-                                      label={customization}
-                                      size="small"
-                                      sx={{ 
-                                        height: 20,
-                                        fontSize: "0.6rem",
-                                        backgroundColor: "rgba(0,0,0,0.04)",
-                                        color: "text.secondary"
-                                      }}
-                                    />
-                                  ))}
-                                </Box>
-                              )}
+                              </Box>
+                            </Box>
+                            
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                              <Box sx={{ display: "flex", alignItems: "center" }}>
+                                <AccessTime fontSize="small" sx={{ color: "text.secondary", mr: 0.5 }} />
+                                <Typography variant="caption" color="text.secondary">
+                                  {new Date(order.created_at).toLocaleDateString()} at {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </Typography>
+                              </Box>
+                              <OrderStatus status={order.status} />
                             </Box>
                           </Box>
-                          {idx < order.items.length - 1 && (
-                            <Divider variant="middle" sx={{ opacity: 0.6 }} />
-                          )}
-                        </React.Fragment>
-                      ))}
-                    </Box>
-                  </CardContent>
 
-                  {/* Order footer with total and actions */}
-                  <Box 
-                    sx={{ 
-                      display: "flex", 
-                      justifyContent: "space-between", 
-                      alignItems: "center",
-                      p: 2.5,
-                      backgroundColor: "rgba(0,0,0,0.02)",
-                      borderTop: "1px solid rgba(0,0,0,0.06)",
-                      flexWrap: "wrap",
-                      gap: 2
+                          {/* Delivery timeline */}
+                          <Box sx={{ px: 3, pt: 2 }}>
+                            <DeliveryTimeline status={order.status} />
+                          </Box>
+
+                          {/* Order items */}
+                          <CardContent sx={{ p: 0 }}>
+                            <Box sx={{ pt: 1 }}>
+                              {order.items.map((item, idx) => (
+                                <React.Fragment key={`${item.food_id}-${idx}`}>
+                                  <Box sx={{ 
+                                    display: "flex", 
+                                    p: 2.5,
+                                    backgroundColor: idx % 2 === 0 ? "rgba(0,0,0,0.01)" : "transparent",
+                                    transition: "background-color 0.3s",
+                                    "&:hover": {
+                                      backgroundColor: "rgba(255, 77, 0, 0.04)"
+                                    }
+                                  }}>
+                                    <Box 
+                                      sx={{ 
+                                        position: "relative",
+                                        mr: 2
+                                      }}
+                                    >
+                                      <Avatar 
+                                        src={item.image_url} 
+                                        alt={item.food_name}
+                                        variant="rounded"
+                                        sx={{ 
+                                          width: 80, 
+                                          height: 80, 
+                                          borderRadius: 3,
+                                          boxShadow: "0 4px 12px rgba(0,0,0,0.06)"
+                                        }}
+                                      />
+                                      <Box 
+                                        sx={{ 
+                                          position: "absolute", 
+                                          bottom: -10, 
+                                          left: -10, 
+                                          backgroundColor: "primary.main", 
+                                          color: "white",
+                                          width: 26,
+                                          height: 26,
+                                          borderRadius: "50%",
+                                          display: "flex",
+                                          justifyContent: "center",
+                                          alignItems: "center",
+                                          boxShadow: "0 2px 8px rgba(255, 77, 0, 0.3)",
+                                          fontWeight: "bold",
+                                          fontSize: "0.75rem"
+                                        }}
+                                      >
+                                        {item.quantity}x
+                                      </Box>
+                                    </Box>
+                                    
+                                    <Box sx={{ flexGrow: 1 }}>
+                                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                          <Typography variant="subtitle1" fontWeight={600}>
+                                            {item.food_name}
+                                          </Typography>
+                                          <FoodIcon category={item.category} />
+                                        </Box>
+                                        <Typography 
+                                          variant="subtitle1" 
+                                          fontWeight={700}
+                                          sx={{ 
+                                            color: "primary.main",
+                                          }}
+                                        >
+                                          Rs.{(Number(item.price) || 0).toFixed(2)}
+                                        </Typography>
+                                      </Box>
+                                      
+                                      {/* Display customizations */}
+                                      {formatCustomization(item.customization) && (
+                                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 1 }}>
+                                          {formatCustomization(item.customization).map((customization, cidx) => (
+                                            <Chip 
+                                            key={cidx}
+                                            label={customization}
+                                            size="small"
+                                            sx={{ 
+                                              height: 20,
+                                              fontSize: "0.6rem",
+                                              backgroundColor: "rgba(0,0,0,0.04)",
+                                              color: "text.secondary"
+                                            }}
+                                          />
+                                        ))}
+                                      </Box>
+                                    )}
+                                  </Box>
+                                </Box>
+                                {idx < order.items.length - 1 && (
+                                  <Divider variant="middle" sx={{ opacity: 0.6 }} />
+                                )}
+                              </React.Fragment>
+                            ))}
+                          </Box>
+                        </CardContent>
+
+                        {/* Order footer with total and actions */}
+                        <Box 
+                          sx={{ 
+                            display: "flex", 
+                            justifyContent: "space-between", 
+                            alignItems: "center",
+                            p: 2.5,
+                            backgroundColor: "rgba(0,0,0,0.02)",
+                            borderTop: "1px solid rgba(0,0,0,0.06)",
+                            flexWrap: "wrap",
+                            gap: 2
+                          }}
+                        >
+                          <Box>
+                            <Typography variant="h6" sx={{ display: "flex", alignItems: "center" }}>
+                              <Receipt sx={{ mr: 1, color: "primary.main" }} />
+                              Total: <Box component="span" sx={{ ml: 1, color: "primary.main" }}>Rs.{order.total.toFixed(2)}</Box>
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Incl. delivery fee and taxes
+                            </Typography>
+                          </Box>
+                          
+                          {/* <Box sx={{ display: "flex", gap: 2 }}>
+                            <Button 
+                              variant="outlined" 
+                              size={isMobile ? "small" : "medium"}
+                              color="primary"
+                              startIcon={<Info />}
+                              sx={{ borderRadius: 30 }}
+                            >
+                              Order Details
+                            </Button>
+                            
+                            <Button 
+                              variant="contained" 
+                              size={isMobile ? "small" : "medium"}
+                              color="primary"
+                              startIcon={<Repeat />}
+                              sx={{ 
+                                borderRadius: 30,
+                                backgroundImage: "linear-gradient(to right, #FF7A45, #FF4D00)"
+                              }}
+                              onClick={() => reorderItems(order)}
+                            >
+                              Reorder
+                            </Button>
+                          </Box> */}
+                        </Box>
+                      </Card>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+
+              {/* Delivered Orders Section */}
+              {deliveredOrders.length > 0 && (
+                <Box>
+                  <Typography
+                    variant="h5"
+                    sx={{
+                      mb: 3,
+                      mt: 4,
+                      color: 'success.main',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
                     }}
                   >
-                    <Box>
-                      <Typography variant="h6" sx={{ display: "flex", alignItems: "center" }}>
-                        <Receipt sx={{ mr: 1, color: "primary.main" }} />
-                        Total: <Box component="span" sx={{ ml: 1, color: "primary.main" }}>Rs.{order.total.toFixed(2)}</Box>
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Incl. delivery fee and taxes
-                      </Typography>
-                    </Box>
-                    
-                    <Box sx={{ display: "flex", gap: 2 }}>
-                      <Button 
-                        variant="outlined" 
-                        size={isMobile ? "small" : "medium"}
-                        color="primary"
-                        startIcon={<Info />}
-                        sx={{ borderRadius: 30 }}
+                    <CheckCircle /> Past Orders ({deliveredOrders.length})
+                  </Typography>
+                  <Stack spacing={3}>
+                    {deliveredOrders.map((order, index) => (
+                      <Card 
+                        component={motion.div}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: index * 0.1 + 0.2 }}
+                        key={order.id}
+                        elevation={2}
+                        sx={{ overflow: "visible" }}
                       >
-                        Order Details
-                      </Button>
-                      
-                      <Button 
-                        variant="contained" 
-                        size={isMobile ? "small" : "medium"}
-                        color="primary"
-                        startIcon={<Repeat />}
-                        sx={{ 
-                          borderRadius: 30,
-                          backgroundImage: "linear-gradient(to right, #FF7A45, #FF4D00)"
-                        }}
-                        onClick={() => reorderItems(order)}
-                      >
-                        Reorder
-                      </Button>
-                    </Box>
-                  </Box>
-                </Card>
-              ))}
-            </Stack>
-          )}
+                        {/* Order header with restaurant info */}
+                        <Box 
+                          sx={{ 
+                            p: 2.5, 
+                            background: "linear-gradient(to right, #f9f9f9, #ffffff)",
+                            borderBottom: "1px solid rgba(0,0,0,0.06)",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 1
+                          }}
+                        >
+                          <Box sx={{ display: "flex", alignItems: "center" }}>
+                            <Avatar 
+                              sx={{ 
+                                bgcolor: "primary.light",
+                                width: 40,
+                                height: 40,
+                                mr: 2,
+                                boxShadow: "0 4px 8px rgba(255, 77, 0, 0.2)"
+                              }}
+                            >
+                              <LocalDining />
+                            </Avatar>
+                            
+                            <Box>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                                <Typography variant="h6" sx={{ fontSize: "1.1rem" }}>
+                                  {order.restaurant}
+                                </Typography>
+                                <StarRating rating={parseFloat(order.rating)} />
+                                <Tooltip title="Add to favorites">
+                                  <IconButton size="small" sx={{ color: "#FF7A45", ml: 1 }}>
+                                    <FavoriteBorder fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <Chip 
+                                  icon={<Room sx={{ fontSize: "0.875rem !important" }} />}
+                                  label="2.5 km away" 
+                                  size="small" 
+                                  sx={{ 
+                                    height: 20, 
+                                    fontSize: "0.7rem", 
+                                    bgcolor: "rgba(0,0,0,0.04)",
+                                    color: "text.secondary"
+                                  }} 
+                                />
+                                <Box 
+                                  component="span" 
+                                  sx={{ 
+                                    width: 4, 
+                                    height: 4, 
+                                    borderRadius: "50%", 
+                                    bgcolor: "text.disabled", 
+                                    display: "inline-block" 
+                                  }}
+                                />
+                                <Typography variant="caption" color="text.secondary">
+                                  Order #{order.id}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </Box>
+                          
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                            <Box sx={{ display: "flex", alignItems: "center" }}>
+                              <AccessTime fontSize="small" sx={{ color: "text.secondary", mr: 0.5 }} />
+                              <Typography variant="caption" color="text.secondary">
+                                {new Date(order.created_at).toLocaleDateString()} at {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </Typography>
+                            </Box>
+                            <OrderStatus status={order.status} />
+                          </Box>
+                        </Box>
 
-          {/* Load more button */}
-          {filteredOrders.length > 0 && (
-            <Box 
+                        {/* Delivery timeline */}
+                        <Box sx={{ px: 3, pt: 2 }}>
+                          <DeliveryTimeline status={order.status} />
+                        </Box>
+
+                        {/* Order items */}
+                        <CardContent sx={{ p: 0 }}>
+                          <Box sx={{ pt: 1 }}>
+                            {order.items.map((item, idx) => (
+                              <React.Fragment key={`${item.food_id}-${idx}`}>
+                                <Box sx={{ 
+                                  display: "flex", 
+                                  p: 2.5,
+                                  backgroundColor: idx % 2 === 0 ? "rgba(0,0,0,0.01)" : "transparent",
+                                  transition: "background-color 0.3s",
+                                  "&:hover": {
+                                    backgroundColor: "rgba(255, 77, 0, 0.04)"
+                                  }
+                                }}>
+                                  <Box 
+                                    sx={{ 
+                                      position: "relative",
+                                      mr: 2
+                                    }}
+                                  >
+                                    <Avatar 
+                                      src={item.image_url} 
+                                      alt={item.food_name}
+                                      variant="rounded"
+                                      sx={{ 
+                                        width: 80, 
+                                        height: 80, 
+                                        borderRadius: 3,
+                                        boxShadow: "0 4px 12px rgba(0,0,0,0.06)"
+                                      }}
+                                    />
+                                    <Box 
+                                      sx={{ 
+                                        position: "absolute", 
+                                        bottom: -10, 
+                                        left: -10, 
+                                        backgroundColor: "primary.main", 
+                                        color: "white",
+                                        width: 26,
+                                        height: 26,
+                                        borderRadius: "50%",
+                                        display: "flex",
+                                        justifyContent: "center",
+                                        alignItems: "center",
+                                        boxShadow: "0 2px 8px rgba(255, 77, 0, 0.3)",
+                                        fontWeight: "bold",
+                                        fontSize: "0.75rem"
+                                      }}
+                                    >
+                                      {item.quantity}x
+                                    </Box>
+                                  </Box>
+                                  
+                                  <Box sx={{ flexGrow: 1 }}>
+                                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <Typography variant="subtitle1" fontWeight={600}>
+                                          {item.food_name}
+                                        </Typography>
+                                        <FoodIcon category={item.category} />
+                                      </Box>
+                                      <Typography 
+                                        variant="subtitle1" 
+                                        fontWeight={700}
+                                        sx={{ 
+                                          color: "primary.main",
+                                        }}
+                                      >
+                                        Rs.{(Number(item.price) || 0).toFixed(2)}
+                                      </Typography>
+                                    </Box>
+                                    
+                                    {/* Display customizations */}
+                                    {formatCustomization(item.customization) && (
+                                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 1 }}>
+                                        {formatCustomization(item.customization).map((customization, cidx) => (
+                                          <Chip 
+                                          key={cidx}
+                                          label={customization}
+                                          size="small"
+                                          sx={{ 
+                                            height: 20,
+                                            fontSize: "0.6rem",
+                                            backgroundColor: "rgba(0,0,0,0.04)",
+                                            color: "text.secondary"
+                                          }}
+                                        />
+                                      ))}
+                                    </Box>
+                                  )}
+                                </Box>
+                              </Box>
+                              {idx < order.items.length - 1 && (
+                                <Divider variant="middle" sx={{ opacity: 0.6 }} />
+                              )}
+                            </React.Fragment>
+                          ))}
+                        </Box>
+                      </CardContent>
+
+                      {/* Order footer with total and actions */}
+                      <Box 
+                        sx={{ 
+                          display: "flex", 
+                          justifyContent: "space-between", 
+                          alignItems: "center",
+                          p: 2.5,
+                          backgroundColor: "rgba(0,0,0,0.02)",
+                          borderTop: "1px solid rgba(0,0,0,0.06)",
+                          flexWrap: "wrap",
+                          gap: 2
+                        }}
+                      >
+                        <Box>
+                          <Typography variant="h6" sx={{ display: "flex", alignItems: "center" }}>
+                            <Receipt sx={{ mr: 1, color: "primary.main" }} />
+                            Total: <Box component="span" sx={{ ml: 1, color: "primary.main" }}>Rs.{order.total.toFixed(2)}</Box>
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Incl. delivery fee and taxes
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ display: "flex", gap: 2 }}>
+                          <Button 
+                            variant="outlined" 
+                            size={isMobile ? "small" : "medium"}
+                            color="primary"
+                            startIcon={<Info />}
+                            sx={{ borderRadius: 30 }}
+                          >
+                            Order Details
+                          </Button>
+                          
+                          <Button 
+                            variant="contained" 
+                            size={isMobile ? "small" : "medium"}
+                            color="primary"
+                            startIcon={<Repeat />}
+                            sx={{ 
+                              borderRadius: 30,
+                              backgroundImage: "linear-gradient(to right, #FF7A45, #FF4D00)"
+                            }}
+                            onClick={() => reorderItems(order)}
+                          >
+                            Reorder
+                          </Button>
+                        </Box>
+                      </Box>
+                    </Card>
+                  ))}
+                </Stack>
+              </Box>
+            )}
+          </Box>
+        )}
+
+        {/* Load more button */}
+        {filteredOrders.length > 0 && (
+          <Box 
+            sx={{ 
+              display: "flex", 
+              justifyContent: "center", 
+              mt: 4 
+            }}
+          >
+            <Button 
+              variant="outlined"
               sx={{ 
-                display: "flex", 
-                justifyContent: "center", 
-                mt: 4 
+                py: 1.2,
+                px: 4,
+                borderRadius: 30,
+                borderWidth: 2,
+                "&:hover": {
+                  borderWidth: 2
+                }
               }}
             >
-              <Button 
-                variant="outlined"
-                sx={{ 
-                  py: 1.2,
-                  px: 4,
-                  borderRadius: 30,
-                  borderWidth: 2,
-                  "&:hover": {
-                    borderWidth: 2
-                  }
-                }}
-              >
-                Load More Orders
-              </Button>
-            </Box>
-          )}
-        </Container>
-      </Box>
+              Load More Orders
+            </Button>
+          </Box>
+        )}
+      </Container>
     </Box>
-  </ThemeProvider>
+  </Box>
+</ThemeProvider>
 );
 };
 

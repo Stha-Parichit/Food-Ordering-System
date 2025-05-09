@@ -17,6 +17,8 @@ const { v4: uuidv4 } = require('uuid');
 const { addNotification } = require('./db');
 const http = require('http');
 const { Server } = require('socket.io');
+const axios = require("axios"); // Add axios for HTTP requests
+const PDFDocument = require("pdfkit"); // Add this at the top
 
 const app = express();
 const server = http.createServer(app);
@@ -25,7 +27,7 @@ const io = new Server(server, {
     origin: "http://localhost:3000", // Allow requests from the client
     methods: ["GET", "POST"],
   },
-  path: "/socket.io/", // Ensure the path matches the client configuration
+  path: "/socket.io/",
 });
 
 app.use(cors({
@@ -49,39 +51,59 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 5000;
 const { OAuth2Client } = require('google-auth-library');
 
-const client = new OAuth2Client('997514767176-rvk4v4cho4qvibhti41b08ser7afsm7t.apps.googleusercontent.com');
+const GOOGLE_CLIENT_ID = '997514767176-rvk4v4cho4qvibhti41b08ser7afsm7t.apps.googleusercontent.com';
+const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 const router = express.Router();
 
 const esClient = new Client({ node: process.env.ELASTICSEARCH_URL || 'http://localhost:9200' });
 
-router.post('/google-login', async (req, res) => {
+app.post('/api/google-login', async (req, res) => {
   const { token } = req.body;
 
   try {
     const ticket = await client.verifyIdToken({
       idToken: token,
-      audience: '997514767176-rvk4v4cho4qvibhti41b08ser7afsm7t.apps.googleusercontent.com',
+      audience: GOOGLE_CLIENT_ID
     });
 
     const payload = ticket.getPayload();
-    const email = payload.email;
-    const user = await db.pool.execute("SELECT * FROM users WHERE email = ?", [email]);
+    const { email, name, picture } = payload;
 
-    // If the user doesn't exist, create a new one
-    if (user.length === 0) {
-      const newUser = {
-        email: email,
-        name: payload.name,
-        // Add other fields as necessary
-      };
-      await db.pool.execute("INSERT INTO users SET ?", newUser);
+    const [existingUsers] = await db.pool.execute(
+      "SELECT * FROM users WHERE email = ?",
+      [email]
+    );
+
+    let userId;
+    if (existingUsers.length === 0) {
+      // Create new user if doesn't exist
+      const [result] = await db.pool.execute(
+        "INSERT INTO users (fullName, email, password, phone, address) VALUES (?, ?, ?, ?, ?)",
+        [name, email, 'google-oauth', '', '']
+      );
+      userId = result.insertId;
+    } else {
+      userId = existingUsers[0].id;
     }
 
-    // Create JWT and send it back
-    const userToken = jwt.sign({ userId: user[0].id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token: userToken, email: user[0].email });
+    const userToken = jwt.sign(
+      { userId, email },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(200).json({
+      token: userToken,
+      email: email,
+      userId: userId,
+      message: 'Successfully logged in with Google'
+    });
   } catch (error) {
-    res.status(400).json({ message: 'Google login failed' });
+    console.error('Google login error:', error);
+    res.status(401).json({
+      success: false,
+      message: 'Google authentication failed'
+    });
   }
 });
 
@@ -739,12 +761,14 @@ app.delete("/cart", async (req, res) => {
 
 // Move `upload` initialization above its first usage
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
-  
-  if (allowedTypes.includes(file.mimetype)) {
+  // Allow both image and video files
+  if (file.mimetype.startsWith('image/') || 
+      file.mimetype === 'video/mp4' || 
+      file.mimetype === 'video/quicktime' || 
+      file.mimetype === 'video/x-msvideo') {
     cb(null, true);
   } else {
-    cb(new Error('Only video files (MP4, MOV, AVI) are allowed'), false);
+    cb(new Error('Only image files (JPEG, PNG, etc.) and video files (MP4, MOV, AVI) are allowed'), false);
   }
 };
 
@@ -935,10 +959,10 @@ app.post("/orders", async (req, res) => {
 
     // Update loyalty points
     updateLoyaltyPoints(user_id, total, async (err) => {
-      if (err) {
-        console.error("Error updating loyalty points:", err);
-        return res.status(500).json({ message: "Failed to update loyalty points", error: err });
-      }
+      // if (err) {
+      //   console.error("Error updating loyalty points:", err);
+      //   return res.status(500).json({ message: "Failed to update loyalty points", error: err });
+      // }
 
       // Send notification to chef
       const notificationQuery = "INSERT INTO notifications (message) VALUES (?)";
@@ -1074,6 +1098,85 @@ app.post("/process-payment", async (req, res) => {
   }
 });
 
+// Add new endpoint for COD order creation
+app.post("/api/orders/cod", async (req, res) => {
+  const { user_id, items, total_amount } = req.body;
+
+  if (!user_id || !items || !total_amount) {
+    return res.status(400).json({ message: "User ID, items, and total amount are required." });
+  }
+
+  try {
+    // Insert order into the orders table
+    const [orderResult] = await db.pool.execute(
+      "INSERT INTO orders (user_id, total_amount, status) VALUES (?, ?, ?)",
+      [user_id, total_amount, "Pending"]
+    );
+    const orderId = orderResult.insertId;
+
+    // Prepare order items for insertion
+    const orderItemsData = items.map((item) => {
+      const customizationPrice =
+        (item.customization?.extraCheese ? 35 : 0) +
+        (item.customization?.extraMeat ? 50 : 0) +
+        (item.customization?.extraVeggies ? 30 : 0) +
+        (item.customization?.glutenFree ? 40 : 0);
+      const itemPrice = item.price + customizationPrice;
+
+      return [
+        orderId,
+        item.food_id,
+        item.quantity,
+        JSON.stringify({
+          extraCheese: item.customization?.extraCheese || false,
+          extraMeat: item.customization?.extraMeat || false,
+          extraVeggies: item.customization?.extraVeggies || false,
+          noOnions: item.customization?.noOnions || false,
+          noGarlic: item.customization?.noGarlic || false,
+          spicyLevel: item.customization?.spicyLevel || "Medium",
+          specialInstructions: item.customization?.specialInstructions || "",
+          glutenFree: item.customization?.glutenFree || false,
+          cookingPreference: item.customization?.cookingPreference || null,
+          sides: item.customization?.sides || null,
+          dipSauce: item.customization?.dipSauce 
+            ? item.customization.dipSauce
+                .map(dip => `${dip.name} × ${dip.quantity || 1}`)
+                .join(", ")
+            : null,
+        }),
+        itemPrice,
+        item.customization?.extraCheese || false,
+        item.customization?.extraMeat || false,
+        item.customization?.extraVeggies || false,
+        item.customization?.noOnions || false,
+        item.customization?.noGarlic || false,
+        item.customization?.spicyLevel || "Medium",
+        item.customization?.specialInstructions || "",
+        item.customization?.glutenFree || false,
+        item.customization?.cookingPreference || null,
+        item.customization?.sides || null,
+        item.customization?.dipSauce || null,
+      ];
+    });
+
+    // Insert order items into the order_items table
+    const insertOrderItemsQuery = `
+      INSERT INTO order_items (
+        order_id, food_id, quantity, customization, price, 
+        extra_cheese, extra_meat, extra_veggies, no_onions, no_garlic, 
+        spicy_level, special_instructions, gluten_free, cooking_preference, sides, dip_sauce
+      )
+      VALUES ?
+    `;
+    await db.pool.query(insertOrderItemsQuery, [orderItemsData]);
+
+    res.status(201).json({ message: "Order created successfully", orderId });
+  } catch (error) {
+    console.error("Error creating COD order:", error);
+    res.status(500).json({ message: "Failed to create order", error: error.message });
+  }
+});
+
 // orders endpoint
 app.get("/orders", async (req, res) => {
   const userId = req.query.user_id;
@@ -1198,7 +1301,7 @@ app.post("/update-loyalty-points", async (req, res) => {
     return res.status(400).json({ message: "User ID, total amount, and used points are required." });
   }
 
-  const earned_points = Math.floor(total_amount / 1000); // Calculate points earned from total_amount
+  const earned_points = Math.floor(total_amount / 1000); // 1 point per Rs. 1000 spent
 
   try {
     // Check if the user already has loyalty points
@@ -1217,8 +1320,12 @@ app.post("/update-loyalty-points", async (req, res) => {
         [new_points, user_id]
       );
     } else {
-      // If no existing row, log a message and skip the insert
-      console.log(`No loyalty points record found for user_id: ${user_id}. Skipping update.`);
+      // Insert new row for the user
+      const new_points = Math.max(0, earned_points - used_points); // Usually used_points would be 0 here
+      await db.pool.execute(
+        "INSERT INTO loyalty_points (user_id, points) VALUES (?, ?)",
+        [user_id, new_points]
+      );
     }
 
     return res.status(200).json({ message: "Loyalty points updated successfully" });
@@ -1227,6 +1334,7 @@ app.post("/update-loyalty-points", async (req, res) => {
     return res.status(500).json({ message: "Failed to update loyalty points", error: err });
   }
 });
+
 
 // Get orders with detailed item information
 app.get("/orders", async (req, res) => {
@@ -1271,11 +1379,10 @@ app.get("/orders/:id", async (req, res) => {
   const query = `
     SELECT 
       o.id AS order_id, 
-      o.total,
+      o.total_amount,
       oi.food_id, 
       f.name AS food_name, 
       oi.quantity, 
-      oi.price 
     FROM 
       orders o
     JOIN 
@@ -2133,6 +2240,445 @@ app.delete("/api/addresses/:id", async (req, res) => {
   } catch (error) {
     console.error("Error deleting address:", error);
     res.status(500).json({ message: "Failed to delete address" });
+  }
+});
+
+// Khalti payment initiation endpoint
+app.post("/api/khalti/initiate", async (req, res) => {
+  const { amount, purchase_order_id, purchase_order_name, customer_info } = req.body;
+
+  if (!amount || !purchase_order_id || !purchase_order_name) {
+    return res.status(400).json({ message: "Required fields are missing." });
+  }
+
+  // Require user_id for order creation
+  if (!customer_info || !customer_info.user_id) {
+    return res.status(400).json({ message: "customer_info.user_id is required to create an order before payment." });
+  }
+
+  let orderId = null;
+  try {
+    let user = null;
+    // Only fetch from DB if user_id is provided and not undefined/null/empty
+    if (customer_info && customer_info.user_id) {
+      const [userResult] = await db.pool.execute(
+        "SELECT fullName, email, phone FROM users WHERE id = ?",
+        [customer_info.user_id]
+      );
+      if (userResult.length === 0) {
+        return res.status(404).json({ message: "User not found." });
+      }
+      user = userResult[0];
+
+      // --- Create order and clear cart before payment ---
+      const connection = await db.pool.getConnection();
+      try {
+        await connection.beginTransaction();
+        
+        // Fetch cart items
+        const [cartItems] = await connection.execute(
+          `SELECT c.*, f.price AS base_price
+           FROM cart c
+           JOIN food_items f ON c.food_id = f.id
+           WHERE c.user_id = ?`,
+          [customer_info.user_id]
+        );
+
+        if (!cartItems || cartItems.length === 0) {
+          await connection.rollback();
+          connection.release();
+          return res.status(400).json({ message: "Cart is empty, cannot create order." });
+        }
+
+        // Calculate total
+        let total = 0;
+        const orderItemsData = cartItems.map((item) => {
+          const customizationPrice =
+            (item.extra_cheese ? 35 : 0) +
+            (item.extra_meat ? 50 : 0) +
+            (item.extra_veggies ? 30 : 0) +
+            (item.gluten_free ? 40 : 0);
+          const itemPrice = Number(item.base_price) + customizationPrice;
+          total += itemPrice * item.quantity;
+          return [
+            item.food_id,
+            item.quantity,
+            JSON.stringify({
+              extraCheese: item.extra_cheese,
+              extraMeat: item.extra_meat,
+              extraVeggies: item.extra_veggies,
+              noOnions: item.no_onions,
+              noGarlic: item.no_garlic,
+              spicyLevel: item.spicy_level,
+              specialInstructions: item.special_instructions,
+              glutenFree: item.gluten_free,
+              cookingPreference: item.cooking_preference,
+              sides: item.sides,
+              dipSauce: item.dip_sauce,
+            }),
+            itemPrice,
+            item.extra_cheese,
+            item.extra_meat,
+            item.extra_veggies,
+            item.no_onions,
+            item.no_garlic,
+            item.spicy_level,
+            item.special_instructions,
+            item.gluten_free,
+            item.cooking_preference,
+            item.sides,
+            item.dip_sauce,
+          ];
+        });
+
+        // Insert order
+        const [orderResult] = await connection.execute(
+          `INSERT INTO orders (user_id, total_amount, status) VALUES (?, ?, ?)`,
+          [customer_info.user_id, amount, "Pending Payment"]
+        );
+        orderId = orderResult.insertId;
+
+        // Insert order_items
+        const insertOrderItemsQuery = `
+          INSERT INTO order_items (
+            order_id, food_id, quantity, customization, price, 
+            extra_cheese, extra_meat, extra_veggies, no_onions, no_garlic, 
+            spicy_level, special_instructions, gluten_free, cooking_preference, sides, dip_sauce
+          )
+          VALUES ?
+        `;
+        const orderItemsWithOrderId = orderItemsData.map(arr => [orderId, ...arr]);
+        await connection.query(insertOrderItemsQuery, [orderItemsWithOrderId]);
+
+        // Clear cart
+        await connection.execute(`DELETE FROM cart WHERE user_id = ?`, [customer_info.user_id]);
+
+        await connection.commit();
+      } catch (err) {
+        await connection.rollback();
+        connection.release();
+        console.error("Order creation failed before payment:", err);
+        return res.status(500).json({ message: "Failed to create order before payment.", error: err.message });
+      }
+      connection.release();
+    } else {
+      // Use provided customer_info directly, fallback to empty string if missing
+      user = {
+        fullName: customer_info?.name || "",
+        email: customer_info?.email || "",
+        phone: customer_info?.phone || ""
+      };
+    }
+
+    // Ensure all required fields are present and not blank
+    const name = user.fullName?.trim() || user.name?.trim() || "";
+    const email = user.email?.trim() || "";
+    const phone = user.phone?.toString().trim() || "";
+
+    if (!name || !email || !phone) {
+      return res.status(400).json({ message: "Customer info fields (name, email, phone) must not be blank." });
+    }
+
+    const payload = {
+      return_url: "http://localhost:3000/payment-success",
+      website_url: "http://localhost:3000",
+      amount: amount * 100,
+      purchase_order_id,
+      purchase_order_name,
+      customer_info: {
+        name,
+        email,
+        phone,
+      },
+    };
+
+    // Use Khalti sandbox API URL
+    const response = await axios.post(
+      "https://a.khalti.com/api/v2/epayment/initiate/",
+      payload,
+      {
+        headers: {
+          Authorization: `Key ${process.env.KHALTI_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    // Include orderId in response for tracking
+    res.status(200).json({ ...response.data, orderId });
+  } catch (error) {
+    console.error("Error initiating Khalti payment:", error.response?.data || error.message);
+    res.status(500).json({ message: "Failed to initiate payment", error: error.response?.data || error.message });
+  }
+});
+
+// Khalti payment verification endpoint
+app.post("/api/khalti/verify", async (req, res) => {
+  const { pidx, user_id } = req.body;
+
+  if (!pidx) {
+    return res.status(400).json({ message: "Payment ID (pidx) is required." });
+  }
+
+  try {
+    const response = await axios.post(
+      "https://dev.khalti.com/api/v2/epayment/lookup/",
+      { pidx },
+      {
+        headers: {
+          Authorization: `Key ${process.env.KHALTI_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    // Debug: Log Khalti response
+    console.log("Khalti verify response:", response.data);
+
+    // Only verify payment here, do not create order or clear cart
+    if (response.data.status === "Completed") {
+      res.status(200).json({ message: "Payment verified successfully!", payment: response.data });
+    } else {
+      res.status(400).json({ message: "Payment not completed.", payment: response.data });
+    }
+  } catch (error) {
+    console.error("Error verifying Khalti payment:", error.response?.data || error.message);
+    res.status(500).json({ message: "Failed to verify payment", error: error.response?.data || error.message });
+  }
+});
+
+// Endpoint to fetch user information by userId
+app.get("/api/users/:userId", async (req, res) => {
+  const { userId } = req.params;
+  console.log("Fetching user with ID:", userId); // Debug log
+
+  try {
+    // First check if user exists and get all necessary fields
+    const [rows] = await db.pool.execute(
+      `SELECT id, fullName, email, phone, address, bio, created_at 
+       FROM users WHERE id = ?`,
+      [userId]
+    );
+
+    console.log("Database query result:", rows); // Debug log
+
+    if (!rows || rows.length === 0) {
+      console.log("No user found with ID:", userId); // Debug log
+      return res.status(404).json({ 
+        success: false,
+        message: `User not found with ID: ${userId}` 
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: rows[0]
+    });
+  } catch (error) {
+    console.error("Database error when fetching user:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to fetch user data",
+      error: error.message 
+    });
+  }
+});
+
+app.put("/api/users/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const { fullName, phone, address, bio } = req.body;
+
+  try {
+    // First check if user exists
+    const [user] = await db.pool.execute(
+      "SELECT id FROM users WHERE id = ?",
+      [userId]
+    );
+
+    if (user.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Update user data
+    await db.pool.execute(
+      `UPDATE users 
+       SET fullName = ?, phone = ?, address = ?, bio = ?
+       WHERE id = ?`,
+      [fullName, phone, address, bio || null, userId]
+    );
+
+    // Fetch updated user data
+    const [updatedUser] = await db.pool.execute(
+      "SELECT id, fullName, email, phone, address, bio FROM users WHERE id = ?",
+      [userId]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: updatedUser[0]
+    });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update profile",
+      error: error.message
+    });
+  }
+});
+
+// Add charity donation API endpoint
+app.post("/api/charity-donations", async (req, res) => {
+  const { user_id, charity_name, amount } = req.body;
+
+  if (!user_id || !charity_name || !amount) {
+    return res.status(400).json({ message: "Missing required fields: user_id, charity_name, or amount." });
+  }
+
+  try {
+    await db.addCharityRecord(user_id, charity_name, amount);
+    res.status(201).json({ message: "Charity donation recorded successfully." });
+  } catch (error) {
+    console.error("Error recording charity donation:", error);
+    res.status(500).json({ message: "Failed to record charity donation.", error: error.message });
+  }
+});
+
+// Add loyalty record API endpoint
+app.post("/api/loyalty", async (req, res) => {
+  const { order_id, user_id, points_used } = req.body;
+  if (!order_id || !user_id) {
+    return res.status(400).json({ message: "Missing required fields for loyalty record." });
+  }
+  try {
+    // Subtract used points if any
+    if (points_used && points_used > 0) {
+      await db.pool.execute(
+        "UPDATE loyalty_points SET points = GREATEST(points - ?, 0) WHERE user_id = ?",
+        [points_used, user_id]
+      );
+    }
+    // Optionally, you can log the loyalty usage in a separate table if needed
+    res.status(201).json({ message: "Loyalty record updated." });
+  } catch (error) {
+    console.error("Error updating loyalty record:", error);
+    res.status(500).json({ message: "Failed to update loyalty record." });
+  }
+});
+
+// Contact form endpoint
+app.post("/api/contact", async (req, res) => {
+  const { name, email, subject, message } = req.body;
+
+  try {
+    // Configure email with proper Gmail SMTP settings
+    const mailOptions = {
+      from: email,
+      sender: `"${name}" <${email}>`,
+      replyTo: email,
+      to: process.env.ADMIN_EMAIL,
+      subject: `Contact Form: ${subject}`,
+      html: `
+        <h3>New Contact Form Submission</h3>
+        <p><strong>From:</strong> ${name} (${email})</p>
+        <p><strong>Subject:</strong> ${subject}</p>
+        <p><strong>Message:</strong></p>
+        <p>${message}</p>
+      `,
+      headers: {
+        'X-Original-From': `${name} <${email}>`,
+        'Reply-To': email
+      }
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: "Message sent successfully" });
+  } catch (error) {
+    console.error("Error sending contact form:", error);
+    res.status(500).json({ message: "Failed to send message", error: error.message });
+  }
+});
+
+// Endpoint to generate and download a charity receipt
+app.get("/api/charity-receipt/:orderId", async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    // Fetch order and charity details
+    const [orderDetails] = await db.pool.execute(
+      `SELECT o.id AS order_id, o.total_amount, o.created_at, c.charity_name, c.amount
+       FROM orders o
+       JOIN charity c ON o.user_id = c.user_id
+       WHERE o.id = ?`,
+      [orderId]
+    );
+
+    if (orderDetails.length === 0) {
+      return res.status(404).json({ message: "Order or charity details not found." });
+    }
+
+    const order = orderDetails[0];
+
+    // Ensure amount fields are numbers
+    const donationAmount = parseFloat(order.amount) || 0;
+    const totalAmount = parseFloat(order.total_amount) || 0;
+
+    // Create a PDF document
+    const doc = new PDFDocument({ margin: 40, size: "A4" });
+    const filename = `charity_receipt_${order.order_id}.pdf`;
+
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+    res.setHeader("Content-Type", "application/pdf");
+
+    // Draw border
+    doc.rect(20, 20, doc.page.width - 40, doc.page.height - 40).stroke("#888");
+
+    // Logo placeholder
+    doc.image(path.join(__dirname, "../client/public/logo.ico"), doc.page.width/2 - 40, 35, { width: 80 })
+      .moveDown(2);
+
+    // Title
+    doc.moveDown(5);
+    doc.fontSize(22).fillColor("#2d6a4f").text("Charity Donation Receipt", { align: "center", underline: true });
+    doc.moveDown(1);
+
+    // Receipt Info Section
+    doc.fontSize(12).fillColor("#333");
+    doc.moveDown(0.5);
+    doc.text(`Receipt No: ${order.order_id}`, { align: "right" });
+    doc.text(`Date: ${new Date(order.created_at).toLocaleString()}`, { align: "right" });
+
+    doc.moveDown(1);
+
+    // Charity Details Section
+    doc.fontSize(14).fillColor("#1d3557").text("Donation Details", { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(12).fillColor("#333");
+    doc.text(`Charity Name: `, { continued: true }).font("Helvetica-Bold").text(order.charity_name);
+    doc.font("Helvetica").text(`Donation Amount: `, { continued: true }).font("Helvetica-Bold").text(`Rs. ${donationAmount.toFixed(2)}`);
+    doc.font("Helvetica").text(`Total Order Amount: `, { continued: true }).font("Helvetica-Bold").text(`Rs. ${totalAmount.toFixed(2)}`);
+    doc.font("Helvetica").moveDown(1);
+
+    // Thank you message
+    doc.fontSize(13).fillColor("#2d6a4f").text("Thank you for your generous donation!", { align: "center", italic: true });
+    doc.moveDown(2);
+
+    // Signature line
+    doc.fontSize(12).fillColor("#333").text("Authorized Signature: ______________________", { align: "right" });
+
+    // Footer
+    doc.moveDown(2);
+    doc.fontSize(10).fillColor("#888").text("This is a system-generated receipt. For queries, contact support@foodorderingsystem.com", 40, doc.page.height - 60, { align: "center" });
+
+    doc.pipe(res);
+    doc.end();
+  } catch (error) {
+    console.error("Error generating receipt:", error);
+    res.status(500).json({ message: "Failed to generate receipt." });
   }
 });
 

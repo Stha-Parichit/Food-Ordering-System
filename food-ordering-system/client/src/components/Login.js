@@ -75,16 +75,19 @@ const Login = () => {
     setLoading(true);
     try {
       const googleToken = response.credential;
-      const userInfo = await axios.post('http://localhost:5000/api/google-login', { token: googleToken });
+      const userInfo = await axios.post('http://localhost:5000/api/google-login', { 
+        token: googleToken 
+      });
 
       if (userInfo.data.token) {
         localStorage.setItem('token', userInfo.data.token);
         localStorage.setItem('userEmail', userInfo.data.email);
         localStorage.setItem('user_id', userInfo.data.userId);
-        window.location.href = '/home';
+        window.location.href = '/dashboard';
       }
     } catch (error) {
-      setMessage('Error logging in with Google. Please try again.');
+      console.error('Google login error:', error);
+      setMessage(error.response?.data?.message || 'Error logging in with Google. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -521,13 +524,18 @@ const Login = () => {
 
               <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
                 <GoogleLogin
+                  clientId="997514767176-rvk4v4cho4qvibhti41b08ser7afsm7t.apps.googleusercontent.com"
                   onSuccess={handleGoogleLogin}
-                  onError={() => setMessage('Google login failed. Please try again.')}
+                  onError={() => {
+                    console.error('Google Sign In was unsuccessful');
+                    setMessage('Google login failed. Please try again.');
+                  }}
                   useOneTap
-                  size="large"
-                  shape="rectangular"
-                  text="Login with Google"
+                  auto_select={false}
                   theme="outline"
+                  size="large"
+                  width="100%"
+                  locale="en"
                 />
               </Box>
             </form>

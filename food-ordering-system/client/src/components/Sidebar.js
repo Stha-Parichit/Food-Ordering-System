@@ -50,7 +50,7 @@ const SidebarContent = memo(({ mobile = false, handleLogout, toggleSidebar }) =>
   const mainMenuItems = [
     { text: 'Home', icon: <FaHome size={20} />, link: '/home' },
     { text: 'Dashboard', icon: <FaChartBar size={20} />, link: '/dashboard' },
-    { text: 'Upload Tutorials', icon: <FaUtensils size={20} />, link: '/tutorial-upload' },
+    // { text: 'Upload Tutorials', icon: <FaUtensils size={20} />, link: '/tutorial-upload' },
     { text: 'Categories', icon: <FaThList size={20} />, link: '/categories' },
   ];
   
@@ -69,8 +69,8 @@ const SidebarContent = memo(({ mobile = false, handleLogout, toggleSidebar }) =>
   ];
   
   const supportMenuItems = [
-    { text: 'Help Center', icon: <FaHeadset size={20} />, link: '/help' },
-    { text: 'Settings', icon: <FaCog size={20} />, link: '/settings' },
+    { text: 'Help Center', icon: <FaHeadset size={20} />, link: '/contact' },
+    { text: 'About Us', icon: <FaCog size={20} />, link: '/about' },
   ];
 
   const listItemStyle = (itemLink) => ({
@@ -93,7 +93,25 @@ const SidebarContent = memo(({ mobile = false, handleLogout, toggleSidebar }) =>
       display: 'flex', 
       flexDirection: 'column', 
       height: '100%',
-      overflow: 'auto'
+      overflow: 'auto',
+      // Add custom scrollbar styles
+      '&::-webkit-scrollbar': {
+        width: '8px',
+        background: 'transparent',
+      },
+      '&::-webkit-scrollbar-thumb': {
+        background: 'rgba(255, 255, 255, 0.2)',
+        borderRadius: '4px',
+        '&:hover': {
+          background: 'rgba(255, 255, 255, 0.3)',
+        },
+      },
+      '&::-webkit-scrollbar-track': {
+        background: 'transparent',
+      },
+      // For Firefox
+      scrollbarWidth: 'thin',
+      scrollbarColor: 'rgba(255, 255, 255, 0.2) transparent',
     }}>
       {/* Logo and App Title */}
       <Box sx={{ 

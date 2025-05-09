@@ -50,27 +50,27 @@ const SidebarContent = memo(({ mobile = false, handleLogout, toggleSidebar }) =>
   const mainMenuItems = [
     { text: 'Dashboard', icon: <FaChartBar size={20} />, link: '/chef-dashboard' },
     { text: 'Upload Tutorials', icon: <FaUtensils size={20} />, link: '/tutorial-upload' },
-    { text: 'Categories', icon: <FaThList size={20} />, link: '/categories' },
+    // { text: 'Categories', icon: <FaThList size={20} />, link: '/categories' },
   ];
   
   const userMenuItems = [
     { 
       text: 'My Account', 
       icon: <FaUser size={20} />, 
-      link: '/profile',
+      link: '/chef-profile',
       submenu: [
-        { text: 'Profile', icon: <FaUser size={16}/>, link: '/profile' },
-        { text: 'Addresses', icon: <FaMapMarkerAlt size={16} />, link: '/addresses' },
-        { text: 'Payment Methods', icon: <FaWallet size={16} />, link: '/payment-methods' },
+        { text: 'Profile', icon: <FaUser size={16}/>, link: '/chef-profile' },
+        // { text: 'Addresses', icon: <FaMapMarkerAlt size={16} />, link: '/addresses' },
+        // { text: 'Payment Methods', icon: <FaWallet size={16} />, link: '/payment-methods' },
       ]
     },
-    { text: 'My Orders', icon: <FaHistory size={20} />, link: '/orders' },
-    { text: 'Favorites', icon: <FaHeart size={20} />, link: '/favorites' },
-    { text: 'Offers & Promos', icon: <FaTicketAlt size={20} />, link: '/offers' },
+    { text: 'Orders', icon: <FaHistory size={20} />, link: '/chef-orders' },
+    // { text: 'Favorites', icon: <FaHeart size={20} />, link: '/favorites' },
+    // { text: 'Offers & Promos', icon: <FaTicketAlt size={20} />, link: '/offers' },
   ];
   
   const supportMenuItems = [
-    { text: 'Help Center', icon: <FaHeadset size={20} />, link: '/help' },
+    { text: 'Help Center', icon: <FaHeadset size={20} />, link: '/chef-contact' },
     { text: 'Settings', icon: <FaCog size={20} />, link: '/settings' },
   ];
 
@@ -94,7 +94,25 @@ const SidebarContent = memo(({ mobile = false, handleLogout, toggleSidebar }) =>
       display: 'flex', 
       flexDirection: 'column', 
       height: '100%',
-      overflow: 'auto'
+      overflow: 'auto',
+      // Add custom scrollbar styles
+      '&::-webkit-scrollbar': {
+        width: '8px',
+        background: 'transparent',
+      },
+      '&::-webkit-scrollbar-thumb': {
+        background: 'rgba(255, 255, 255, 0.2)',
+        borderRadius: '4px',
+        '&:hover': {
+          background: 'rgba(255, 255, 255, 0.3)',
+        },
+      },
+      '&::-webkit-scrollbar-track': {
+        background: 'transparent',
+      },
+      // For Firefox
+      scrollbarWidth: 'thin',
+      scrollbarColor: 'rgba(255, 255, 255, 0.2) transparent',
     }}>
       {/* Logo and App Title */}
       <Box sx={{ 

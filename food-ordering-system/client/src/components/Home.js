@@ -552,6 +552,15 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
     setDrawerOpen(open);
   };
 
+  const handleProtectedNavigation = (path) => {
+    const isLoggedIn = localStorage.getItem("user_id");
+    if (!isLoggedIn) {
+      setOpenDialog(true);
+    } else {
+      navigate(path);
+    }
+  };
+
   return (
     <div>
       {/* Navbar */}
@@ -919,7 +928,7 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
                         fontSize: '1.1rem'
                       }}
                       component="a"
-                      href="/menu"
+                      href="/categories"
                     >
                       View Menu
                     </StyledButton>
@@ -1582,7 +1591,7 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
       >
         <DialogTitle sx={{ pb: 1 }}>
   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-    <Typography variant="h6" fontWeight="bold">Item added to cart</Typography>
+    <Typography variant="h6" fontWeight="bold">Login Required</Typography>
     <IconButton onClick={handleCloseDialog} size="small">
       <CloseIcon />
     </IconButton>
@@ -1590,22 +1599,22 @@ setPopupMessage(`${item.name} × ${customization.quantity} added to cart${messag
 </DialogTitle>
 <DialogContent>
   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-    Your item has been added to the cart successfully.
+    Please login to access this feature.
   </Typography>
 </DialogContent>
 <DialogActions sx={{ p: 2, pt: 0 }}>
   <Button onClick={handleCloseDialog} sx={{ borderRadius: 2 }}>
-    Continue Shopping
+    Cancel
   </Button>
   <Button 
     variant="contained" 
-    onClick={() => navigate("/cart")}
+    onClick={() => navigate("/login")}
     sx={{ 
       borderRadius: 2,
       background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
     }}
   >
-    View Cart
+    Login
   </Button>
 </DialogActions>
       </Dialog>

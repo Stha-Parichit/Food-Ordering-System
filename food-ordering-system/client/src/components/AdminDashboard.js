@@ -200,7 +200,7 @@ const AdminDashboard = () => {
           </Box>
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box 
+            {/* <Box 
               sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -219,13 +219,13 @@ const AdminDashboard = () => {
                 InputProps={{ disableUnderline: true }} 
                 sx={{ ml: 1, minWidth: 120 }}
               />
-            </Box>
+            </Box> */}
             
-            <IconButton onClick={handleNotificationClick} sx={{ position: 'relative' }}>
+            {/* <IconButton onClick={handleNotificationClick} sx={{ position: 'relative' }}>
               <Badge badgeContent={notifications.length} color="error">
                 <NotificationsIcon />
               </Badge>
-            </IconButton>
+            </IconButton> */}
             
             <Box 
               sx={{ 

@@ -364,6 +364,7 @@ initializeDatabase().catch(console.error);
         password VARCHAR(255) NOT NULL,
         phone BIGINT NOT NULL,
         address VARCHAR(255) NOT NULL,
+        bio TEXT,
         reset_token VARCHAR(255) DEFAULT NULL,
         reset_token_expiry BIGINT DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -810,11 +811,15 @@ async function deleteAddress(id) {
 
 async function addCharityRecord(userId, charityName, amount) {
   try {
+    if (!userId || !charityName || !amount) {
+      throw new Error("Missing required fields: userId, charityName, or amount.");
+    }
+
     await pool.execute(
       `INSERT INTO charity (user_id, charity_name, amount) VALUES (?, ?, ?)`,
-      [userId, charityName, amount]
+      [userId, charityName, parseFloat(amount)]
     );
-    console.log("Charity record added successfully");
+    console.log("Charity record added successfully:", { userId, charityName, amount });
   } catch (error) {
     console.error("Error adding charity record:", error);
     throw error;

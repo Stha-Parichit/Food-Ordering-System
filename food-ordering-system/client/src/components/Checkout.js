@@ -233,7 +233,10 @@ const Checkout = () => {
   const charityDonation = selectedCharity ? parseInt(selectedCharity.amount.replace('Rs. ', '')) : 0;
   const discountPercentage = selectedDiscount ? parseInt(selectedDiscount.title) : 0;
   const discountAmount = (subtotal * discountPercentage / 100);
-  const total = subtotal + deliveryFee + charityDonation - discountAmount;
+  // Add tax calculation (13% of subtotal)
+  const tax = subtotal * 0.13;
+  // Update total calculation to include tax
+  const total = subtotal + deliveryFee + charityDonation + tax - discountAmount;
 
   const handleCheckout = () => {
     if (!deliveryAddress) {
@@ -391,6 +394,280 @@ const Checkout = () => {
       )}
     </Paper>
   );
+
+  const handleKhaltiPayment = async () => {
+    try {
+      // Fetch user information from the users table using userId
+      const userResponse = await axios.get(`${apiUrl}/api/users/${userId}`);
+      const user = userResponse.data;
+  
+      if (!user) {
+        alert("Failed to fetch user information.");
+        return;
+      }
+  
+      // Initiate Khalti payment
+      const response = await axios.post(`${apiUrl}/api/khalti/initiate`, {
+        amount: subtotal + deliveryFee + charityDonation + tax - discountAmount, // Now includes tax
+        purchase_order_id: `order_${Date.now()}`,
+        purchase_order_name: "Food Order",
+        customer_info: {
+          user_id: userId,
+          name: user.fullName,
+          email: user.email,
+          phone: user.phone?.toString() || "",
+        },
+        // Pass the breakdown so backend can use it
+        order_breakdown: {
+          subtotal,
+          deliveryFee,
+          charityDonation,
+          tax,
+          discountAmount
+        }
+      });
+  
+      // Save orderId to localStorage for use on success page
+      if (response.data.orderId) {
+        localStorage.setItem("orderId", response.data.orderId);
+      }
+  
+      if (response.data.payment_url) {
+        window.location.href = response.data.payment_url; // Redirect to Khalti payment portal
+      } else {
+        alert("Failed to initiate Khalti payment.");
+      }
+    } catch (error) {
+      console.error("Error initiating Khalti payment:", error);
+      alert(
+        error?.response?.data?.message ||
+        "An error occurred while initiating payment."
+      );
+    }
+  };
+
+  // Add this function to verify Khalti payment and trigger order insertion
+  const handleKhaltiVerification = async (pidx) => {
+    try {
+      // userId is available from localStorage
+      const response = await axios.post(`${apiUrl}/api/khalti/verify`, {
+        pidx,
+        user_id: userId
+      });
+      if (response.data && response.data.orderId) {
+        await handleOrderSuccess(response.data.orderId);
+        alert("Payment successful and order placed! Order ID: " + response.data.orderId);
+        // Optionally redirect to order confirmation page
+        navigate('/order-confirmation');
+      } else {
+        alert(response.data.message || "Payment verified, but order was not created.");
+      }
+    } catch (error) {
+      alert(
+        error?.response?.data?.message ||
+        "Payment verification failed or order could not be created."
+      );
+    }
+  };
+
+  // Call this after payment is verified and you have the orderId
+  const updateOrderStatusToPlaced = async (orderId) => {
+    try {
+      await axios.put(`${apiUrl}/api/orders/${orderId}/status`, {
+        status: "Order Placed"
+      });
+      // Optionally show a success message or redirect
+    } catch (error) {
+      console.error("Failed to update order status:", error);
+      // Optionally show an error message
+    }
+  };
+
+  // Example usage after payment verification (call this in your payment success handler):
+  // await updateOrderStatusToPlaced(orderId);
+
+  // Call this after payment is verified (e.g., on payment success page)
+  const placeOrderAfterKhalti = async () => {
+    try {
+      // Prepare order items for backend (minimal info, adjust as needed)
+      const orderItems = cartItems.map(item => ({
+        food_id: item.food_id,
+        quantity: item.quantity,
+        price: item.item_price
+      }));
+
+      const response = await axios.post(`${apiUrl}/orders`, {
+        user_id: userId,
+        items: orderItems,
+        total: total
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        alert("Order placed successfully!");
+        navigate('/order-confirmation');
+      } else {
+        alert("Order placement failed after payment.");
+      }
+    } catch (error) {
+      alert(
+        error?.response?.data?.message ||
+        "Order placement failed after payment."
+      );
+    }
+  };
+
+  // Insert charity donation after order is placed
+  const insertCharityDonation = async (orderId, charity) => {
+    if (!charity || !orderId) return;
+    try {
+      await axios.post(`${apiUrl}/api/charity-donations`, {
+        order_id: orderId,
+        user_id: userId,
+        charity_name: charity.title,
+        amount: parseInt(charity.amount)
+      });
+    } catch (error) {
+      console.error("Failed to insert charity donation:", error);
+    }
+  };
+
+  // Insert loyalty record after order is placed
+  const insertLoyaltyRecord = async (orderId, pointsUsed) => {
+    if (!orderId) return;
+    try {
+      await axios.post(`${apiUrl}/api/loyalty`, {
+        order_id: orderId,
+        user_id: userId,
+        points_used: pointsUsed || 0
+      });
+    } catch (error) {
+      console.error("Failed to insert loyalty record:", error);
+    }
+  };
+
+  const handleOrderSuccess = async (orderId) => {
+    // Insert charity donation if selected
+    if (selectedCharity) {
+      await insertCharityDonation(orderId, selectedCharity);
+    }
+    // Insert loyalty record if discount was used
+    if (selectedDiscount) {
+      await insertLoyaltyRecord(orderId, selectedDiscount.requiredPoints);
+    }
+  };
+
+  const handlePaymentAndNavigation = async () => {
+    try {
+      if (!deliveryAddress) {
+        alert("Please enter a delivery address");
+        return;
+      }
+
+      // First handle loyalty points
+      const pointsToAdd = !selectedDiscount ? Math.floor(total / 1000) : 0;
+      const pointsToDeduct = selectedDiscount ? selectedDiscount.requiredPoints : 0;
+
+      // Update loyalty points first
+      const loyaltyResponse = await axios.post(`${apiUrl}/update-loyalty-points`, {
+        user_id: userId,
+        total_amount: total,
+        used_points: pointsToDeduct,
+        points_earned: pointsToAdd
+      });
+
+      if (!loyaltyResponse.data.message || loyaltyResponse.data.message !== "Loyalty points updated successfully") {
+        console.error("Loyalty API response:", loyaltyResponse.data);
+        throw new Error("Failed to update loyalty points. Please try again later.");
+      }
+
+      // Handle charity donation if selected
+      if (selectedCharity) {
+        const charityPayload = {
+          user_id: userId,
+          charity_name: selectedCharity.title,
+          amount: parseInt(selectedCharity.amount),
+          donation_date: new Date().toISOString()
+        };
+
+        console.log("Charity donation payload:", charityPayload); // Log payload for debugging
+
+        const charityResponse = await axios.post(`${apiUrl}/api/charity-donations`, charityPayload);
+
+        if (!charityResponse.data.message || charityResponse.data.message !== "Charity donation recorded successfully.") {
+          console.error("Charity API response:", charityResponse.data);
+          throw new Error("Failed to process charity donation. Please try again later.");
+        }
+      }
+
+      // Clear the cart and populate orders table for COD
+      if (paymentMethod === 'COD') {
+        try {
+          // Populate the orders table
+          const orderPayload = {
+            user_id: userId,
+            items: cartItems.map(item => ({
+              food_id: item.food_id,
+              quantity: item.quantity,
+              price: item.item_price,
+              customization: {
+                extraCheese: item.customization?.extraCheese || false,
+                extraMeat: item.customization?.extraMeat || false,
+                extraVeggies: item.customization?.extraVeggies || false,
+                noOnions: item.customization?.noOnions || false,
+                noGarlic: item.customization?.noGarlic || false,
+                spicyLevel: item.customization?.spicyLevel || "Medium",
+                specialInstructions: item.customization?.specialInstructions || "",
+                glutenFree: item.customization?.glutenFree || false,
+                cookingPreference: item.customization?.cookingPreference || null,
+                sides: item.customization?.sides 
+                  ? item.customization.sides
+                      .map(side => `${side.name} × ${side.quantity || 1}`)
+                      .join(", ")
+                  : null,
+                dipSauce: item.customization?.dipSauce 
+                  ? item.customization.dipSauce
+                      .map(dip => `${dip.name} × ${dip.quantity || 1}`)
+                      .join(", ")
+                  : null,
+              }
+            })),
+            total_amount: total // Use total_amount instead of total
+          };
+
+          // Add new endpoint for COD order creation
+          const orderResponse = await axios.post(`${apiUrl}/api/orders/cod`, orderPayload);
+
+          if (!orderResponse.data.message || orderResponse.status !== 201) {
+            console.error("Order API response:", orderResponse.data);
+            throw new Error("Failed to create order. Please try again.");
+          }
+
+          console.log("Order created successfully:", orderResponse.data);
+
+          // Clear the cart
+          await axios.delete(`${apiUrl}/cart`, { params: { user_id: userId } });
+          console.log("Cart cleared successfully for COD.");
+        } catch (error) {
+          console.error("Failed to process COD order:", error);
+          throw new Error("Failed to process COD order. Please try again.");
+        }
+      }
+
+      // Store delivery address and payment method
+      localStorage.setItem("deliveryAddress", deliveryAddress);
+      localStorage.setItem("paymentMethod", paymentMethod);
+
+      // Now proceed with payment based on method
+      if (paymentMethod === 'Standard') {
+        await handleKhaltiPayment();
+      } else {
+        navigate('/order-confirmation');
+      }
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      alert(error.message || "There was an error processing your payment. Please try again.");
+    }
+  };
 
   return (
     <div style={{ 
@@ -883,7 +1160,7 @@ const Checkout = () => {
                       }
                     }}
                   >
-                    <MenuItem value="Standard">Esewa</MenuItem>
+                    <MenuItem value="Standard">Khalti</MenuItem>
                     <MenuItem value="COD">Cash On Delivery</MenuItem>
                   </Select>
                 </FormControl>
@@ -933,6 +1210,18 @@ const Checkout = () => {
                   }}>
                     <ListItemText primary={<Typography variant="body1" color="text.secondary">Delivery Fee</Typography>} />
                     <Typography variant="body1" fontWeight="500">Rs.{deliveryFee.toFixed(2)}</Typography>
+                  </ListItem>
+                  <ListItem sx={{ 
+                    py: 1, 
+                    px: 0,
+                    transition: "background-color 0.3s ease",
+                    borderRadius: "8px",
+                    "&:hover": {
+                      backgroundColor: "rgba(255,152,0,0.03)"
+                    }
+                  }}>
+                    <ListItemText primary={<Typography variant="body1" color="text.secondary">Tax (13%)</Typography>} />
+                    <Typography variant="body1" fontWeight="500">Rs.{tax.toFixed(2)}</Typography>
                   </ListItem>
                   {selectedCharity && (
                     <ListItem sx={{ 
@@ -1012,7 +1301,7 @@ const Checkout = () => {
                     variant="contained" 
                     fullWidth 
                     size="large" 
-                    onClick={handleCheckout} 
+                    onClick={handlePaymentAndNavigation}
                     sx={{ 
                       mt: 2, 
                       py: 1.5,
@@ -1029,7 +1318,7 @@ const Checkout = () => {
                       }
                     }}
                   >
-                    Proceed to Payment
+                    {paymentMethod === 'Standard' ? 'Pay with Khalti' : 'Proceed with COD'}
                   </Button>
                   
                   <Box sx={{ mt: 3, textAlign: "center" }}>

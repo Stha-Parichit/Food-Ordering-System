@@ -18,7 +18,10 @@ import {
   FormControlLabel,
   Container,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Alert,
+  Snackbar,
+  CircularProgress
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import EditIcon from "@mui/icons-material/Edit";
@@ -26,14 +29,25 @@ import SearchIcon from "@mui/icons-material/Search";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Sidebar from "./Sidebar"; // Import the Sidebar component
+import axios from 'axios';
 
 const ProfilePage = () => {
   const [value, setValue] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    address: '',
+    bio: ''
+  });
+  const [message, setMessage] = useState({ text: '', type: 'success', open: false });
+
   const userEmail = localStorage.getItem("userEmail") || "user1@example.com";
-  const firstName = "Parichit";
-  const lastName = "Shrestha";
+  const userId = localStorage.getItem("user_id");
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -42,7 +56,91 @@ const ProfilePage = () => {
     document.title = "User profile - YOO!!!";
     const link = document.querySelector("link[rel*='icon']");
     if (link) link.href = "./images/logo.png";
-  }, []);
+
+    const fetchUserData = async () => {
+      const storedUserId = localStorage.getItem("user_id");
+      console.log("Stored userId:", storedUserId); // Debug log
+
+      if (!storedUserId) {
+        console.log("No userId found in localStorage"); // Debug log
+        navigate('/login');
+        return;
+      }
+
+      try {
+        console.log("Attempting to fetch user data for ID:", storedUserId); // Debug log
+        const response = await axios.get(`http://localhost:5000/api/users/${storedUserId}`);
+        
+        if (!response.data.success) {
+          throw new Error(response.data.message || 'Failed to fetch user data');
+        }
+
+        const data = response.data.data;
+        console.log("Received user data:", data); // Debug log
+        
+        setUserData(data);
+        setFormData({
+          fullName: data.fullName || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          address: data.address || '',
+          bio: data.bio || 'I love cooking and exploring new recipes.'
+        });
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        const errorMessage = error.response?.data?.message || 'Failed to load user data';
+        setMessage({
+          text: errorMessage,
+          type: 'error',
+          open: true
+        });
+        
+        if (error.response?.status === 404) {
+          localStorage.removeItem("userId"); // Clear invalid userId
+          localStorage.removeItem("token");
+          navigate('/login');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [navigate]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSaveChanges = async () => {
+    try {
+      const response = await axios.put(`http://localhost:5000/api/users/${userId}`, formData);
+      if (!response.data.success) {
+        throw new Error(response.data.message);
+      }
+      setUserData(response.data.data);
+      setMessage({
+        text: 'Profile updated successfully!',
+        type: 'success',
+        open: true
+      });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setMessage({
+        text: error.response?.data?.message || 'Failed to update profile',
+        type: 'error',
+        open: true
+      });
+    }
+  };
+
+  const handleCloseMessage = () => {
+    setMessage(prev => ({ ...prev, open: false }));
+  };
 
   const handleTabChange = (event, newValue) => {
     setValue(newValue);
@@ -61,6 +159,14 @@ const ProfilePage = () => {
   const toggleUserMenu = () => {
     setUserMenuOpen(!userMenuOpen);
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f0f2f5' }}>
@@ -108,7 +214,7 @@ const ProfilePage = () => {
               </IconButton>
               <IconButton onClick={toggleUserMenu}>
                 <Avatar sx={{ width: 32, height: 32, bgcolor: '#FF6384' }}>
-                  {firstName ? firstName.charAt(0).toUpperCase() : 'U'}
+                  {formData.fullName ? formData.fullName.charAt(0).toUpperCase() : 'U'}
                 </Avatar>
               </IconButton>
             </Box>
@@ -118,8 +224,8 @@ const ProfilePage = () => {
           <Typography variant="h4" sx={{ 
             fontWeight: 'bold', 
             marginBottom: 3, 
-            display: { xs: 'none', md: 'block' },
-            color: '#1a1a2e'
+            display: { xs: 'none', md: 'block' }, 
+            color: '#1a1a2e' 
           }}>
             My Profile
           </Typography>
@@ -134,8 +240,8 @@ const ProfilePage = () => {
             {/* Profile Cover */}
             <Box sx={{ 
               height: 150, 
-              bgcolor: 'linear-gradient(90deg, #FF6384 0%, #FF9F80 100%)',
-              background: 'linear-gradient(90deg, #FF6384 0%, #FF9F80 100%)',
+              bgcolor: 'linear-gradient(90deg, #FF9800 0%, #FF9F80 100%)',
+              background: 'linear-gradient(90deg, #FF9800 0%, #FF9F80 100%)',
               position: 'relative',
               display: 'flex',
               alignItems: 'flex-end',
@@ -152,25 +258,25 @@ const ProfilePage = () => {
                   sx={{ 
                     width: 100, 
                     height: 100, 
-                    bgcolor: '#FF6384',
+                    bgcolor: '#FF9800',
                     fontSize: '2.5rem',
                     border: '4px solid #fff',
                     boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
                   }}
                 >
-                  {firstName ? firstName.charAt(0).toUpperCase() : 'U'}
+                  {formData.fullName ? formData.fullName.charAt(0).toUpperCase() : 'U'}
                 </Avatar>
                 <IconButton 
                   sx={{ 
                     position: 'absolute', 
                     bottom: 0, 
                     right: 0, 
-                    backgroundColor: '#FF6384',
+                    backgroundColor: '#FF9800',
                     color: '#fff',
                     '&:hover': { backgroundColor: '#e55c7b' },
-                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)', 
                     width: 30,
-                    height: 30
+                    height: 30 
                   }}
                 >
                   <EditIcon sx={{ fontSize: '1rem' }} />
@@ -193,16 +299,15 @@ const ProfilePage = () => {
                 mt: { xs: 0, sm: 2 }
               }}>
                 <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                  {firstName} {lastName}
+                  {formData.fullName || 'Loading...'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  {userEmail}
+                  {formData.email || userEmail}
                 </Typography>
                 <Typography variant="body2" sx={{ maxWidth: 500 }}>
-                  I love cooking and exploring new recipes. Always looking for new food inspiration and ideas!
+                  {formData.bio || 'I love cooking and exploring new recipes. Always looking for new food inspiration and ideas!'}
                 </Typography>
               </Box>
-              
               <Box sx={{ 
                 display: 'flex', 
                 gap: 2, 
@@ -214,11 +319,12 @@ const ProfilePage = () => {
                   variant="contained" 
                   startIcon={<EditIcon />}
                   sx={{ 
-                    backgroundColor: '#FF6384',
+                    backgroundColor: '#FF9800',
                     '&:hover': { backgroundColor: '#e55c7b' },
                     borderRadius: 8,
                     textTransform: 'none',
-                    boxShadow: '0 4px 8px rgba(255,99,132,0.25)'
+                    boxShadow: '0 4px 8px rgba(255,99,132,0.25)',
+                    color: '#fff',
                   }}
                 >
                   Edit Profile
@@ -226,11 +332,11 @@ const ProfilePage = () => {
                 <Button 
                   variant="outlined" 
                   sx={{ 
-                    borderColor: '#FF6384',
-                    color: '#FF6384',
+                    borderColor: '#FF9800',
+                    color: '#FF9800',
                     '&:hover': { 
                       backgroundColor: 'rgba(255,99,132,0.05)',
-                      borderColor: '#FF6384'
+                      borderColor: '#FF9800'
                     },
                     borderRadius: 8,
                     textTransform: 'none'
@@ -241,82 +347,6 @@ const ProfilePage = () => {
               </Box>
             </Box>
           </Paper>
-
-          {/* Profile Stats Cards */}
-          <Grid container spacing={3} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Paper sx={{ 
-                p: 2, 
-                borderRadius: 3,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                display: 'flex',
-                alignItems: 'center',
-                height: '100%'
-              }}>
-                <Avatar sx={{ bgcolor: 'rgba(255,99,132,0.1)', color: '#FF6384', mr: 2 }}>
-                  <FaHeart />
-                </Avatar>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">Favorites</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>24</Typography>
-                </Box>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Paper sx={{ 
-                p: 2, 
-                borderRadius: 3,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                display: 'flex',
-                alignItems: 'center',
-                height: '100%'
-              }}>
-                <Avatar sx={{ bgcolor: 'rgba(54,162,235,0.1)', color: '#36A2EB', mr: 2 }}>
-                  <FaUser />
-                </Avatar>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">Following</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>128</Typography>
-                </Box>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Paper sx={{ 
-                p: 2, 
-                borderRadius: 3,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                display: 'flex',
-                alignItems: 'center',
-                height: '100%'
-              }}>
-                <Avatar sx={{ bgcolor: 'rgba(75,192,192,0.1)', color: '#4BC0C0', mr: 2 }}>
-                  <FaUser />
-                </Avatar>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">Followers</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>356</Typography>
-                </Box>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Paper sx={{ 
-                p: 2, 
-                borderRadius: 3,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                display: 'flex',
-                alignItems: 'center',
-                height: '100%'
-              }}>
-                <Avatar sx={{ bgcolor: 'rgba(255,205,86,0.1)', color: '#FFCD56', mr: 2 }}>
-                  <FaCog />
-                </Avatar>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">New Notifications</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>8</Typography>
-                </Box>
-              </Paper>
-            </Grid>
-          </Grid>
 
           {/* Tabs and Content */}
           <Paper sx={{ 
@@ -340,13 +370,12 @@ const ProfilePage = () => {
                   px: 3,
                   py: 2
                 },
-                '& .Mui-selected': { color: '#FF6384' },
-                '& .MuiTabs-indicator': { backgroundColor: '#FF6384', height: 3 }
+                '& .Mui-selected': { color: '#FF9800' },
+                '& .MuiTabs-indicator': { backgroundColor: '#FF9800', height: 3 }
               }}
             >
               <Tab label="Personal Info" />
               <Tab label="Preferences" />
-              <Tab label="Security" />
             </Tabs>
             
             <Box sx={{ p: { xs: 2, sm: 4 }, bgcolor: 'white' }}>
@@ -354,30 +383,29 @@ const ProfilePage = () => {
                 <Grid container spacing={3}>
                   <Grid item xs={12} md={6}>
                     <TextField
-                      label="First Name"
+                      label="Full Name"
+                      name="fullName"
                       fullWidth
-                      defaultValue={firstName}
-                      variant="outlined"
-                      sx={{ mb: 3 }}
-                    />
-                    <TextField
-                      label="Last Name"
-                      fullWidth
-                      defaultValue={lastName}
+                      value={formData.fullName}
+                      onChange={handleInputChange}
                       variant="outlined"
                       sx={{ mb: 3 }}
                     />
                     <TextField
                       label="Email"
+                      name="email"
                       fullWidth
-                      defaultValue={userEmail}
+                      value={formData.email}
+                      onChange={handleInputChange}
                       variant="outlined"
                       sx={{ mb: 3 }}
                     />
                     <TextField
                       label="Phone Number"
+                      name="phone"
                       fullWidth
-                      defaultValue="+1 (555) 123-4567"
+                      value={formData.phone}
+                      onChange={handleInputChange}
                       variant="outlined"
                       sx={{ mb: 3 }}
                     />
@@ -385,29 +413,34 @@ const ProfilePage = () => {
                   <Grid item xs={12} md={6}>
                     <TextField
                       label="Bio"
+                      name="bio"
                       fullWidth
                       multiline
                       rows={4}
-                      defaultValue="I love cooking and exploring new recipes. Always looking for new food inspiration and ideas!"
+                      value={formData.bio}
+                      onChange={handleInputChange}
                       variant="outlined"
                       sx={{ mb: 3 }}
                     />
                     <TextField
                       label="Address"
+                      name="address"
                       fullWidth
-                      defaultValue="123 Main St, Anytown, USA"
+                      value={formData.address}
+                      onChange={handleInputChange}
                       variant="outlined"
                       sx={{ mb: 3 }}
                     />
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
                       <Button 
                         variant="contained" 
+                        onClick={handleSaveChanges}
                         sx={{ 
-                          backgroundColor: '#FF6384',
+                          backgroundColor: '#FF9800',
                           '&:hover': { backgroundColor: '#e55c7b' },
                           borderRadius: 8,
                           textTransform: 'none',
-                          px: 4,
+                          px: 4, 
                           py: 1.2,
                           boxShadow: '0 4px 8px rgba(255,99,132,0.25)'
                         }}
@@ -418,373 +451,22 @@ const ProfilePage = () => {
                   </Grid>
                 </Grid>
               )}
-              
-              {value === 1 && (
-                <Box>
-                  <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-                    Notification Preferences
-                  </Typography>
-                  
-                  <Grid container spacing={2} sx={{ mb: 4 }}>
-                    {[
-                      { label: "Email Notifications", defaultChecked: true },
-                      { label: "Push Notifications", defaultChecked: false },
-                      { label: "Recipe Updates", defaultChecked: true },
-                      { label: "Community Activity", defaultChecked: true }
-                    ].map((item, index) => (
-                      <Grid item xs={12} sm={6} key={index}>
-                        <Paper sx={{ 
-                          p: 2, 
-                          display: 'flex', 
-                          justifyContent: 'space-between', 
-                          alignItems: 'center',
-                          borderRadius: 2,
-                          boxShadow: '0 1px 5px rgba(0,0,0,0.05)'
-                        }}>
-                          <Typography>{item.label}</Typography>
-                          <FormControlLabel
-                            control={
-                              <Switch 
-                                defaultChecked={item.defaultChecked} 
-                                sx={{
-                                  '& .MuiSwitch-switchBase.Mui-checked': {
-                                    color: '#FF6384',
-                                  },
-                                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                                    backgroundColor: '#FF6384',
-                                  },
-                                }}
-                              />
-                            }
-                            label=""
-                          />
-                        </Paper>
-                      </Grid>
-                    ))}
-                  </Grid>
-                  
-                  <Typography variant="h6" sx={{ mb: 3, mt: 4, fontWeight: 600 }}>
-                    Content Preferences
-                  </Typography>
-                  
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} sm={4}>
-                      <Paper sx={{ 
-                        p: 3, 
-                        textAlign: 'center',
-                        borderRadius: 2,
-                        boxShadow: '0 1px 5px rgba(0,0,0,0.05)',
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between'
-                      }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>Cuisine Type</Typography>
-                        <TextField
-                          select
-                          fullWidth
-                          defaultValue="all"
-                          SelectProps={{
-                            native: true,
-                          }}
-                          sx={{ 
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: 2
-                            }
-                          }}
-                        >
-                          <option value="all">All Cuisines</option>
-                          <option value="italian">Italian</option>
-                          <option value="asian">Asian</option>
-                          <option value="mexican">Mexican</option>
-                          <option value="indian">Indian</option>
-                        </TextField>
-                      </Paper>
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <Paper sx={{ 
-                        p: 3, 
-                        textAlign: 'center',
-                        borderRadius: 2,
-                        boxShadow: '0 1px 5px rgba(0,0,0,0.05)',
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between'
-                      }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>Difficulty Level</Typography>
-                        <TextField
-                          select
-                          fullWidth
-                          defaultValue="all"
-                          SelectProps={{
-                            native: true,
-                          }}
-                          sx={{ 
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: 2
-                            }
-                          }}
-                        >
-                          <option value="all">All Levels</option>
-                          <option value="beginner">Beginner</option>
-                          <option value="intermediate">Intermediate</option>
-                          <option value="advanced">Advanced</option>
-                        </TextField>
-                      </Paper>
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <Paper sx={{ 
-                        p: 3, 
-                        textAlign: 'center',
-                        borderRadius: 2,
-                        boxShadow: '0 1px 5px rgba(0,0,0,0.05)',
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between'
-                      }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>Cooking Time</Typography>
-                        <TextField
-                          select
-                          fullWidth
-                          defaultValue="all"
-                          SelectProps={{
-                            native: true,
-                          }}
-                          sx={{ 
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: 2
-                            }
-                          }}
-                        >
-                          <option value="all">Any Time</option>
-                          <option value="quick">Under 30 mins</option>
-                          <option value="medium">30-60 mins</option>
-                          <option value="long">Over 60 mins</option>
-                        </TextField>
-                      </Paper>
-                    </Grid>
-                  </Grid>
-                  
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
-                    <Button 
-                      variant="contained" 
-                      sx={{ 
-                        backgroundColor: '#FF6384',
-                        '&:hover': { backgroundColor: '#e55c7b' },
-                        borderRadius: 8,
-                        textTransform: 'none',
-                        px: 4,
-                        py: 1.2,
-                        boxShadow: '0 4px 8px rgba(255,99,132,0.25)'
-                      }}
-                    >
-                      Save Preferences
-                    </Button>
-                  </Box>
-                </Box>
-              )}
-              
-              {value === 2 && (
-                <Grid container spacing={4}>
-                  <Grid item xs={12} md={6}>
-                    <Paper sx={{ 
-                      p: 3, 
-                      borderRadius: 2,
-                      boxShadow: '0 1px 5px rgba(0,0,0,0.05)',
-                      mb: { xs: 2, md: 0 }
-                    }}>
-                      <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-                        Change Password
-                      </Typography>
-                      <TextField
-                        label="Current Password"
-                        type="password"
-                        fullWidth
-                        variant="outlined"
-                        sx={{ mb: 3 }}
-                      />
-                      <TextField
-                        label="New Password"
-                        type="password"
-                        fullWidth
-                        variant="outlined"
-                        sx={{ mb: 3 }}
-                      />
-                      <TextField
-                        label="Confirm New Password"
-                        type="password"
-                        fullWidth
-                        variant="outlined"
-                        sx={{ mb: 3 }}
-                      />
-                      <Button 
-                        variant="contained" 
-                        sx={{ 
-                          backgroundColor: '#FF6384',
-                          '&:hover': { backgroundColor: '#e55c7b' },
-                          borderRadius: 8,
-                          textTransform: 'none',
-                          px: 4,
-                          py: 1.2,
-                          boxShadow: '0 4px 8px rgba(255,99,132,0.25)'
-                        }}
-                      >
-                        Update Password
-                      </Button>
-                    </Paper>
-                  </Grid>
-                  
-                  <Grid item xs={12} md={6}>
-                    <Paper sx={{ 
-                      p: 3, 
-                      borderRadius: 2,
-                      boxShadow: '0 1px 5px rgba(0,0,0,0.05)',
-                      mb: 3
-                    }}>
-                      <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-                        Two-Factor Authentication
-                      </Typography>
-                      <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center', 
-                        mb: 2 
-                      }}>
-                        <Box>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                            Enable 2FA
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Add an extra layer of security to your account.
-                          </Typography>
-                        </Box>
-                        <Button 
-                          variant="outlined"
-                          sx={{ 
-                            borderColor: '#FF6384',
-                            color: '#FF6384',
-                            borderRadius: 8,
-                            '&:hover': { 
-                              backgroundColor: 'rgba(255,99,132,0.05)',
-                              borderColor: '#FF6384'
-                            }
-                          }}
-                        >
-                          Setup
-                        </Button>
-                      </Box>
-                    </Paper>
-                    
-                    <Paper sx={{ 
-                      p: 3, 
-                      borderRadius: 2,
-                      boxShadow: '0 1px 5px rgba(0,0,0,0.05)'
-                    }}>
-                      <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-                        Connected Accounts
-                      </Typography>
-                      
-                      {[
-                        { name: "Facebook", color: "#1877F2", connected: false },
-                        { name: "Twitter", color: "#1DA1F2", connected: false },
-                        { name: "Google", color: "#DB4437", connected: true }
-                      ].map((account, index) => (
-                        <Box key={index} sx={{ 
-                          display: 'flex', 
-                          justifyContent: 'space-between', 
-                          alignItems: 'center', 
-                          mb: index < 2 ? 3 : 0
-                        }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <Box 
-                              sx={{ 
-                                width: 36, 
-                                height: 36, 
-                                backgroundColor: account.color, 
-                                borderRadius: '50%', 
-                                mr: 2,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white'
-                              }}
-                            ></Box>
-                            <Typography variant="body1">{account.name}</Typography>
-                          </Box>
-                          <Button 
-                            variant={account.connected ? "contained" : "outlined"}
-                            size="small"
-                            sx={{ 
-                              ...(account.connected ? {
-                                backgroundColor: '#FF6384',
-                                '&:hover': { backgroundColor: '#e55c7b' },
-                              } : {
-                                borderColor: '#FF6384',
-                                color: '#FF6384',
-                                '&:hover': { 
-                                  backgroundColor: 'rgba(255,99,132,0.05)',
-                                  borderColor: '#FF6384'
-                                }
-                              }),
-                              borderRadius: 8,
-                              textTransform: 'none'
-                            }}
-                          >
-                            {account.connected ? "Connected" : "Connect"}
-                          </Button>
-                        </Box>
-                      ))}
-                    </Paper>
-                  </Grid>
-                  
-                  <Grid item xs={12}>
-                    <Divider sx={{ my: 2 }} />
-                    <Box sx={{ 
-                      backgroundColor: 'rgba(244,67,54,0.03)', 
-                      borderRadius: 2, 
-                      p: 3,
-                      border: '1px solid rgba(244,67,54,0.1)',
-                      mt: 2
-                    }}>
-                      <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: 'error.main' }}>
-                        Danger Zone
-                      </Typography>
-                      <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: { xs: 'flex-start', sm: 'center' },
-                        flexDirection: { xs: 'column', sm: 'row' },
-                        gap: { xs: 2, sm: 0 }
-                      }}>
-                        <Box sx={{ maxWidth: 600 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                            Delete Account
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Once you delete your account, there is no going back. Please be certain.
-                          </Typography>
-                        </Box>
-                        <Button 
-                          variant="outlined" 
-                          color="error"
-                          sx={{ 
-                            borderRadius: 8,
-                            textTransform: 'none'
-                          }}
-                        >
-                          Delete Account
-                        </Button>
-                      </Box>
-                    </Box>
-                  </Grid>
-                </Grid>
-              )}
             </Box>
           </Paper>
         </Container>
       </Box>
+
+      {/* Add Snackbar for messages */}
+      <Snackbar
+        open={message.open}
+        autoHideDuration={6000}
+        onClose={handleCloseMessage}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseMessage} severity={message.type} sx={{ width: '100%' }}>
+          {message.text}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

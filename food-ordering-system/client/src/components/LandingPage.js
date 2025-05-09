@@ -41,6 +41,13 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import FastfoodIcon from '@mui/icons-material/Fastfood';
 import DeliveryDiningIcon from '@mui/icons-material/DeliveryDining';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import HomeIcon from '@mui/icons-material/Home';
+import CategoryIcon from '@mui/icons-material/Category';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import FacebookIcon from '@mui/icons-material/Facebook';
+import TwitterIcon from '@mui/icons-material/Twitter';
+import InstagramIcon from '@mui/icons-material/Instagram';
+import YouTubeIcon from '@mui/icons-material/YouTube';
 import { motion } from "framer-motion";
 
 // Styled components
@@ -220,7 +227,7 @@ const LandingPage = () => {
 
   // Sample categories and prices for demo
   const categories = ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack'];
-  const prices = ['$8.99', '$12.99', '$15.99', '$7.50', '$9.99', '$14.50'];
+  const prices = ['Rs. 8.99', 'Rs. 12.99', 'Rs. 15.99', 'Rs. 7.50', 'Rs. 9.99', 'Rs. 14.50'];
 
   useEffect(() => {
     const fetchFoodItems = async () => {
@@ -246,7 +253,7 @@ const LandingPage = () => {
         
         // Fallback data in case API fails
         const fallbackData = Array(6).fill().map((_, i) => ({
-          name: `Delicious Recipe ${i+1}`,
+          name: `Delicious Recipe Rs. {i+1}`,
           description: "A mouth-watering dish that will satisfy your cravings.",
           image_url: "/images/default-placeholder.png",
           rating: Math.floor(Math.random() * 2) + 3 + Math.random(),
@@ -277,6 +284,73 @@ const LandingPage = () => {
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
+
+  const handleProtectedNavigation = (path) => {
+    const isLoggedIn = localStorage.getItem("user_id");
+    if (!isLoggedIn) {
+      setOpenDialog(true);
+    } else {
+      navigate(path);
+    }
+  };
+
+  // Replace direct navigation with protected navigation
+  const handleNavigation = (path) => {
+    if (path === '/login' || path === '/register') {
+      navigate(path);
+    } else {
+      handleProtectedNavigation(path);
+    }
+  };
+
+  // Update the navigation buttons in the navbar
+  const renderNavigationButtons = () => (
+    <>
+      <Button 
+        onClick={() => handleNavigation('/cart')}
+        variant="text"
+        startIcon={<ShoppingCartIcon />}
+        sx={{ 
+          mr: 1,
+          color: "#333",
+          fontWeight: 500,
+          '&:hover': {
+            backgroundColor: 'rgba(0, 0, 0, 0.04)',
+          },
+        }}
+      >
+        Cart
+      </Button>
+      <Button 
+        onClick={() => navigate('/login')}
+        variant="outlined" 
+        sx={{ 
+          mr: 1,
+          borderRadius: '8px',
+          textTransform: 'none',
+          fontWeight: 600,
+          borderColor: '#FF6B6B',
+          color: '#FF6B6B',
+          '&:hover': {
+            borderColor: '#FF8E53',
+            backgroundColor: 'rgba(255, 107, 107, 0.04)',
+          },
+        }}
+      >
+        Login
+      </Button>
+      <StyledButton 
+        onClick={() => navigate('/register')}
+        variant="contained" 
+        sx={{ 
+          background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
+          color: 'white',
+        }}
+      >
+        Sign Up
+      </StyledButton>
+    </>
+  );
 
   const drawer = (
     <Box sx={{ width: 250, p: 2 }}>
@@ -357,24 +431,8 @@ const LandingPage = () => {
                   <MenuIcon />
                 </IconButton>
               )}
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Typography 
-                  variant="h5" 
-                  sx={{ 
-                    fontWeight: 800, 
-                    background: "linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    mr: 1
-                  }}
-                >
-                  YOO!!!
-                </Typography>
-                <LocalDiningIcon 
-                  sx={{ 
-                    color: "#FF6B6B"
-                  }} 
-                />
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <img src="/images/logo1.png" alt="Logo" style={{ width: 50, height: 45 }} />
               </Box>
             </Box>
             
@@ -393,14 +451,16 @@ const LandingPage = () => {
                       transition: 'transform 0.2s'
                     }} 
                     component="a" 
-                    href="/home"
+                    // href="/home"
+                    onClick={() => handleNavigation('/home')}
+                    startIcon={<HomeIcon />}
                   >
                     Home
                   </Button>
                   <Button 
                     sx={{ 
                       color: "#333", 
-                      fontWeight: 500,
+                      fontWeight: 500, 
                       textTransform: 'none',
                       '&:hover': {
                         backgroundColor: 'rgba(0, 0, 0, 0.04)',
@@ -409,9 +469,11 @@ const LandingPage = () => {
                       transition: 'transform 0.2s'
                     }} 
                     component="a" 
-                    href="/dashboard"
+                    // href="/view-tutorials"
+                    onClick={() => handleNavigation('/view-tutorials')}
+                    startIcon={<CategoryIcon />}
                   >
-                    Dashboard
+                    View Tutorials
                   </Button>
                   <Button 
                     sx={{ 
@@ -425,76 +487,23 @@ const LandingPage = () => {
                       transition: 'transform 0.2s'
                     }} 
                     component="a" 
-                    href="/recipes"
+                    // href="/dashboard"
+                    onClick={() => handleNavigation('/dashboard')}
+                    startIcon={<DashboardIcon />}
                   >
-                    Recipes
+                    Dashboard
                   </Button>
                 </Box>
-                
-                <SearchBar>
-                  <SearchIconWrapper>
-                    <SearchIcon />
-                  </SearchIconWrapper>
-                  <StyledInputBase
-                    placeholder="Search recipes…"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </SearchBar>
               </>
             )}
             
             <Box sx={{ display: "flex", alignItems: "center" }}>
-              {!isMobile && (
-                <>
-                  <Button 
-                    variant="text"
-                    startIcon={<ShoppingCartIcon />}
-                    sx={{ 
-                      mr: 1,
-                      color: "#333",
-                      fontWeight: 500,
-                      '&:hover': {
-                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                      },
-                    }}
-                  >
-                    Cart
-                  </Button>
-                  <Button 
-                    variant="outlined" 
-                    sx={{ 
-                      mr: 1,
-                      borderRadius: '8px',
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      borderColor: '#FF6B6B',
-                      color: '#FF6B6B',
-                      '&:hover': {
-                        borderColor: '#FF8E53',
-                        backgroundColor: 'rgba(255, 107, 107, 0.04)',
-                      },
-                    }}
-                    component="a" 
-                    href="/login"
-                  >
-                    Login
-                  </Button>
-                  <StyledButton 
-                    variant="contained" 
-                    sx={{ 
-                      background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
-                      color: 'white',
-                    }}
-                    component="a" 
-                    href="/register"
-                  >
-                    Sign Up
-                  </StyledButton>
-                </>
-              )}
+              {!isMobile && renderNavigationButtons()}
               {isMobile && (
-                <IconButton color="inherit">
+                <IconButton 
+                  color="inherit" 
+                  onClick={() => handleNavigation('/cart')}
+                >
                   <ShoppingCartIcon />
                 </IconButton>
               )}
@@ -578,8 +587,7 @@ const LandingPage = () => {
                         fontSize: '1.1rem'
                       }}
                       endIcon={<ArrowForwardIcon />}
-                      component="a"
-                      href="/register"
+                      onClick={() => handleNavigation('/categories')}
                     >
                       Start Ordering
                     </StyledButton>
@@ -593,8 +601,7 @@ const LandingPage = () => {
                         py: 1.5,
                         fontSize: '1.1rem'
                       }}
-                      component="a"
-                      href="/menu"
+                      onClick={() => handleNavigation('/menu')}
                     >
                       View Menu
                     </StyledButton>
@@ -832,6 +839,7 @@ const LandingPage = () => {
                                 textTransform: 'none',
                                 fontWeight: 600
                               }}
+                              onClick={() => handleNavigation(`/food/${item.id}`)}
                             >
                               Details
                             </Button>
@@ -844,7 +852,7 @@ const LandingPage = () => {
                                 textTransform: 'none',
                                 fontWeight: 600
                               }}
-                              onClick={handleAddToCart}
+                              onClick={() => handleProtectedNavigation('/cart')}
                             >
                               Add to Cart
                             </Button>
@@ -1066,19 +1074,18 @@ const LandingPage = () => {
                 >
                   YOO!!!
                 </Typography>
-                <LocalDiningIcon 
-                  sx={{ 
-                    color: '#FF6B6B'
-                  }} 
-                />
+                <img src="/images/logo1.png" alt="Logo" style={{ width: 36, height: 36, borderRadius: "10px", }} />
               </Box>
               <Typography variant="body2" sx={{ mb: 2, color: 'rgba(255, 255, 255, 0.7)' }}>
                 Delicious food delivered to your doorstep. We make food ordering and delivery simple, reliable, and fun.
               </Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
-                {['facebook', 'twitter', 'instagram', 'youtube'].map(social => (
+                {[{ icon: <FacebookIcon />, name: 'facebook' },
+                  { icon: <TwitterIcon />, name: 'twitter' },
+                  { icon: <InstagramIcon />, name: 'instagram' },
+                  { icon: <YouTubeIcon />, name: 'youtube' }].map((social) => (
                   <IconButton 
-                    key={social} 
+                    key={social.name} 
                     size="small" 
                     sx={{ 
                       color: 'rgba(255, 255, 255, 0.7)',
@@ -1089,20 +1096,7 @@ const LandingPage = () => {
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    <Box 
-                      component="span" 
-                      sx={{ 
-                        width: 30, 
-                        height: 30, 
-                        borderRadius: '50%', 
-                        bgcolor: 'rgba(255, 255, 255, 0.1)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      {social[0].toUpperCase()}
-                    </Box>
+                    {social.icon}
                   </IconButton>
                 ))}
               </Box>
@@ -1248,7 +1242,7 @@ const LandingPage = () => {
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="h6" fontWeight="bold">Sign in to continue</Typography>
+            <Typography variant="h6" fontWeight="bold">Login Required</Typography>
             <IconButton onClick={handleCloseDialog} size="small">
               <CloseIcon />
             </IconButton>
@@ -1256,7 +1250,7 @@ const LandingPage = () => {
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Please sign in to add items to your cart and place orders.
+            Please login or create an account to access this feature.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 0 }}>
@@ -1265,13 +1259,13 @@ const LandingPage = () => {
           </Button>
           <Button 
             variant="contained" 
-            onClick={handleLoginRedirect}
+            onClick={() => navigate("/login")}
             sx={{ 
               borderRadius: 2,
               background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E53 90%)',
             }}
           >
-            Sign In
+            Login
           </Button>
         </DialogActions>
       </Dialog>

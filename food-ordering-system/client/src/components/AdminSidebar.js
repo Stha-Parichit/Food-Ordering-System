@@ -33,7 +33,8 @@ import {
   FaHeadset, 
   FaTicketAlt,
   FaCog,
-  FaUtensils
+  FaUtensils,
+  FaUpload
 } from 'react-icons/fa';
 
 const AdminSidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
@@ -47,9 +48,10 @@ const AdminSidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
   const userInitial = userName.charAt(0).toUpperCase();
   
   const mainMenuItems = [
-    { text: 'Home', icon: <FaHome size={20} />, link: '/admin-home' },
-    { text: 'Users', icon: <FaUtensils size={20} />, link: '/users-list' },
     { text: 'Dashboard', icon: <FaChartBar size={20} />, link: '/admin-dashboard' },
+    { text: 'Users', icon: <FaUtensils size={20} />, link: '/users-list' },
+    { text: 'Upload Food Item', icon: <FaUpload size={20} />, link: '/upload-item' },
+
   ];
   
   const userMenuItems = [
@@ -59,16 +61,16 @@ const AdminSidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
       link: '/profile',
       submenu: [
         { text: 'Profile', icon: <FaUser size={16}/>, link: '/admin-profile' },
-        { text: 'Addresses', icon: <FaMapMarkerAlt size={16} />, link: '/admin-addresses' },
-        { text: 'Payment Methods', icon: <FaWallet size={16} />, link: '/payment-methods' },
+        // { text: 'Addresses', icon: <FaMapMarkerAlt size={16} />, link: '/admin-addresses' },
+        // { text: 'Payment Methods', icon: <FaWallet size={16} />, link: '/payment-methods' },
       ]
     },
-    { text: 'Orders List', icon: <FaHistory size={20} />, link: '/admin-orders' },
-    { text: 'Offers & Promos', icon: <FaTicketAlt size={20} />, link: '/offers' },
+    // { text: 'Orders List', icon: <FaHistory size={20} />, link: '/admin-orders' },
+    // { text: 'Offers & Promos', icon: <FaTicketAlt size={20} />, link: '/offers' },
   ];
   
   const supportMenuItems = [
-    { text: 'Help Center', icon: <FaHeadset size={20} />, link: '/help' },
+    // { text: 'Help Center', icon: <FaHeadset size={20} />, link: '/help' },
     { text: 'Settings', icon: <FaCog size={20} />, link: '/settings' },
   ];
 
@@ -106,7 +108,25 @@ const AdminSidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
       display: 'flex', 
       flexDirection: 'column', 
       height: '100%',
-      overflow: 'auto'
+      overflow: 'auto',
+      // Add custom scrollbar styles
+      '&::-webkit-scrollbar': {
+        width: '8px',
+        background: 'transparent',
+      },
+      '&::-webkit-scrollbar-thumb': {
+        background: 'rgba(255, 255, 255, 0.2)',
+        borderRadius: '4px',
+        '&:hover': {
+          background: 'rgba(255, 255, 255, 0.3)',
+        },
+      },
+      '&::-webkit-scrollbar-track': {
+        background: 'transparent',
+      },
+      // For Firefox
+      scrollbarWidth: 'thin',
+      scrollbarColor: 'rgba(255, 255, 255, 0.2) transparent',
     }}>
       {/* Logo and App Title */}
       <Box sx={{ 

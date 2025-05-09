@@ -232,7 +232,7 @@ const AllUsers = () => {
           <Typography variant="h4" fontWeight="bold" sx={{ color: "#1a1a2e" }}>
             User Management
           </Typography>
-          <Button 
+          {/* <Button 
             variant="contained" 
             color="primary" 
             startIcon={<PersonAddIcon />}
@@ -244,7 +244,7 @@ const AllUsers = () => {
             onClick={() => navigate("/add-user")}
           >
             Add New User
-          </Button>
+          </Button> */}
         </Box>
 
         {/* Stats Cards */}
@@ -393,7 +393,7 @@ const AllUsers = () => {
             >
               Inactive
             </Button>
-            <Tooltip title="Export Data">
+            {/* <Tooltip title="Export Data">
               <IconButton 
                 onClick={exportUserData}
                 sx={{ 
@@ -404,7 +404,7 @@ const AllUsers = () => {
               >
                 <FileDownloadIcon />
               </IconButton>
-            </Tooltip>
+            </Tooltip> */}
           </Box>
         </Box>
 

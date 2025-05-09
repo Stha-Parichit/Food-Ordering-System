@@ -385,7 +385,7 @@ const ChefDashboard = () => {
               
               <Box sx={{ flexGrow: 1 }} />
               
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              {/* <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Button 
                   variant="contained" 
                   color="primary"
@@ -402,7 +402,7 @@ const ChefDashboard = () => {
                 </IconButton>
                 
                 <Avatar sx={{ bgcolor: 'primary.main', width: 38, height: 38 }}>RS</Avatar>
-              </Box>
+              </Box> */}
             </Toolbar>
           </AppBar>
           
@@ -696,7 +696,7 @@ const ChefDashboard = () => {
             </Box>
 
             {/* Performance Chart */}
-            <Grid container spacing={3}>
+            {/* <Grid container spacing={3}>
               <Grid item xs={12} md={8}>
                 <Card>
                   <StyledCardContent>
@@ -760,7 +760,7 @@ const ChefDashboard = () => {
                   </StyledCardContent>
                 </Card>
               </Grid>
-            </Grid>
+            </Grid> */}
           </Box>
         </Box>
       </Box>
