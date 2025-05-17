@@ -71,7 +71,7 @@ const AdminSidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
   
   const supportMenuItems = [
     // { text: 'Help Center', icon: <FaHeadset size={20} />, link: '/help' },
-    { text: 'Settings', icon: <FaCog size={20} />, link: '/settings' },
+    { text: 'Admin Support', icon: <FaHeadset size={20} />, link: '/admin-support' },
   ];
 
   // Common styles for both sidebars
@@ -184,9 +184,9 @@ const AdminSidebar = ({ sidebarOpen, toggleSidebar, handleLogout }) => {
             color: 'rgba(255,255,255,0.7)' 
           }}
         >
-          <Badge badgeContent={3} color="error">
+          {/* <Badge badgeContent={3} color="error">
             <NotificationsIcon fontSize="small" />
-          </Badge>
+          </Badge> */}
         </IconButton>
       </Box>
       

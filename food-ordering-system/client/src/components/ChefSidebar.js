@@ -170,9 +170,9 @@ const SidebarContent = memo(({ mobile = false, handleLogout, toggleSidebar }) =>
             color: 'rgba(255,255,255,0.7)' 
           }}
         >
-          <Badge badgeContent={3} color="error">
+          {/* <Badge badgeContent={3} color="error">
             <NotificationsIcon fontSize="small" />
-          </Badge>
+          </Badge> */}
         </IconButton>
       </Box>
       

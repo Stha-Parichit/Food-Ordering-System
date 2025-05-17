@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback, memo, useMemo } from 'react';
 import { debounce } from 'lodash'; // Import lodash for debouncing
 import { 
   Button, Box, Typography, Grid, TextField, IconButton, 
-  Menu, MenuItem, Card, CardContent, Table, TableHead, TableRow, TableCell, TableBody, Paper, 
-  List, ListItem, ListItemText, Avatar, Badge, Chip, Rating, Divider
+  Menu, MenuItem, Card, CardContent, Table, TableHead, TableRow, TableCell, TableBody, TableContainer, Paper, 
+  List, ListItem, ListItemText, Avatar, Badge, Chip, Rating, Divider, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
@@ -17,6 +17,7 @@ import BookmarkIcon from "@mui/icons-material/Bookmark";
 import DeliveryDiningIcon from "@mui/icons-material/DeliveryDining";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { Pie, Line } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Filler } from "chart.js";
 import { useNavigate, Link } from "react-router-dom";
@@ -24,6 +25,7 @@ import Sidebar from './Sidebar';
 import axios from 'axios';
 import { io } from "socket.io-client"; // Import socket.io-client
 import AddressDialog from './AddressDialog';
+import StarIcon from "@mui/icons-material/Star";
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Filler);
 
@@ -57,6 +59,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const userEmail = localStorage.getItem("userEmail") || "user@example.com";
   const [recentOrders, setRecentOrders] = useState([]);
+  const [recentOrdersLoading, setRecentOrdersLoading] = useState(true);
   const [favoriteItems, setFavoriteItems] = useState([]);
   const [activeDelivery, setActiveDelivery] = useState(null);
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
@@ -65,6 +68,7 @@ const Dashboard = () => {
   const [totalSpent, setTotalSpent] = useState(0);
   const [totalOrders, setTotalOrders] = useState(0);
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
+  const [charityDonations, setCharityDonations] = useState(0);
   const [socket, setSocket] = useState(null);
   const [ordersByMonth, setOrdersByMonth] = useState([]);
   const [cuisinePreferences, setCuisinePreferences] = useState([]);
@@ -76,6 +80,10 @@ const Dashboard = () => {
   const [openAddressDialog, setOpenAddressDialog] = useState(false);
   const [deliveryAddresses, setDeliveryAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
+  const [showNotificationPermissionDialog, setShowNotificationPermissionDialog] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState('default');
+  const [markAllReadLoading, setMarkAllReadLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const toggleSidebar = () => {
     setSidebarOpen((prev) => !prev);
@@ -131,16 +139,19 @@ const Dashboard = () => {
       const [
         ordersResponse,
         loyaltyResponse,
-        cartResponse
+        cartResponse,
+        charityResponse
       ] = await Promise.all([
-        axios.get(`/api/orders/stats`, { params: { user_id: userId } }),
-        axios.get(`/loyalty-points`, { params: { user_id: userId } }),
-        axios.get(`http://localhost:5000/cart?user_id=${userId}`)
+        axios.get(`http://localhost:5000/api/orders/stats`, { params: { user_id: userId } }),
+        axios.get(`http://localhost:5000/loyalty-points`, { params: { user_id: userId } }),
+        axios.get(`http://localhost:5000/cart`, { params: { user_id: userId } }),
+        axios.get(`http://localhost:5000/api/charity/total`, { params: { user_id: userId } })
       ]);
 
       setTotalSpent(ordersResponse.data.totalSpent || 0);
       setTotalOrders(ordersResponse.data.totalOrders || 0);
       setLoyaltyPoints(loyaltyResponse.data.points || 0);
+      setCharityDonations(charityResponse.data.total || 0);
       setCartCount(
         cartResponse.data.success && cartResponse.data.items 
           ? cartResponse.data.items.reduce((sum, item) => sum + item.quantity, 0)
@@ -152,6 +163,7 @@ const Dashboard = () => {
       setTotalSpent(0);
       setTotalOrders(0);
       setLoyaltyPoints(0);
+      setCharityDonations(0);
       setCartCount(0);
     }
   }, []);
@@ -171,12 +183,14 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchRecentOrders = async () => {
       try {
-        const response = await axios.get(`/api/recent-orders`, {
-          params: { userId: localStorage.getItem("user_Id") }
-        });
+        setRecentOrdersLoading(true);
+        const userId = localStorage.getItem("user_id");
+        const response = await axios.get(`http://localhost:5000/api/user/recent-orders?userId=${userId}`);
         setRecentOrders(response.data);
       } catch (error) {
         console.error("Error fetching recent orders:", error);
+      } finally {
+        setRecentOrdersLoading(false);
       }
     };
 
@@ -485,6 +499,14 @@ const Dashboard = () => {
             });
           });
           setUnreadCount(prev => prev + 1);
+
+          // Show web push notification if permission is granted
+          if (Notification.permission === 'granted') {
+            new Notification('New Notification', {
+              body: notification.message,
+              icon: '/images/logo.png'
+            });
+          }
         }
       });
     }
@@ -724,9 +746,9 @@ const Dashboard = () => {
   const menuItems = useMemo(() => [
     { label: "My Profile", onClick: () => navigate("/profile") },
     { label: "My Orders", onClick: () => navigate("/orders") },
-    { label: "Favorites", onClick: () => navigate("/favorites") },
+    // { label: "Favorites", onClick: () => navigate("/favorites") },
     { label: "Addresses", onClick: () => navigate("/addresses") },
-    { label: "Payment Methods", onClick: () => navigate("/payment-methods") },
+    // { label: "Payment Methods", onClick: () => navigate("/payment-methods") },
   ], [navigate]);
 
   // Update the Menu items for addresses
@@ -774,6 +796,137 @@ const Dashboard = () => {
   const handleAddressSelect = (address) => {
     setSelectedAddress(address);
     handleAddressClose();
+  };
+
+  // Add notification permission check and request
+  useEffect(() => {
+    const checkNotificationPermission = async () => {
+      if (!('Notification' in window)) {
+        console.log('This browser does not support notifications');
+        return;
+      }
+
+      const permission = Notification.permission;
+      setNotificationPermission(permission);
+
+      if (permission === 'default') {
+        setShowNotificationPermissionDialog(true);
+      }
+    };
+
+    checkNotificationPermission();
+  }, []);
+
+  const handleNotificationPermission = async (granted) => {
+    if (granted) {
+      try {
+        const permission = await Notification.requestPermission();
+        setNotificationPermission(permission);
+        
+        if (permission === 'granted') {
+          // Register service worker for push notifications
+          const registration = await navigator.serviceWorker.register('/service-worker.js');
+          console.log('Service Worker registered:', registration);
+          
+          // Subscribe to push notifications
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: 'YOUR_VAPID_PUBLIC_KEY'
+          });
+          
+          // Send subscription to server
+          await axios.post('http://localhost:5000/api/push-subscription', {
+            userId: localStorage.getItem('user_id'),
+            subscription: subscription
+          });
+        }
+      } catch (error) {
+        console.error('Error setting up notifications:', error);
+      }
+    }
+    setShowNotificationPermissionDialog(false);
+  };
+
+  const markAllNotificationsAsRead = async (markAsRead = true) => {
+    try {
+      setMarkAllReadLoading(true);
+      const userId = localStorage.getItem("user_id");
+      const response = await axios.put(`http://localhost:5000/api/notifications/mark-all`, {
+        user_id: userId,
+        read: markAsRead
+      });
+      
+      if (response.data.success) {
+        setNotifications(prev => prev.map(notification => ({
+          ...notification,
+          is_read: markAsRead ? 1 : 0
+        })));
+        
+        setUnreadCount(markAsRead ? 0 : notifications.length);
+        
+        // Show success message
+        const message = markAsRead ? 'All notifications marked as read' : 'All notifications marked as unread';
+        // You can use a toast notification here if you have one
+        console.log(message);
+      } else {
+        throw new Error(response.data.message || 'Failed to update notifications');
+      }
+    } catch (error) {
+      console.error("Error marking all notifications:", error);
+      const errorMsg = error.response?.data?.message || "Could not update notifications";
+      // You can use a toast notification here if you have one
+      console.error(errorMsg);
+    } finally {
+      setMarkAllReadLoading(false);
+    }
+  };
+
+  const handleDeleteNotification = async (notificationId) => {
+    try {
+      setDeleteLoading(true);
+      const userId = localStorage.getItem("user_id");
+      const response = await axios.delete(`http://localhost:5000/api/notifications/${notificationId}`, {
+        data: { user_id: userId }
+      });
+      
+      if (response.data.success) {
+        setNotifications(prev => prev.filter(n => n.id !== notificationId));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleDeleteAllNotifications = async () => {
+    try {
+      setDeleteLoading(true);
+      const userId = localStorage.getItem("user_id");
+      if (!userId) {
+        console.error("No user ID found");
+        return;
+      }
+
+      const response = await axios.delete(`http://localhost:5000/api/notifications/clear?user_id=${userId}`);
+      
+      if (response.data.success) {
+        setNotifications([]);
+        setUnreadCount(0);
+        handleNotificationClose(); // Close the notifications panel after successful deletion
+        // You can add a success message here if you have a notification system
+        console.log(`Successfully deleted ${response.data.deletedCount} notifications`);
+      } else {
+        throw new Error(response.data.message || 'Failed to delete notifications');
+      }
+    } catch (error) {
+      console.error("Error deleting all notifications:", error);
+      // You can add an error message here if you have a notification system
+      alert(error.response?.data?.message || 'Failed to delete notifications. Please try again.');
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   return (
@@ -930,6 +1083,7 @@ const Dashboard = () => {
               borderRadius: 2,
               minWidth: 360,
               maxWidth: 400,
+              maxHeight: '80vh',
               '& .MuiList-root': {
                 paddingTop: 0,
                 paddingBottom: 0,
@@ -939,22 +1093,176 @@ const Dashboard = () => {
           transformOrigin={{ horizontal: 'center', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
         >
-          {[
-            <Box key="header" sx={{ p: 2, borderBottom: '1px solid #eee' }}>
+          <Box sx={{ 
+            p: 2, 
+            borderBottom: '1px solid #eee',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            bgcolor: 'background.paper',
+            position: 'sticky',
+            top: 0,
+            zIndex: 1
+          }}>
               <Typography variant="subtitle1" fontWeight="bold">
                 Notifications {unreadCount > 0 && `(${unreadCount} new)`}
               </Typography>
-            </Box>,
-            ...notifications.length > 0
-              ? notifications.map(notification => renderNotificationContent(notification))
-              : [
-                  <Box key="no-notifications" sx={{ p: 4, textAlign: 'center' }}>
+            {notifications.length > 0 && (
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => markAllNotificationsAsRead(true)}
+                  disabled={markAllReadLoading || unreadCount === 0}
+                  sx={{ 
+                    minWidth: 'auto', 
+                    px: 1,
+                    position: 'relative'
+                  }}
+                >
+                  {markAllReadLoading ? (
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 0.5 
+                    }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="caption">Updating...</Typography>
+                    </Box>
+                  ) : (
+                    'Mark all read'
+                  )}
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => markAllNotificationsAsRead(false)}
+                  disabled={markAllReadLoading || unreadCount === notifications.length}
+                  sx={{ 
+                    minWidth: 'auto', 
+                    px: 1,
+                    position: 'relative'
+                  }}
+                >
+                  {markAllReadLoading ? (
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 0.5 
+                    }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="caption">Updating...</Typography>
+                    </Box>
+                  ) : (
+                    'Mark all unread'
+                  )}
+                </Button>
+                {/* <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  onClick={handleDeleteAllNotifications}
+                  disabled={deleteLoading}
+                  sx={{ 
+                    minWidth: 'auto', 
+                    px: 1,
+                    position: 'relative'
+                  }}
+                >
+                  {deleteLoading ? (
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 0.5 
+                    }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="caption">Deleting...</Typography>
+                    </Box>
+                  ) : (
+                    'Delete all'
+                  )}
+                </Button> */}
+              </Box>
+            )}
+          </Box>
+          
+          <Box sx={{ 
+            maxHeight: 'calc(80vh - 60px)', 
+            overflowY: 'auto',
+            '&::-webkit-scrollbar': {
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: '#f1f1f1',
+              borderRadius: '4px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: '#888',
+              borderRadius: '4px',
+              '&:hover': {
+                background: '#555',
+              },
+            },
+          }}>
+            {notifications.length > 0 ? (
+              notifications.map(notification => (
+                <Box
+                  key={notification.id}
+                  sx={{
+                    p: 2,
+                    borderBottom: '1px solid #eee',
+                    bgcolor: notification.is_read ? 'transparent' : 'action.hover',
+                    '&:hover': {
+                      bgcolor: 'action.hover',
+                    },
+                    position: 'relative',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {notification.message}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        {new Date(notification.created_at).toLocaleString()}
+                      </Typography>
+                    </Box>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDeleteNotification(notification.id)}
+                      disabled={deleteLoading}
+                      sx={{ 
+                        ml: 1,
+                        color: 'error.main',
+                        '&:hover': {
+                          bgcolor: 'error.lighter',
+                        },
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Box>
+              ))
+            ) : (
+              <Box sx={{ 
+                p: 4, 
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 1
+              }}>
+                <NotificationsIcon sx={{ fontSize: 48, color: 'text.secondary', opacity: 0.5 }} />
                     <Typography variant="body1" color="textSecondary">
                       No notifications
                     </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  We'll notify you when something arrives
+                </Typography>
                   </Box>
-                ]
-          ]}
+            )}
+          </Box>
         </Menu>
         <Menu
           anchorEl={deliveryAddressAnchorEl}
@@ -1205,13 +1513,16 @@ const Dashboard = () => {
             <Card sx={{ borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', height: '100%' }}>
               <CardContent sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="h6" gutterBottom color="textSecondary">Current Discount</Typography>
-                  <LocalOfferIcon color="primary" />
+                  <Typography variant="h6" gutterBottom color="textSecondary">Charity Donations</Typography>
+                  <FavoriteIcon color="error" />
                 </Box>
-                <Typography variant="h4" fontWeight="bold">{nextLevel.discount}%</Typography>
+                <Typography variant="h4" fontWeight="bold">Rs. {charityDonations}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Next level: {nextLevel.points}
+                  Total donations made
                 </Typography>
+                <Box sx={{ mt: 1, width: '100%', height: 4, bgcolor: '#f0f0f0', borderRadius: 2 }}>
+                  <Box sx={{ width: '100%', height: '100%', bgcolor: '#FF6384', borderRadius: 2 }} />
+                </Box>
               </CardContent>
             </Card>
           </Grid>
@@ -1292,35 +1603,66 @@ const Dashboard = () => {
                   <Typography variant="subtitle1" fontWeight="bold">Recent Orders</Typography>
                   <Button size="small" onClick={() => navigate("/orders")}>View All</Button>
                 </Box>
+                {recentOrdersLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : recentOrders.length > 0 ? (
+                  <TableContainer component={Paper}>
                 <Table>
                   <TableHead>
                     <TableRow>
                       <TableCell>Order ID</TableCell>
                       <TableCell>Date</TableCell>
-                      {/* <TableCell>Restaurant</TableCell> */}
                       <TableCell>Amount</TableCell>
-                      <TableCell>Rating</TableCell>
+                      <TableCell>Status</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {recentOrders.map((order) => (
-                      <TableRow 
-                        key={order.order_id} 
-                        hover 
-                        sx={{ cursor: 'pointer' }} 
-                        onClick={() => navigate(`/order/${order.order_id}`)}
-                      >
-                        <TableCell>{order.order_id}</TableCell>
-                        <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
-                        {/* <TableCell>{order.restaurant_name || "N/A"}</TableCell> */}
+                      <TableRow key={order.order_id}>
+                        <TableCell>#{order.order_id}</TableCell>
+                        <TableCell>
+                          {new Date(order.created_at).toLocaleDateString()}
+                        </TableCell>
                         <TableCell>Rs. {order.total_amount}</TableCell>
                         <TableCell>
-                          <Rating value={order.rating || 0} size="small" readOnly />
+                          <Chip
+                            label={order.status}
+                            color={
+                              order.status === "Delivered"
+                                ? "success"
+                                : order.status === "Cancelled"
+                                ? "error"
+                                : "warning"
+                            }
+                            size="small"
+                          />
                         </TableCell>
+                        {/* <TableCell>
+                          {order.rating ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <StarIcon sx={{ color: 'warning.main', fontSize: 20 }} />
+                              <Typography variant="body2" sx={{ ml: 0.5 }}>
+                                {order.rating}
+                              </Typography>
+                            </Box>
+                          ) : (
+                            "Not rated"
+                          )}
+                        </TableCell> */}
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
+                  </TableContainer>
+                ) : (
+                  <Paper sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="body1" color="text.secondary">
+                      No recent orders found
+                    </Typography>
+                  </Paper>
+                )}
               </CardContent>
             </Card>
           </Grid>
@@ -1443,6 +1785,86 @@ const Dashboard = () => {
           }}
           userId={localStorage.getItem('user_id')}
         />
+
+        {/* Notification Permission Dialog */}
+        <Dialog
+          open={showNotificationPermissionDialog}
+          onClose={() => setShowNotificationPermissionDialog(false)}
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              maxWidth: 400,
+              width: '100%',
+              p: 1
+            }
+          }}
+        >
+          <DialogTitle sx={{ 
+            textAlign: 'center',
+            pb: 1,
+            '& .MuiTypography-root': {
+              fontWeight: 'bold'
+            }
+          }}>
+            Enable Notifications
+          </DialogTitle>
+          <DialogContent sx={{ textAlign: 'center', px: 3 }}>
+            <NotificationsIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
+            <Typography variant="h6" gutterBottom>
+              Stay Updated!
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              Get instant notifications for:
+            </Typography>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: 1,
+              mb: 2,
+              textAlign: 'left'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <DeliveryDiningIcon color="primary" />
+                <Typography>Order status updates</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <LocalOfferIcon color="primary" />
+                <Typography>Special offers and discounts</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FavoriteIcon color="primary" />
+                <Typography>Favorite items on sale</Typography>
+              </Box>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ 
+            px: 3, 
+            pb: 3,
+            justifyContent: 'center',
+            gap: 2
+          }}>
+            <Button 
+              onClick={() => handleNotificationPermission(false)} 
+              variant="outlined"
+              sx={{ 
+                minWidth: 120,
+                borderRadius: 2
+              }}
+            >
+              Not Now
+            </Button>
+            <Button 
+              onClick={() => handleNotificationPermission(true)} 
+              variant="contained"
+              sx={{ 
+                minWidth: 120,
+                borderRadius: 2
+              }}
+            >
+              Enable
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Box>
   );

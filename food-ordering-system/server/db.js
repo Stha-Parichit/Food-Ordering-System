@@ -543,6 +543,26 @@ initializeDatabase().catch(console.error);
     await pool.execute(createAddressesTableQuery);
     console.log("Addresses table ensured");
 
+    const createRestaurantsTableQuery = `
+      CREATE TABLE IF NOT EXISTS restaurants (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        address VARCHAR(255),
+        phone VARCHAR(20),
+        email VARCHAR(255),
+        cuisine_type VARCHAR(100),
+        opening_hours VARCHAR(255),
+        rating DECIMAL(3,2) DEFAULT 0,
+        image_url VARCHAR(255),
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `;
+    await pool.execute(createRestaurantsTableQuery);
+    console.log("Restaurants table ensured");
+
     const createSidesTableQuery = `
       CREATE TABLE IF NOT EXISTS sides (
         id INT AUTO_INCREMENT PRIMARY KEY,

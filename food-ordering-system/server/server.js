@@ -19,6 +19,19 @@ const http = require('http');
 const { Server } = require('socket.io');
 const axios = require("axios"); // Add axios for HTTP requests
 const PDFDocument = require("pdfkit"); // Add this at the top
+const webpush = require('web-push');
+
+// Configure VAPID keys for web push notifications
+const vapidKeys = {
+  publicKey: 'BNWOj0Bw9jVp45KjsTwJe_d5Yc7_XB77OdvDMEKQda2x1seIuSwaaOSRJuGmm5Txqblyn85IyxAmjJ3Lv-lvEEM',
+  privateKey: 'qw2KiJoS3NTd0fOvwQTYtCRpAu_pYDOF25BA8EmnUbU'
+};
+
+webpush.setVapidDetails(
+  'mailto:your-email@example.com', // Replace with your email
+  vapidKeys.publicKey,
+  vapidKeys.privateKey
+);
 
 const app = express();
 const server = http.createServer(app);
@@ -918,25 +931,40 @@ app.get("/api/recent-users", async (req, res) => {
   }
 });
 
-// Fetch recent orders
-app.get("/api/recent-orders", async (req, res) => {
-  const query = `
-    SELECT 
-      o.id AS order_id, 
-      u.fullName AS customer_name, 
-      o.created_at, 
-      o.total_amount 
-    FROM orders o
-    JOIN users u ON o.user_id = u.id
-    ORDER BY o.created_at DESC
-    LIMIT 5
-  `;
+// New endpoint for user-specific recent orders
+app.get("/api/user/recent-orders", async (req, res) => {
   try {
-    const [results] = await db.pool.execute(query);
-    res.status(200).json(results);
-  } catch (err) {
-    console.error("Error fetching recent orders:", err);
-    res.status(500).json({ message: "Failed to fetch recent orders", error: err });
+    const userId = req.query.userId;
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    const query = `
+      SELECT 
+        o.id as order_id,
+        o.created_at,
+        o.total_amount,
+        o.status
+      FROM orders o
+      WHERE o.user_id = ?
+      ORDER BY o.created_at DESC
+      LIMIT 5
+    `;
+
+    const [orders] = await db.pool.execute(query, [userId]);
+    
+    // Format the response to match the table structure
+    const formattedOrders = orders.map(order => ({
+      order_id: order.order_id,
+      created_at: order.created_at,
+      total_amount: parseFloat(order.total_amount).toFixed(2),
+      status: order.status
+    }));
+
+    res.json(formattedOrders);
+  } catch (error) {
+    console.error("Error fetching user's recent orders:", error);
+    res.status(500).json({ error: "Error fetching recent orders" });
   }
 });
 
@@ -2176,6 +2204,38 @@ app.get("/api/notifications", async (req, res) => {
   }
 });
 
+// Mark all notifications as read/unread
+app.put("/api/notifications/mark-all", async (req, res) => {
+  const { user_id, read } = req.body;
+
+  if (!user_id || read === undefined) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "User ID and read status are required." 
+    });
+  }
+
+  try {
+    // Update all notifications for the user
+    await db.pool.execute(
+      "UPDATE notifications SET is_read = ? WHERE user_id = ?",
+      [read ? 1 : 0, user_id]
+    );
+
+    res.status(200).json({ 
+      success: true, 
+      message: `All notifications marked as ${read ? 'read' : 'unread'}` 
+    });
+  } catch (error) {
+    console.error("Error marking all notifications:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to update notifications",
+      error: error.message 
+    });
+  }
+});
+
 // Get user addresses - support both query and URL parameter
 app.get("/api/addresses/:userId?", async (req, res) => {
   const userId = req.params.userId || req.query.user_id;
@@ -2695,3 +2755,328 @@ app.use((err, req, res, next) => {
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+// Admin Dashboard Statistics Endpoints
+app.get("/api/admin/dashboard-stats", async (req, res) => {
+  try {
+    // Get total orders count
+    const [ordersResult] = await db.pool.execute(
+      "SELECT COUNT(*) as total_orders FROM orders"
+    );
+
+    // Get total charity donations
+    const [charityResult] = await db.pool.execute(
+      "SELECT COALESCE(SUM(amount), 0) as total_charity FROM charity"
+    );
+
+    // Get total users count
+    const [usersResult] = await db.pool.execute(
+      "SELECT COUNT(*) as total_users FROM users"
+    );
+
+    // Get total revenue
+    const [revenueResult] = await db.pool.execute(
+      "SELECT COALESCE(SUM(total_amount), 0) as total_revenue FROM orders WHERE status != 'Cancelled'"
+    );
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalOrders: ordersResult[0].total_orders,
+        totalCharity: charityResult[0].total_charity,
+        totalUsers: usersResult[0].total_users,
+        totalRevenue: revenueResult[0].total_revenue
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching admin dashboard stats:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to fetch admin dashboard statistics",
+      error: error.message 
+    });
+  }
+});
+
+// Admin Dashboard Chart Data Endpoints
+app.get("/api/admin/chart-data", async (req, res) => {
+  try {
+    // Get order distribution data based on status
+    const [orderDistribution] = await db.pool.execute(`
+      SELECT 
+        COUNT(CASE WHEN status = 'Order Placed' THEN 1 END) as pending_orders,
+        COUNT(CASE WHEN status = 'Cooking' THEN 1 END) as cooking_orders,
+        COUNT(CASE WHEN status = 'Prepared for Delivery' THEN 1 END) as prepared_orders,
+        COUNT(CASE WHEN status = 'Off for Delivery' THEN 1 END) as delivery_orders,
+        COUNT(CASE WHEN status = 'Delivered' THEN 1 END) as completed_orders,
+        COUNT(CASE WHEN status = 'Cancelled' THEN 1 END) as cancelled_orders
+      FROM orders
+    `);
+
+    // Get daily orders for the last 7 days
+    const [dailyOrders] = await db.pool.execute(`
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as count
+      FROM orders
+      WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+      GROUP BY DATE(created_at)
+      ORDER BY date
+    `);
+
+    // Get revenue and orders for the last 4 weeks
+    const [weeklyStats] = await db.pool.execute(`
+      SELECT 
+        DATE_FORMAT(created_at, '%Y-%u') as week,
+        COUNT(*) as order_count,
+        SUM(total_amount) as revenue
+      FROM orders
+      WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 4 WEEK)
+      GROUP BY DATE_FORMAT(created_at, '%Y-%u')
+      ORDER BY week
+    `);
+
+    // Get popular items
+    const [popularItems] = await db.pool.execute(`
+      SELECT 
+        f.name,
+        COUNT(oi.id) as order_count,
+        f.price
+      FROM order_items oi
+      JOIN food_items f ON oi.food_id = f.id
+      GROUP BY f.id
+      ORDER BY order_count DESC
+      LIMIT 4
+    `);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        orderDistribution: orderDistribution[0],
+        dailyOrders,
+        weeklyStats,
+        popularItems
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching chart data:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to fetch chart data",
+      error: error.message 
+    });
+  }
+});
+
+// Delete a notification
+app.delete("/api/notifications/:id", async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ success: false, message: "User ID is required" });
+  }
+
+  try {
+    const [result] = await db.pool.execute(
+      "DELETE FROM notifications WHERE id = ? AND user_id = ?",
+      [id, user_id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Notification not found" });
+    }
+
+    res.json({ success: true, message: "Notification deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting notification:", error);
+    res.status(500).json({ success: false, message: "Error deleting notification" });
+  }
+});
+
+// Delete all notifications for a user
+app.delete("/api/notifications/delete-all", async (req, res) => {
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ success: false, message: "User ID is required" });
+  }
+
+  try {
+    const [result] = await db.pool.execute(
+      "DELETE FROM notifications WHERE user_id = ?",
+      [user_id]
+    );
+
+    res.json({ success: true, message: "All notifications deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting all notifications:", error);
+    res.status(500).json({ success: false, message: "Error deleting notifications" });
+  }
+});
+
+// Get user's recent orders
+app.get("/api/user/recent-orders", async (req, res) => {
+  try {
+    const userId = req.query.userId;
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    const query = `
+      SELECT 
+        o.id as order_id,
+        o.created_at,
+        o.total_amount,
+        o.status
+      FROM orders o
+      WHERE o.user_id = ?
+      ORDER BY o.created_at DESC
+      LIMIT 5
+    `;
+
+    const [orders] = await db.pool.execute(query, [userId]);
+    
+    // Format the response to match the table structure
+    const formattedOrders = orders.map(order => ({
+      order_id: order.order_id,
+      created_at: order.created_at,
+      total_amount: parseFloat(order.total_amount).toFixed(2),
+      status: order.status
+    }));
+
+    res.json(formattedOrders);
+  } catch (error) {
+    console.error("Error fetching user's recent orders:", error);
+    res.status(500).json({ error: "Error fetching recent orders" });
+  }
+});
+
+// Add endpoint to get total charity donations for a user
+app.get("/api/charity/total", async (req, res) => {
+  const userId = req.query.user_id;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required." });
+  }
+
+  try {
+    const query = `
+      SELECT COALESCE(SUM(amount), 0) as total
+      FROM charity
+      WHERE user_id = ?
+    `;
+    const [result] = await db.pool.execute(query, [userId]);
+    res.status(200).json({ total: result[0].total });
+  } catch (error) {
+    console.error("Error fetching charity total:", error);
+    res.status(500).json({ message: "Failed to fetch charity total", error: error.message });
+  }
+});
+
+// Delete all notifications for a user
+app.delete("/api/notifications/clear", async (req, res) => {
+  const userId = req.query.user_id;
+
+  if (!userId) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "User ID is required" 
+    });
+  }
+
+  try {
+    // First check if user exists
+    const [userCheck] = await db.pool.execute(
+      "SELECT id FROM users WHERE id = ?",
+      [userId]
+    );
+
+    if (userCheck.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "User not found" 
+      });
+    }
+
+    // Delete notifications
+    const [result] = await db.pool.execute(
+      "DELETE FROM notifications WHERE user_id = ?",
+      [userId]
+    );
+
+    // Return success response
+    return res.status(200).json({ 
+      success: true, 
+      message: "All notifications deleted successfully",
+      deletedCount: result.affectedRows
+    });
+  } catch (error) {
+    console.error("Error deleting all notifications:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Error deleting notifications",
+      error: error.message 
+    });
+  }
+});
+
+// Store push subscriptions
+const pushSubscriptions = new Map();
+
+// Subscribe to push notifications
+app.post('/api/notifications/subscribe', async (req, res) => {
+  try {
+    const { subscription, userId } = req.body;
+    
+    if (!subscription || !userId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Store the subscription
+    pushSubscriptions.set(userId, subscription);
+    
+    res.status(201).json({ message: 'Subscription successful' });
+  } catch (error) {
+    console.error('Error subscribing to push notifications:', error);
+    res.status(500).json({ error: 'Failed to subscribe to push notifications' });
+  }
+});
+
+// Unsubscribe from push notifications
+app.post('/api/notifications/unsubscribe', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing user ID' });
+    }
+
+    // Remove the subscription
+    pushSubscriptions.delete(userId);
+    
+    res.json({ message: 'Unsubscription successful' });
+  } catch (error) {
+    console.error('Error unsubscribing from push notifications:', error);
+    res.status(500).json({ error: 'Failed to unsubscribe from push notifications' });
+  }
+});
+
+// Send push notification
+const sendPushNotification = async (userId, notification) => {
+  try {
+    const subscription = pushSubscriptions.get(userId);
+    
+    if (!subscription) {
+      console.log(`No push subscription found for user ${userId}`);
+      return;
+    }
+
+    await webpush.sendNotification(
+      subscription,
+      JSON.stringify(notification)
+    );
+  } catch (error) {
+    console.error('Error sending push notification:', error);
+  }
+};

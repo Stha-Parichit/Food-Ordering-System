@@ -33,12 +33,26 @@ const AdminDashboard = () => {
   ]);
   const [recentCustomers, setRecentCustomers] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState({
+    totalOrders: 0,
+    totalCharity: 0,
+    totalUsers: 0,
+    totalRevenue: 0
+  });
+  const [chartData, setChartData] = useState({
+    orderDistribution: { delivery_orders: 0, pickup_orders: 0, dine_in_orders: 0 },
+    dailyOrders: [],
+    weeklyStats: [],
+    popularItems: []
+  });
 
   useEffect(() => {
     document.title = "Food Admin Dashboard";
     fetchRecentUsers();
     fetchRecentCustomers();
-    fetchRecentOrders(); // Fetch recent orders
+    fetchRecentOrders();
+    fetchDashboardStats();
+    fetchChartData();
   }, []);
 
   const fetchRecentUsers = async () => {
@@ -75,6 +89,30 @@ const AdminDashboard = () => {
     }
   };
 
+  // Add new function to fetch dashboard stats
+  const fetchDashboardStats = async () => {
+    try {
+      const response = await axios.get("/api/admin/dashboard-stats");
+      if (response.data.success) {
+        setDashboardStats(response.data.stats);
+      }
+    } catch (error) {
+      console.error("Failed to fetch dashboard stats:", error);
+    }
+  };
+
+  // Add new function to fetch chart data
+  const fetchChartData = async () => {
+    try {
+      const response = await axios.get("/api/admin/chart-data");
+      if (response.data.success) {
+        setChartData(response.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch chart data:", error);
+    }
+  };
+
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
@@ -102,32 +140,46 @@ const AdminDashboard = () => {
   };
 
   // Chart Data
-  const pieData = {
-    labels: ["Delivery Orders", "Pickup Orders", "Dine-in"],
-    datasets: [{ 
-      data: [65, 25, 10], 
-      backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56"],
-      borderColor: ["#fff", "#fff", "#fff"],
-      borderWidth: 2
-    }]
+  const pieChartData = {
+    labels: ['Pending', 'Cooking', 'Prepared', 'Delivery', 'Completed', 'Cancelled'],
+    datasets: [
+      {
+        data: [
+          chartData.orderDistribution?.pending_orders || 0,
+          chartData.orderDistribution?.cooking_orders || 0,
+          chartData.orderDistribution?.prepared_orders || 0,
+          chartData.orderDistribution?.delivery_orders || 0,
+          chartData.orderDistribution?.completed_orders || 0,
+          chartData.orderDistribution?.cancelled_orders || 0
+        ],
+        backgroundColor: [
+          '#FFA726', // Pending - Orange
+          '#42A5F5', // Cooking - Blue
+          '#66BB6A', // Prepared - Green
+          '#EC407A', // Delivery - Pink
+          '#26A69A', // Completed - Teal
+          '#EF5350'  // Cancelled - Red
+        ],
+      },
+    ],
   };
 
   const barData = {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    labels: chartData.dailyOrders.map(order => new Date(order.date).toLocaleDateString('en-US', { weekday: 'short' })),
     datasets: [{ 
       label: "Daily Orders", 
-      data: [65, 59, 80, 81, 90, 110, 120], 
+      data: chartData.dailyOrders.map(order => order.count), 
       backgroundColor: "#FF6384",
       borderRadius: 6
     }]
   };
 
   const lineData = {
-    labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+    labels: chartData.weeklyStats.map(stat => `Week ${stat.week.split('-')[1]}`),
     datasets: [
       { 
         label: "Revenue", 
-        data: [10000, 15000, 13000, 17000], 
+        data: chartData.weeklyStats.map(stat => stat.revenue), 
         borderColor: "#36A2EB",
         backgroundColor: "rgba(54, 162, 235, 0.1)",
         fill: true,
@@ -135,7 +187,7 @@ const AdminDashboard = () => {
       },
       { 
         label: "Orders", 
-        data: [500, 600, 550, 700], 
+        data: chartData.weeklyStats.map(stat => stat.order_count), 
         borderColor: "#FF6384",
         backgroundColor: "rgba(255, 99, 132, 0.1)",
         fill: true,
@@ -199,55 +251,53 @@ const AdminDashboard = () => {
             <Typography variant="h5" fontWeight="bold" color="#1a1a2e">Food Admin Dashboard</Typography>
           </Box>
           
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {/* <Box 
-              sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                backgroundColor: '#f5f5f5', 
-                borderRadius: 20, 
-                px: 2, 
-                py: 1,
-                mr: 1,
-                display: { xs: 'none', sm: 'flex' }
-              }}
-            >
-              <SearchIcon color="action" />
-              <TextField 
-                variant="standard" 
-                placeholder="Search..." 
-                InputProps={{ disableUnderline: true }} 
-                sx={{ ml: 1, minWidth: 120 }}
-              />
-            </Box> */}
-            
-            {/* <IconButton onClick={handleNotificationClick} sx={{ position: 'relative' }}>
-              <Badge badgeContent={notifications.length} color="error">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton> */}
-            
-            <Box 
-              sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                backgroundColor: '#f5f5f5', 
-                borderRadius: 20, 
-                p: 0.5,
-                cursor: 'pointer'
-              }}
-              onClick={handleProfileClick}
-            >
-              <Avatar sx={{ backgroundColor: '#FF6384', width: 32, height: 32 }}>
-                {userEmail?.charAt(0).toUpperCase() || 'A'}
-              </Avatar>
-              <Typography variant="body2" sx={{ ml: 1, mr: 1, display: { xs: 'none', sm: 'block' } }}>
-                {userEmail || 'Admin'}
-              </Typography>
-              <IconButton size="small" sx={{ display: { xs: 'none', sm: 'flex' } }}>
-                <MenuIcon fontSize="small" />
-              </IconButton>
-            </Box>
+          {/* <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              backgroundColor: '#f5f5f5', 
+              borderRadius: 20, 
+              px: 2, 
+              py: 1,
+              mr: 1,
+              display: { xs: 'none', sm: 'flex' }
+            }}
+          >
+            <SearchIcon color="action" />
+            <TextField 
+              variant="standard" 
+              placeholder="Search..." 
+              InputProps={{ disableUnderline: true }} 
+              sx={{ ml: 1, minWidth: 120 }}
+            />
+          </Box> */}
+          
+          {/* <IconButton onClick={handleNotificationClick} sx={{ position: 'relative' }}>
+            <Badge badgeContent={notifications.length} color="error">
+              <NotificationsIcon />
+            </Badge>
+          </IconButton> */}
+          
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              backgroundColor: '#f5f5f5', 
+              borderRadius: 20, 
+              p: 0.5,
+              cursor: 'pointer'
+            }}
+            onClick={handleProfileClick}
+          >
+            <Avatar sx={{ backgroundColor: '#FF6384', width: 32, height: 32 }}>
+              {userEmail?.charAt(0).toUpperCase() || 'A'}
+            </Avatar>
+            <Typography variant="body2" sx={{ ml: 1, mr: 1, display: { xs: 'none', sm: 'block' } }}>
+              {userEmail || 'Admin'}
+            </Typography>
+            <IconButton size="small" sx={{ display: { xs: 'none', sm: 'flex' } }}>
+              <MenuIcon fontSize="small" />
+            </IconButton>
           </Box>
         </Box>
 
@@ -315,7 +365,7 @@ const AdminDashboard = () => {
               <Box sx={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, borderRadius: '0 0 0 100%', backgroundColor: 'rgba(255, 99, 132, 0.1)' }} />
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>Total Orders</Typography>
-                <Typography variant="h4" fontWeight="bold">1,243</Typography>
+                <Typography variant="h4" fontWeight="bold">{dashboardStats.totalOrders}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                   <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
                     +12%
@@ -330,7 +380,7 @@ const AdminDashboard = () => {
               <Box sx={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, borderRadius: '0 0 0 100%', backgroundColor: 'rgba(54, 162, 235, 0.1)' }} />
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>Revenue</Typography>
-                <Typography variant="h4" fontWeight="bold">Rs.24,500</Typography>
+                <Typography variant="h4" fontWeight="bold">Rs.{dashboardStats.totalRevenue}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                   <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
                     +8%
@@ -344,8 +394,8 @@ const AdminDashboard = () => {
             <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%', position: 'relative', overflow: 'hidden' }}>
               <Box sx={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, borderRadius: '0 0 0 100%', backgroundColor: 'rgba(255, 206, 86, 0.1)' }} />
               <CardContent sx={{ p: 3 }}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>Customers</Typography>
-                <Typography variant="h4" fontWeight="bold">5,847</Typography>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>Total Users</Typography>
+                <Typography variant="h4" fontWeight="bold">{dashboardStats.totalUsers}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                   <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
                     +18%
@@ -359,8 +409,8 @@ const AdminDashboard = () => {
             <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%', position: 'relative', overflow: 'hidden' }}>
               <Box sx={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, borderRadius: '0 0 0 100%', backgroundColor: 'rgba(75, 192, 192, 0.1)' }} />
               <CardContent sx={{ p: 3 }}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>Avg. Order Value</Typography>
-                <Typography variant="h4" fontWeight="bold">Rs.230</Typography>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>Charity Donations</Typography>
+                <Typography variant="h4" fontWeight="bold">Rs.{dashboardStats.totalCharity}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                   <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
                     +5%
@@ -381,7 +431,7 @@ const AdminDashboard = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6" fontWeight="bold">Revenue & Orders</Typography>
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button size="small" variant="outlined" sx={{ borderRadius: 20, textTransform: 'none' }}>Weekly</Button>
+                    {/* <Button size="small" variant="outlined" sx={{ borderRadius: 20, textTransform: 'none' }}>Weekly</Button> */}
                     <Button size="small" variant="contained" sx={{ borderRadius: 20, bgcolor: '#FF6384', textTransform: 'none' }}>Monthly</Button>
                   </Box>
                 </Box>
@@ -396,7 +446,7 @@ const AdminDashboard = () => {
               <CardContent>
                 <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>Order Distribution</Typography>
                 <Box sx={{ height: 300, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  <Pie data={pieData} options={chartOptions} />
+                  <Pie data={pieChartData} options={chartOptions} />
                 </Box>
               </CardContent>
             </Card>
@@ -422,12 +472,7 @@ const AdminDashboard = () => {
                   <Button size="small" sx={{ textTransform: 'none', color: '#FF6384' }}>View All</Button>
                 </Box>
                 <List disablePadding>
-                  {[
-                    { name: "Butter Chicken", orders: 125, price: "Rs.320" },
-                    { name: "Veg Biryani", orders: 98, price: "Rs.280" },
-                    { name: "Masala Dosa", orders: 87, price: "Rs.150" },
-                    { name: "Paneer Tikka", orders: 76, price: "Rs.220" },
-                  ].map((item, index) => (
+                  {chartData.popularItems.map((item, index) => (
                     <ListItem 
                       key={index} 
                       sx={{ 
@@ -452,10 +497,10 @@ const AdminDashboard = () => {
                       </Box>
                       <ListItemText 
                         primary={item.name}
-                        secondary={`${item.orders} orders`}
+                        secondary={`${item.order_count} orders`}
                         primaryTypographyProps={{ fontWeight: 'medium' }}
                       />
-                      <Typography variant="body2" fontWeight="bold">{item.price}</Typography>
+                      <Typography variant="body2" fontWeight="bold">Rs.{item.price}</Typography>
                     </ListItem>
                   ))}
                 </List>

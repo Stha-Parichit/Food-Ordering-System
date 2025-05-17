@@ -347,6 +347,10 @@ const handleSaveCustomization = async (item, customization) => {
 
       localStorage.setItem("cart", JSON.stringify(cart));
 
+      // Instantly update cart count after adding to cart
+      const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+      setCartCount(totalItems);
+
       // Show success message
       let customizationDetails = [];
 if (customization.extraCheese) customizationDetails.push("Extra Cheese");

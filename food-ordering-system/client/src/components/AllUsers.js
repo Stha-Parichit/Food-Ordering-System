@@ -22,7 +22,14 @@ import {
   MenuItem,
   TablePagination,
   CircularProgress,
-  TableContainer
+  TableContainer,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar";
@@ -47,6 +54,21 @@ const AllUsers = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [userStats, setUserStats] = useState({
+    total: 0,
+    active: 0,
+    inactive: 0,
+    new: 0
+  });
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    address: '',
+    status: 'active'
+  });
   const navigate = useNavigate();
 
   // Mock user status for demonstration
@@ -54,14 +76,6 @@ const AllUsers = () => {
     active: ["john.doe@example.com", "lisa.smith@example.com", "mike.johnson@example.com"],
     inactive: ["anna.wilson@example.com"],
     new: ["james.brown@example.com", "sarah.williams@example.com"]
-  };
-
-  // Mock user statistics
-  const userStats = {
-    total: 0,
-    active: 0,
-    inactive: 0,
-    new: 0
   };
 
   useEffect(() => {
@@ -72,38 +86,44 @@ const AllUsers = () => {
   useEffect(() => {
     if (users.length > 0) {
       filterUsers();
+      updateStats();
     }
   }, [users, searchQuery, activeFilter]);
+
+  const updateStats = () => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+
+    const stats = {
+      total: users.length,
+      active: users.filter(u => u.status === "active").length,
+      inactive: users.filter(u => u.status === "inactive").length,
+      new: users.filter(u => {
+        const createdDate = new Date(u.created_at);
+        return createdDate >= thirtyDaysAgo;
+      }).length
+    };
+
+    setUserStats(stats);
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
       const response = await axios.get("/api/users");
       
-      // Ensure `created_at` is parsed as a valid date
-      const usersWithStatus = response.data.map(user => ({
-        ...user,
-        status: userStatus.active.includes(user.email) 
-          ? "active" 
-          : userStatus.inactive.includes(user.email) 
-            ? "inactive" 
-            : userStatus.new.includes(user.email) 
-              ? "new" 
-              : "active",
-        lastLogin: generateRandomDate(),
-        registeredDate: user.created_at 
-          ? new Date(user.created_at).toLocaleDateString()
-          : "N/A" // Handle missing dates
-      }));
+      // Keep original status from API response
+      const usersWithFormattedDates = response.data.map(user => {
+        return {
+          ...user,
+          lastLogin: user.last_login ? new Date(user.last_login).toLocaleDateString() : "Never",
+          registeredDate: user.created_at ? new Date(user.created_at).toLocaleDateString() : "N/A"
+        };
+      });
       
-      setUsers(usersWithStatus);
-      setFilteredUsers(usersWithStatus);
-      
-      // Update user statistics
-      userStats.total = usersWithStatus.length;
-      userStats.active = usersWithStatus.filter(u => u.status === "active").length;
-      userStats.inactive = usersWithStatus.filter(u => u.status === "inactive").length;
-      userStats.new = usersWithStatus.filter(u => u.status === "new").length;
+      setUsers(usersWithFormattedDates);
+      setFilteredUsers(usersWithFormattedDates);
+      updateStats();
       
     } catch (error) {
       console.error("Failed to fetch users:", error);
@@ -120,13 +140,24 @@ const AllUsers = () => {
       filtered = filtered.filter(user => 
         user.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (user.phone && String(user.phone).includes(searchQuery)) // Ensure phone is a string
+        (user.phone && String(user.phone).includes(searchQuery))
       );
     }
     
     // Apply status filter
     if (activeFilter !== "all") {
-      filtered = filtered.filter(user => user.status === activeFilter);
+      if (activeFilter === "new") {
+        // Filter for users registered in last 30 days
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+        filtered = filtered.filter(user => {
+          const createdDate = new Date(user.created_at);
+          return createdDate >= thirtyDaysAgo;
+        });
+      } else {
+        // Filter by active/inactive status
+        filtered = filtered.filter(user => user.status === activeFilter);
+      }
     }
     
     setFilteredUsers(filtered);
@@ -142,9 +173,60 @@ const AllUsers = () => {
     }
   };
 
-  const handleEditUser = (userId) => {
-    navigate(`/edit-user/${userId}`);
+  const handleEditUser = (user) => {
+    setEditingUser(user);
+    setEditFormData({
+      fullName: user.fullName || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      address: user.address || '',
+      status: user.status || 'active'
+    });
+    setEditDialogOpen(true);
     handleCloseMenu();
+  };
+
+  const handleEditFormChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleEditSubmit = async () => {
+    try {
+      const response = await axios.put(`/api/users/${editingUser.id}`, editFormData);
+      
+      // Update the users list with the edited user data
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === editingUser.id 
+            ? { ...user, ...editFormData }
+            : user
+        )
+      );
+      
+      // Update filtered users as well
+      setFilteredUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === editingUser.id 
+            ? { ...user, ...editFormData }
+            : user
+        )
+      );
+
+      setEditDialogOpen(false);
+      setEditingUser(null);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      // You might want to show an error message to the user here
+    }
+  };
+
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+    setEditingUser(null);
   };
 
   const toggleSidebar = () => {
@@ -256,7 +338,7 @@ const AllUsers = () => {
                   Total Users
                 </Typography>
                 <Typography variant="h4" component="div" fontWeight="bold">
-                  {users.length}
+                  {userStats.total}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
                   Last updated today
@@ -271,10 +353,10 @@ const AllUsers = () => {
                   Active Users
                 </Typography>
                 <Typography variant="h4" component="div" fontWeight="bold" color="#27AE60">
-                  {users.filter(u => u.status === "active").length}
+                  {userStats.active}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
-                  {Math.round((users.filter(u => u.status === "active").length / users.length) * 100)}% of total
+                  {Math.round((userStats.active / userStats.total) * 100)}% of total
                 </Typography>
               </CardContent>
             </Card>
@@ -286,7 +368,7 @@ const AllUsers = () => {
                   New Users
                 </Typography>
                 <Typography variant="h4" component="div" fontWeight="bold" color="#3498DB">
-                  {users.filter(u => u.status === "new").length}
+                  {userStats.new}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
                   Last 30 days
@@ -301,7 +383,7 @@ const AllUsers = () => {
                   Inactive Users
                 </Typography>
                 <Typography variant="h4" component="div" fontWeight="bold" color="#F39C12">
-                  {users.filter(u => u.status === "inactive").length}
+                  {userStats.inactive}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
                   Require attention
@@ -377,7 +459,7 @@ const AllUsers = () => {
                 borderColor: activeFilter === "new" ? "#3498DB" : "rgba(52,152,219,0.5)"
               }}
             >
-              New
+              New (30 days)
             </Button>
             <Button 
               variant={activeFilter === "inactive" ? "contained" : "outlined"}
@@ -562,7 +644,7 @@ const AllUsers = () => {
           }
         }}
       >
-        <MenuItem onClick={() => selectedUser && handleEditUser(selectedUser.id)}>
+        <MenuItem onClick={() => selectedUser && handleEditUser(selectedUser)}>
           <EditIcon fontSize="small" sx={{ mr: 1, color: "#3498DB" }} />
           Edit User
         </MenuItem>
@@ -574,6 +656,117 @@ const AllUsers = () => {
           Delete User
         </MenuItem>
       </Menu>
+
+      {/* Edit User Dialog */}
+      <Dialog 
+        open={editDialogOpen} 
+        onClose={handleCloseEditDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "12px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: "#f8f9fa", 
+          borderBottom: "1px solid #e9ecef",
+          py: 2
+        }}>
+          Edit User
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Full Name"
+                name="fullName"
+                value={editFormData.fullName}
+                onChange={handleEditFormChange}
+                sx={{ mb: 2 }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Email"
+                name="email"
+                value={editFormData.email}
+                onChange={handleEditFormChange}
+                disabled
+                sx={{ mb: 2 }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Phone"
+                name="phone"
+                value={editFormData.phone}
+                onChange={handleEditFormChange}
+                sx={{ mb: 2 }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Address"
+                name="address"
+                value={editFormData.address}
+                onChange={handleEditFormChange}
+                multiline
+                rows={2}
+                sx={{ mb: 2 }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  name="status"
+                  value={editFormData.status}
+                  onChange={handleEditFormChange}
+                  label="Status"
+                >
+                  <MenuItem value="active">Active</MenuItem>
+                  <MenuItem value="inactive">Inactive</MenuItem>
+                </Select>
+              </FormControl>
+              <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                Note: Users registered within the last 30 days are counted as new users
+              </Typography>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ 
+          px: 3, 
+          py: 2, 
+          borderTop: "1px solid #e9ecef" 
+        }}>
+          <Button 
+            onClick={handleCloseEditDialog}
+            sx={{ 
+              color: "#6c757d",
+              '&:hover': { bgcolor: "#f8f9fa" }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleEditSubmit}
+            variant="contained"
+            sx={{ 
+              bgcolor: "#FF6384",
+              '&:hover': { bgcolor: "#FF4D6D" }
+            }}
+          >
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

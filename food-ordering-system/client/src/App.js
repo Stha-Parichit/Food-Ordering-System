@@ -45,6 +45,7 @@ import ContactUs from './components/ContactUs';
 import ChefContactUs from './components/ChefContactUs';
 import AboutUs from './components/AboutUs';
 import ChefProfile from './components/ChefProfile';
+import AdminSupport from './components/AdminSupport';
 const theme = createTheme(); // Ensure a theme is provided
 
 const PageTitleUpdater = () => {
@@ -90,6 +91,7 @@ const PageTitleUpdater = () => {
       '/chef-contact': 'Chef Contact Us',
       '/about': 'About Us',
       '/chef-profile': 'Chef Profile',
+      '/admin-support': 'Admin Support',
     };
     const pageTitle = pageTitles[location.pathname] || 'Page';
     document.title = `${pageTitle} - YOO!!!`;
@@ -148,7 +150,7 @@ const App = () => {
             <Route path="/chef-contact" element={<ChefContactUs />} />
             <Route path="/about" element={<AboutUs />} />
             <Route path="/chef-profile" element={<ChefProfile />} />
-
+            <Route path="/admin-support" element={<AdminSupport />} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>
